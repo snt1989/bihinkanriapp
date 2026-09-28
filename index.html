@@ -492,6 +492,10 @@
       管理画面
     </button>
   </nav>
+  <button class="btn btn-ghost btn-sm" id="undoBtn" disabled title="元に戻す操作はありません">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-6.7L3 9"/></svg>
+    元に戻す
+  </button>
 </header>
 
 <div class="topbar">
@@ -1303,6 +1307,7 @@
     statusFilter: "all",
     categoryFilter: "all",
     locationFilter: "all",
+    undoStack: [],
     maintFilter: "open",
     loanFilter: "open",
     activeId: null,
@@ -2863,6 +2868,12 @@
   function adminBulkDeleteEquipment(){
     var ids = Object.keys(state.admEquipSelected);
     if(!db || ids.length === 0) return;
+    var snaps = ids.map(function(id){ var it = state.items[id]; return it ? { id: id, data: snapshotDoc(it) } : null; }).filter(Boolean);
+    if(snaps.length){
+      pushUndo("備品の一括削除（" + snaps.length + "件）", function(){
+        snaps.forEach(function(s){ db.collection("equipment").doc(s.id).set(s.data).catch(function(e){ console.warn(e); }); });
+      });
+    }
     ids.forEach(function(id){ db.collection("equipment").doc(id).delete().catch(function(e){ console.warn(e); }); });
     clearAdminEquipSelection();
   }
@@ -3012,6 +3023,32 @@
     });
   }
 
+  // ---------- 直前の操作を元に戻す ----------
+
+  function pushUndo(label, fn){
+    state.undoStack.push({ label: label, fn: fn });
+    if(state.undoStack.length > 20) state.undoStack.shift();
+    renderUndoButton();
+  }
+  function performUndo(){
+    var last = state.undoStack.pop();
+    if(!last) { renderUndoButton(); return; }
+    try{ last.fn(); }catch(e){ console.warn("undo failed", e); }
+    renderUndoButton();
+  }
+  function renderUndoButton(){
+    var btn = $("undoBtn");
+    if(!btn) return;
+    var last = state.undoStack[state.undoStack.length - 1];
+    btn.disabled = !last;
+    btn.title = last ? ("元に戻す: " + last.label) : "元に戻す操作はありません";
+  }
+  function snapshotDoc(item){
+    var s = Object.assign({}, item);
+    delete s.id;
+    return s;
+  }
+
   function masterSelKey(collectionName, id){ return collectionName + ":" + id; }
   function setAllMasterSelected(collectionName, ids, checked){
     ids.forEach(function(id){
@@ -3040,6 +3077,13 @@
   function bulkDeleteMasterSelected(collectionName){
     var ids = selectedMasterIds(collectionName);
     if(!db || ids.length === 0) return;
+    var dict = state[collectionName] || {};
+    var snaps = ids.map(function(id){ var item = dict[id]; return item ? { id: id, data: snapshotDoc(item) } : null; }).filter(Boolean);
+    if(snaps.length){
+      pushUndo("マスタ項目の一括削除（" + snaps.length + "件）", function(){
+        snaps.forEach(function(s){ db.collection(collectionName).doc(s.id).set(s.data).catch(function(e){ console.warn(e); }); });
+      });
+    }
     ids.forEach(function(id){ db.collection(collectionName).doc(id).delete().catch(function(e){ console.warn(e); }); });
     clearMasterSelection(collectionName);
   }
@@ -3257,6 +3301,13 @@
       var delBtn = row.querySelector('[data-action="delete"]');
       if(delBtn) delBtn.addEventListener("click", function(){
         if(!db) return;
+        var loc = state.eqLocations[id];
+        if(loc){
+          var snap = snapshotDoc(loc);
+          pushUndo("「" + (loc.name || "保管場所") + "」の削除", function(){
+            db.collection("eqLocations").doc(id).set(snap).catch(function(e){ console.warn(e); });
+          });
+        }
         db.collection("eqLocations").doc(id).delete().catch(function(e){ console.warn(e); });
       });
       var chk = row.querySelector(".mlCheck");
@@ -3556,6 +3607,13 @@
       var delBtn = row.querySelector('[data-action="delete"]');
       if(delBtn) delBtn.addEventListener("click", function(){
         if(!db) return;
+        var mItem = state[collectionName][id];
+        if(mItem){
+          var snap = snapshotDoc(mItem);
+          pushUndo("「" + (mItem.name || "項目") + "」の削除", function(){
+            db.collection(collectionName).doc(id).set(snap).catch(function(e){ console.warn(e); });
+          });
+        }
         db.collection(collectionName).doc(id).delete().catch(function(e){ console.warn(e); });
       });
       if(bulk){
@@ -3683,6 +3741,14 @@
 
   function updateItem(id, patch){
     if(!db){ return; }
+    var it = state.items[id];
+    if(it){
+      var oldPatch = {};
+      Object.keys(patch).forEach(function(k){ oldPatch[k] = (k in it) ? it[k] : null; });
+      pushUndo("「" + (it.name || "備品") + "」の操作", function(){
+        db.collection("equipment").doc(id).update(Object.assign({}, oldPatch, { updatedAt: Date.now() })).catch(function(e){ console.warn(e); });
+      });
+    }
     patch.updatedAt = Date.now();
     db.collection("equipment").doc(id).update(patch).catch(function(e){
       console.warn("update failed", e);
@@ -3704,6 +3770,13 @@
   }
   function deleteItem(id){
     if(!db){ return; }
+    var it = state.items[id];
+    if(it){
+      var snap = snapshotDoc(it);
+      pushUndo("「" + (it.name || "備品") + "」の削除", function(){
+        db.collection("equipment").doc(id).set(snap).catch(function(e){ console.warn(e); });
+      });
+    }
     db.collection("equipment").doc(id).delete().catch(function(e){ console.warn("delete failed", e); });
   }
 
@@ -3828,6 +3901,7 @@
       state.search = e.target.value;
       renderList();
     });
+    $("undoBtn").addEventListener("click", performUndo);
     var eqLocSelAll = $("eqLocationSelectAll");
     if(eqLocSelAll) eqLocSelAll.addEventListener("change", function(){
       var ids = sortedLocations().map(function(loc){ return loc.id; });
