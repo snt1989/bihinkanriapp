@@ -1249,6 +1249,23 @@
   </div>
 </div>
 
+<!-- Firebase（Vercel等、Claudeアーティファクト外で開いた場合の実データベース接続用。
+     claude.aiのアーティファクトとして開いた場合はwindow.claude.use("db")が優先され、
+     こちらは使用されない。読み込みに失敗してもアプリ本体には影響しない。 -->
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-firestore-compat.js"></script>
+<script>
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCHTEIPRK6hvkTpxSYk4vVObp9Jh15Rtsw",
+    authDomain: "bihinkanriapp.firebaseapp.com",
+    projectId: "bihinkanriapp",
+    storageBucket: "bihinkanriapp.firebasestorage.app",
+    messagingSenderId: "431177872661",
+    appId: "1:431177872661:web:4a97d0279dd8621f51a51c",
+    measurementId: "G-KETLGQNDR8"
+  };
+</script>
+
 <script>
 (function(){
   "use strict";
@@ -1350,6 +1367,25 @@
     };
     reader.onerror = function(){ callback(""); };
     reader.readAsArrayBuffer(file);
+  }
+  // ファイル保存: Claudeアーティファクト内ではdownloads機能を、それ以外（Vercel等の
+  // 通常ブラウザ）では標準のダウンロードリンクを使ってファイルを保存する
+  async function saveBlobFile(filename, blob){
+    try{
+      if(window.claude && typeof window.claude.use === "function"){
+        var downloads = await window.claude.use("downloads");
+        if(downloads){ await downloads.save({ filename: filename, data: blob }); return; }
+      }
+    }catch(e){ console.warn("downloads capability failed, falling back", e); }
+    try{
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    }catch(e){ console.warn("file save failed", e); }
   }
 
   function esc(s){
@@ -1937,15 +1973,7 @@
       return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
     }).join("\r\n");
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    try{
-      if(window.claude && typeof window.claude.use === "function"){
-        var downloads = await window.claude.use("downloads");
-        if(downloads){
-          await downloads.save({ filename: "整備台帳.csv", data: blob });
-          return;
-        }
-      }
-    }catch(e){ console.warn("maintenance csv export failed", e); }
+    await saveBlobFile("整備台帳.csv", blob);
   }
 
   function findOpenMaintenance(equipmentId){
@@ -2846,15 +2874,7 @@
       return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
     }).join("\r\n");
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    try{
-      if(window.claude && typeof window.claude.use === "function"){
-        var downloads = await window.claude.use("downloads");
-        if(downloads){
-          await downloads.save({ filename: "備品台帳.csv", data: blob });
-          return;
-        }
-      }
-    }catch(e){ console.warn("csv export failed", e); }
+    await saveBlobFile("備品台帳.csv", blob);
   }
 
   function importEquipmentCsvText(text){
@@ -2904,15 +2924,7 @@
       return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
     }).join("\r\n");
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    try{
-      if(window.claude && typeof window.claude.use === "function"){
-        var downloads = await window.claude.use("downloads");
-        if(downloads){
-          await downloads.save({ filename: "借受者名簿.csv", data: blob });
-          return;
-        }
-      }
-    }catch(e){ console.warn("csv export failed", e); }
+    await saveBlobFile("借受者名簿.csv", blob);
   }
 
   function importEmployeesCsvText(text){
@@ -3249,12 +3261,7 @@
       return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
     }).join("\r\n");
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    try{
-      if(window.claude && typeof window.claude.use === "function"){
-        var downloads = await window.claude.use("downloads");
-        if(downloads) await downloads.save({ filename: "保管場所マスタ.csv", data: blob });
-      }
-    }catch(e){ console.warn("csv export failed", e); }
+    await saveBlobFile("保管場所マスタ.csv", blob);
   }
 
   function importLocationsCsvText(text){
@@ -3567,12 +3574,7 @@
       return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
     }).join("\r\n");
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    try{
-      if(window.claude && typeof window.claude.use === "function"){
-        var downloads = await window.claude.use("downloads");
-        if(downloads) await downloads.save({ filename: cfg.csvName, data: blob });
-      }
-    }catch(e){ console.warn("csv export failed", e); }
+    await saveBlobFile(cfg.csvName, blob);
   }
 
   function importGenericMasterCsvText(collectionName, text){
@@ -4081,6 +4083,16 @@
         db = await window.claude.use("db");
       }
     }catch(e){ db = null; }
+
+    // Claudeアーティファクト外（Vercel等）で開いた場合は、実際のFirebase/Firestoreに接続する
+    if(!db){
+      try{
+        if(window.firebase && typeof firebase.initializeApp === "function"){
+          if(!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+          db = firebase.firestore();
+        }
+      }catch(e){ db = null; console.warn("firebase init failed", e); }
+    }
 
     if(!db){
       state.dbAvailable = false;
