@@ -533,6 +533,7 @@
       <input id="searchInput" type="text" placeholder="No.・品名・保管場所で検索" autocomplete="off">
     </div>
     <select class="selfilter" id="categorySelect"></select>
+    <select class="selfilter" id="locationSelect"></select>
     <select class="selfilter" id="statusSelect">
       <option value="all">すべての状態</option>
       <option value="利用可能">利用可能</option>
@@ -1301,6 +1302,7 @@
     search: "",
     statusFilter: "all",
     categoryFilter: "all",
+    locationFilter: "all",
     maintFilter: "open",
     loanFilter: "open",
     activeId: null,
@@ -1531,13 +1533,34 @@
     sel.value = cats.indexOf(cur) >= 0 ? cur : "all";
   }
 
+  function locationsInOrder(){
+    var master = allMasterNames(state.eqLocations);
+    var seen = {}, order = [];
+    master.forEach(function(n){ if(n && !seen[n]){ seen[n] = true; order.push(n); } });
+    allItems().forEach(function(it){
+      if(it.location && !seen[it.location]){ seen[it.location] = true; order.push(it.location); }
+    });
+    return order;
+  }
+
+  function renderLocationSelect(){
+    var sel = $("locationSelect");
+    var cur = state.locationFilter;
+    var locs = locationsInOrder();
+    var html = '<option value="all">すべての保管場所</option>';
+    locs.forEach(function(l){ html += '<option value="' + esc(l) + '">' + esc(l) + '</option>'; });
+    sel.innerHTML = html;
+    sel.value = locs.indexOf(cur) >= 0 ? cur : "all";
+  }
+
   function filteredItems(){
     var q = state.search.trim().toLowerCase();
     return allItems().filter(function(it){
       if(state.statusFilter !== "all" && it.status !== state.statusFilter) return false;
       if(state.categoryFilter !== "all" && it.category !== state.categoryFilter) return false;
+      if(state.locationFilter !== "all" && it.location !== state.locationFilter) return false;
       if(q){
-        var hay = ((it.name||"") + " " + (it.category||"") + " " + fmtNo(it.no)).toLowerCase();
+        var hay = ((it.name||"") + " " + (it.category||"") + " " + (it.location||"") + " " + fmtNo(it.no)).toLowerCase();
         if(!hay.includes(q)) return false;
       }
       return true;
@@ -1647,6 +1670,7 @@
     renderStats();
     renderNavCounts();
     renderCategorySelect();
+    renderLocationSelect();
     renderList();
     if(state.activeId && state.items[state.activeId]) renderDrawerContent(state.items[state.activeId]);
     if(state.page === "maintenance") renderMaintList();
@@ -3801,6 +3825,10 @@
     });
     $("categorySelect").addEventListener("change", function(e){
       state.categoryFilter = e.target.value;
+      renderList();
+    });
+    $("locationSelect").addEventListener("change", function(e){
+      state.locationFilter = e.target.value;
       renderList();
     });
     $("openAddBtn").addEventListener("click", function(){ openModal(null); });
