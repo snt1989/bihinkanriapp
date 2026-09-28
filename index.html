@@ -100,7 +100,7 @@
   .pagehead .desc{font-size:12.5px; color:var(--text-faint);}
 
   /* stat cards */
-  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-block-end:16px;}
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
   .statcard{
     background:var(--surface); border:1px solid var(--line); border-radius:12px;
     padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:pointer;
@@ -237,6 +237,7 @@
     background:var(--surface); border:1px solid var(--line); border-radius:10px;
     padding:11px 16px; margin-block-end:16px; font-size:12.5px; color:var(--text-muted);
   }
+  .topbar{max-width:1180px; margin:0 auto; padding:16px 16px 0;}
 
   /* record rows: maintenance / loans / admin table */
   .reclist{display:flex; flex-direction:column; gap:10px;}
@@ -494,37 +495,39 @@
   </nav>
 </header>
 
+<div class="topbar">
+<div id="connBanner" class="banner" hidden>Claudeのアーティファクトとして開くと、変更が全員に共有・保存されます。</div>
+
+<div class="stats" id="statsRow">
+  <button class="statcard active" data-status="all">
+    <span class="stat-icon" style="background:var(--accent-soft); color:var(--accent-strong);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+    </span>
+    <span><span class="stat-label">登録備品総数</span><span class="stat-value tnum" id="statTotal">0</span></span>
+  </button>
+  <button class="statcard" data-status="利用可能">
+    <span class="stat-icon" style="background:var(--in-bg); color:var(--in-fg);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 13 4 4L19 7"/></svg>
+    </span>
+    <span><span class="stat-label">利用可能（保管中）</span><span class="stat-value tnum" id="statIn">0</span></span>
+  </button>
+  <button class="statcard" data-status="貸出中">
+    <span class="stat-icon" style="background:var(--lent-bg); color:var(--lent-fg);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/></svg>
+    </span>
+    <span><span class="stat-label">現場持出中</span><span class="stat-value tnum" id="statLent">0</span></span>
+  </button>
+  <button class="statcard" data-status="修理中">
+    <span class="stat-icon" style="background:var(--repair-bg); color:var(--repair-fg);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.6 13.4 5 19l-2-2 5.6-5.6"/><path d="M14 4a4 4 0 0 0-4 4c0 .5.1.9.2 1.3L4 15.5 8.5 20l6.2-6.2c.4.1.8.2 1.3.2a4 4 0 0 0 4-4c0-.6-.1-1.1-.4-1.6l-2.9 2.9-2-2L17.6 6a3.9 3.9 0 0 0-1.6-.4"/></svg>
+    </span>
+    <span><span class="stat-label">点検・修理中</span><span class="stat-value tnum" id="statRepair">0</span></span>
+  </button>
+</div>
+</div>
+
 <!-- 備品台帳 -->
 <div class="page" id="pageEquipment">
-  <div id="connBanner" class="banner" hidden>Claudeのアーティファクトとして開くと、変更が全員に共有・保存されます。</div>
-
-  <div class="stats" id="statsRow">
-    <button class="statcard active" data-status="all">
-      <span class="stat-icon" style="background:var(--accent-soft); color:var(--accent-strong);">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
-      </span>
-      <span><span class="stat-label">登録備品総数</span><span class="stat-value tnum" id="statTotal">0</span></span>
-    </button>
-    <button class="statcard" data-status="利用可能">
-      <span class="stat-icon" style="background:var(--in-bg); color:var(--in-fg);">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 13 4 4L19 7"/></svg>
-      </span>
-      <span><span class="stat-label">利用可能（保管中）</span><span class="stat-value tnum" id="statIn">0</span></span>
-    </button>
-    <button class="statcard" data-status="貸出中">
-      <span class="stat-icon" style="background:var(--lent-bg); color:var(--lent-fg);">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/></svg>
-      </span>
-      <span><span class="stat-label">現場持出中</span><span class="stat-value tnum" id="statLent">0</span></span>
-    </button>
-    <button class="statcard" data-status="修理中">
-      <span class="stat-icon" style="background:var(--repair-bg); color:var(--repair-fg);">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.6 13.4 5 19l-2-2 5.6-5.6"/><path d="M14 4a4 4 0 0 0-4 4c0 .5.1.9.2 1.3L4 15.5 8.5 20l6.2-6.2c.4.1.8.2 1.3.2a4 4 0 0 0 4-4c0-.6-.1-1.1-.4-1.6l-2.9 2.9-2-2L17.6 6a3.9 3.9 0 0 0-1.6-.4"/></svg>
-      </span>
-      <span><span class="stat-label">点検・修理中</span><span class="stat-value tnum" id="statRepair">0</span></span>
-    </button>
-  </div>
-
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -3698,7 +3701,9 @@
     Array.prototype.forEach.call($("statsRow").querySelectorAll(".statcard"), function(el){
       el.addEventListener("click", function(){
         state.statusFilter = el.getAttribute("data-status");
-        $("statusSelect").value = state.statusFilter;
+        if(state.page !== "equipment") switchPage("equipment");
+        var sel = $("statusSelect");
+        if(sel) sel.value = state.statusFilter;
         renderAll();
       });
     });
