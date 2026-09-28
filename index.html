@@ -1305,6 +1305,53 @@
   var db = null;
 
   function $(id){ return document.getElementById(id); }
+
+  // ---------- CSV import helpers ----------
+  // ダブルクォートで囲まれた項目内のカンマ・改行・エスケープされた""に対応したCSV1行パーサー
+  function parseCsvLine(line){
+    var result = [];
+    var cur = "";
+    var inQuotes = false;
+    for(var i = 0; i < line.length; i++){
+      var ch = line[i];
+      if(inQuotes){
+        if(ch === '"'){
+          if(line[i+1] === '"'){ cur += '"'; i++; }
+          else { inQuotes = false; }
+        } else {
+          cur += ch;
+        }
+      } else {
+        if(ch === '"'){ inQuotes = true; }
+        else if(ch === ','){ result.push(cur); cur = ""; }
+        else { cur += ch; }
+      }
+    }
+    result.push(cur);
+    return result;
+  }
+  // ExcelがShift-JIS(CP932)で保存したCSVも文字化けせずに取り込めるよう、
+  // まずUTF-8として厳密デコードを試み、不正なバイト列があればShift-JISとして再デコードする
+  function decodeCsvArrayBuffer(buf){
+    try{
+      return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+    }catch(e){
+      try{ return new TextDecoder("shift_jis").decode(buf); }
+      catch(e2){ return new TextDecoder("utf-8").decode(buf); }
+    }
+  }
+  function readCsvFile(file, callback){
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var text;
+      try{ text = decodeCsvArrayBuffer(ev.target.result); }
+      catch(e){ text = ""; }
+      callback(text);
+    };
+    reader.onerror = function(){ callback(""); };
+    reader.readAsArrayBuffer(file);
+  }
+
   function esc(s){
     return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
       return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
@@ -2817,7 +2864,7 @@
     allItems().forEach(function(it){ if(typeof it.no === "number") existingNos[it.no] = true; });
     lines.forEach(function(line, idx){
       if(idx === 0 && line.indexOf("管理番号") === 0) return;
-      var parts = line.split(",");
+      var parts = parseCsvLine(line);
       var noRaw = (parts[0] || "").trim();
       var name = (parts[1] || "").trim();
       var category = (parts[2] || "").trim();
@@ -2866,7 +2913,7 @@
     var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(Boolean);
     lines.forEach(function(line, idx){
       if(idx === 0 && line.indexOf("姓") === 0) return; // skip header row
-      var parts = line.split(",");
+      var parts = parseCsvLine(line);
       var lastName = (parts[0] || "").trim();
       var firstName = (parts[1] || "").trim();
       var company = (parts[2] || "").trim();
@@ -3207,7 +3254,7 @@
     Object.keys(dict).forEach(function(k){ var o = dict[k].order; if(typeof o === "number" && o > maxOrder) maxOrder = o; });
     lines.forEach(function(line, idx){
       if(idx === 0 && line.indexOf("ヤード名") === 0) return;
-      var parts = line.split(",");
+      var parts = parseCsvLine(line);
       var yard = (parts[0] || "").trim();
       var warehouse = (parts[1] || "").trim();
       var shelfNo = (parts[2] || "").trim();
@@ -3412,9 +3459,7 @@
       importFile.addEventListener("change", function(e){
         var file = e.target.files && e.target.files[0];
         if(!file) return;
-        var reader = new FileReader();
-        reader.onload = function(ev){ importGenericMasterCsvText(collectionName, String(ev.target.result || "")); };
-        reader.readAsText(file, "UTF-8");
+        readCsvFile(file, function(text){ importGenericMasterCsvText(collectionName, text); });
         e.target.value = "";
       });
     }
@@ -3520,7 +3565,7 @@
     var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(Boolean);
     lines.forEach(function(line, idx){
       if(idx === 0 && line.indexOf(cfg.fields[0].label) === 0) return;
-      var parts = line.split(",");
+      var parts = parseCsvLine(line);
       var values = {};
       var valid = true;
       cfg.fields.forEach(function(f, i){
@@ -3835,9 +3880,7 @@
     $("admEmpImportFile").addEventListener("change", function(e){
       var file = e.target.files && e.target.files[0];
       if(!file) return;
-      var reader = new FileReader();
-      reader.onload = function(ev){ importEmployeesCsvText(String(ev.target.result || "")); };
-      reader.readAsText(file, "UTF-8");
+      readCsvFile(file, importEmployeesCsvText);
       e.target.value = "";
     });
     $("admEmpBulkActive").addEventListener("click", function(){ adminBulkSetActive(true); });
@@ -3883,9 +3926,7 @@
     $("admEquipImportFile").addEventListener("change", function(e){
       var file = e.target.files && e.target.files[0];
       if(!file) return;
-      var reader = new FileReader();
-      reader.onload = function(ev){ importEquipmentCsvText(String(ev.target.result || "")); };
-      reader.readAsText(file, "UTF-8");
+      readCsvFile(file, importEquipmentCsvText);
       e.target.value = "";
     });
 
@@ -3904,9 +3945,7 @@
     $("eqLocationImportFile").addEventListener("change", function(e){
       var file = e.target.files && e.target.files[0];
       if(!file) return;
-      var reader = new FileReader();
-      reader.onload = function(ev){ importLocationsCsvText(String(ev.target.result || "")); };
-      reader.readAsText(file, "UTF-8");
+      readCsvFile(file, importLocationsCsvText);
       e.target.value = "";
     });
   }
