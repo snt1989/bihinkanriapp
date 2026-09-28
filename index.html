@@ -2932,12 +2932,19 @@
     await saveBlobFile("備品台帳.csv", blob);
   }
 
+  function confirmCsvImport(count, note){
+    if(count === 0) return false;
+    var msg = count + "件を新規登録します。よろしいですか？";
+    if(note) msg += "\n" + note;
+    return confirm(msg);
+  }
+
   function importEquipmentCsvText(text){
     if(!db) return;
     var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(Boolean);
     var existingNos = {};
     allItems().forEach(function(it){ if(typeof it.no === "number") existingNos[it.no] = true; });
-    var added = 0, skippedDup = 0, skippedInvalid = 0;
+    var toAdd = [], skippedDup = 0, skippedInvalid = 0;
     lines.forEach(function(line, idx){
       var parts = parseCsvLine(line);
       if(idx === 0 && (parts[0] || "").trim().indexOf("管理番号") === 0) return;
@@ -2953,15 +2960,28 @@
       if(no !== null && !isNaN(no) && existingNos[no]){ skippedDup++; return; } // skip duplicates already registered
       var finalNo = (no !== null && !isNaN(no)) ? no : nextNo();
       existingNos[finalNo] = true;
-      added++;
+      toAdd.push({ name: name, category: category, location: location, notes: notes, no: finalNo, status: status || "利用可能" });
+    });
+    if(toAdd.length === 0){
+      var msg0 = "新規に追加できる項目はありませんでした。";
+      if(skippedDup) msg0 += "\n" + skippedDup + "件は管理番号が既存と重複していたためスキップしました。";
+      if(skippedInvalid) msg0 += "\n" + skippedInvalid + "件は品名が空欄のためスキップしました。";
+      alert(msg0);
+      return;
+    }
+    var note = "";
+    if(skippedDup) note += "（" + skippedDup + "件は管理番号が既存と重複しているためスキップされます）";
+    if(skippedInvalid) note += (note ? "\n" : "") + "（" + skippedInvalid + "件は品名が空欄のためスキップされます）";
+    if(!confirmCsvImport(toAdd.length, note)) return;
+    toAdd.forEach(function(rec){
       db.collection("equipment").add({
-        name: name, category: category, location: location, notes: notes,
-        no: finalNo,
-        status: status || "利用可能", borrower: null, checkoutDate: null, dueDate: null,
+        name: rec.name, category: rec.category, location: rec.location, notes: rec.notes,
+        no: rec.no,
+        status: rec.status, borrower: null, checkoutDate: null, dueDate: null,
         imageData: null, createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); });
     });
-    var msg = added + "件を取り込みました。";
+    var msg = toAdd.length + "件を取り込みました。";
     if(skippedDup) msg += "\n" + skippedDup + "件は管理番号が既存と重複していたためスキップしました。";
     if(skippedInvalid) msg += "\n" + skippedInvalid + "件は品名が空欄のためスキップしました。";
     alert(msg);
@@ -2984,7 +3004,7 @@
 
   function importEmployeesCsvText(text){
     var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(Boolean);
-    var added = 0, skipped = 0;
+    var toAdd = [], skipped = 0;
     lines.forEach(function(line, idx){
       var parts = parseCsvLine(line);
       if(idx === 0 && (parts[0] || "").trim().indexOf("姓") === 0) return; // skip header row
@@ -2994,10 +3014,20 @@
       var division = (parts[3] || "").trim();
       var qualifications = (parts[4] || "").split(";").map(function(s){ return s.trim(); }).filter(Boolean);
       if(!lastName && !firstName){ skipped++; return; }
-      addEmployeeParts(lastName, firstName, company, division, qualifications);
-      added++;
+      toAdd.push({ lastName: lastName, firstName: firstName, company: company, division: division, qualifications: qualifications });
     });
-    var msg = added + "件を取り込みました。";
+    if(toAdd.length === 0){
+      var msg0 = "新規に追加できる項目はありませんでした。";
+      if(skipped) msg0 += "\n" + skipped + "件は姓・名が空欄のためスキップしました。";
+      alert(msg0);
+      return;
+    }
+    var note = skipped ? ("（" + skipped + "件は姓・名が空欄のためスキップされます）") : "";
+    if(!confirmCsvImport(toAdd.length, note)) return;
+    toAdd.forEach(function(rec){
+      addEmployeeParts(rec.lastName, rec.firstName, rec.company, rec.division, rec.qualifications);
+    });
+    var msg = toAdd.length + "件を取り込みました。";
     if(skipped) msg += "\n" + skipped + "件は姓・名が空欄のためスキップしました。";
     alert(msg);
   }
@@ -3379,10 +3409,7 @@
   function importLocationsCsvText(text){
     if(!db) return;
     var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(Boolean);
-    var dict = state.eqLocations;
-    var maxOrder = -1;
-    Object.keys(dict).forEach(function(k){ var o = dict[k].order; if(typeof o === "number" && o > maxOrder) maxOrder = o; });
-    var added = 0, skipped = 0;
+    var toAdd = [], skipped = 0;
     lines.forEach(function(line, idx){
       var parts = parseCsvLine(line);
       if(idx === 0 && (parts[0] || "").trim().indexOf("ヤード名") === 0) return;
@@ -3391,15 +3418,28 @@
       var shelfNo = (parts[2] || "").trim();
       var notes = (parts[3] || "").trim();
       if(!yard && !warehouse && !shelfNo && !notes){ skipped++; return; }
+      toAdd.push({ yard: yard, warehouse: warehouse, shelfNo: shelfNo, notes: notes });
+    });
+    if(toAdd.length === 0){
+      var msg0 = "新規に追加できる項目はありませんでした。";
+      if(skipped) msg0 += "\n" + skipped + "件は全項目が空欄のためスキップしました。";
+      alert(msg0);
+      return;
+    }
+    var note = skipped ? ("（" + skipped + "件は全項目が空欄のためスキップされます）") : "";
+    if(!confirmCsvImport(toAdd.length, note)) return;
+    var dict = state.eqLocations;
+    var maxOrder = -1;
+    Object.keys(dict).forEach(function(k){ var o = dict[k].order; if(typeof o === "number" && o > maxOrder) maxOrder = o; });
+    toAdd.forEach(function(rec){
       maxOrder += 1;
-      var locName = composeLocationName(yard, warehouse, shelfNo) || "未設定の保管場所";
+      var locName = composeLocationName(rec.yard, rec.warehouse, rec.shelfNo) || "未設定の保管場所";
       db.collection("eqLocations").add({
-        yard: yard, warehouse: warehouse, shelfNo: shelfNo, notes: notes, name: locName,
+        yard: rec.yard, warehouse: rec.warehouse, shelfNo: rec.shelfNo, notes: rec.notes, name: locName,
         order: maxOrder, createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); });
-      added++;
     });
-    var msg = added + "件を取り込みました。";
+    var msg = toAdd.length + "件を取り込みました。";
     if(skipped) msg += "\n" + skipped + "件は全項目が空欄のためスキップしました。";
     alert(msg);
   }
@@ -3701,7 +3741,7 @@
     var cfg = MASTER_CONFIGS[collectionName];
     if(!cfg || !db) return;
     var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(Boolean);
-    var added = 0, skipped = 0;
+    var toAdd = [], skipped = 0;
     lines.forEach(function(line, idx){
       var parts = parseCsvLine(line);
       if(idx === 0 && (parts[0] || "").trim().indexOf(cfg.fields[0].label) === 0) return;
@@ -3715,10 +3755,20 @@
       if(collectionName === "mechanics"){ values.name = ((values.lastName || "") + " " + (values.firstName || "")).trim(); }
       if(!valid || !values.name){ skipped++; return; }
       if(collectionName === "eqCategories" && !values.icon){ values.icon = autoIconForCategory(values.name); }
-      addMasterItem(collectionName, values.name, values);
-      added++;
+      toAdd.push(values);
     });
-    var msg = added + "件を取り込みました。";
+    if(toAdd.length === 0){
+      var msg0 = "新規に追加できる項目はありませんでした。";
+      if(skipped) msg0 += "\n" + skipped + "件は必須項目が空欄のためスキップしました。";
+      alert(msg0);
+      return;
+    }
+    var note = skipped ? ("（" + skipped + "件は必須項目が空欄のためスキップされます）") : "";
+    if(!confirmCsvImport(toAdd.length, note)) return;
+    toAdd.forEach(function(values){
+      addMasterItem(collectionName, values.name, values);
+    });
+    var msg = toAdd.length + "件を取り込みました。";
     if(skipped) msg += "\n" + skipped + "件は必須項目が空欄のためスキップしました。";
     alert(msg);
   }
