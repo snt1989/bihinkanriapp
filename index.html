@@ -682,6 +682,27 @@
   <!-- 稼働ダッシュボード -->
   <div class="adminpane" id="adminPaneDashboard">
     <div class="adminblock">
+      <div class="adminblock-head" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>
+          全データバックアップ
+          <div class="desc" style="font-size:11.5px; color:var(--text-faint); font-weight:400; margin-block-start:2px;">備品・整備記録・貸出履歴・借受者・各種マスタなど、登録されている全データを1つのファイルに書き出します。復元にも使えます</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-ghost btn-sm" id="fullBackupBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+            バックアップを取得
+          </button>
+          <button class="btn btn-ghost btn-sm" id="fullRestoreBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M4 3h16"/></svg>
+            バックアップから復元
+          </button>
+          <input type="file" id="fullRestoreFile" accept=".json,application/json" hidden>
+        </div>
+      </div>
+      <div style="padding:12px 16px; font-size:12px; color:var(--text-faint);" id="fullBackupStatus"></div>
+    </div>
+
+    <div class="adminblock">
       <div class="adminblock-head">データ概要</div>
       <div class="adminkv">
         <div><div class="ak">備品総数</div><div class="av tnum" id="admCountEquip">0</div></div>
@@ -3873,6 +3894,16 @@
         renderAdmin();
       });
     });
+
+    // ---- 管理画面: 全データバックアップ／復元 ----
+    $("fullBackupBtn").addEventListener("click", exportFullBackup);
+    $("fullRestoreBtn").addEventListener("click", function(){ $("fullRestoreFile").click(); });
+    $("fullRestoreFile").addEventListener("change", function(e){
+      var file = e.target.files && e.target.files[0];
+      if(!file) return;
+      readCsvFile(file, fullBackupImportText);
+      e.target.value = "";
+    });
     Array.prototype.forEach.call($("adminBorrowerTabs").querySelectorAll(".subtab2"), function(el){
       el.addEventListener("click", function(){
         state.adminBorrowerTab = el.getAttribute("data-abtab");
@@ -3971,6 +4002,73 @@
       readCsvFile(file, importLocationsCsvText);
       e.target.value = "";
     });
+  }
+
+  // ---------- 全データバックアップ／復元 ----------
+
+  var BACKUP_COLLECTIONS = [
+    { key: "items", collection: "equipment" },
+    { key: "equipmentLogs", collection: "equipmentLogs" },
+    { key: "maintenance", collection: "maintenance" },
+    { key: "loans", collection: "loans" },
+    { key: "employees", collection: "employees" },
+    { key: "companies", collection: "companies" },
+    { key: "divisions", collection: "divisions" },
+    { key: "qualifications", collection: "qualifications" },
+    { key: "eqCategories", collection: "eqCategories" },
+    { key: "eqLocations", collection: "eqLocations" },
+    { key: "maintTypes", collection: "maintTypes" },
+    { key: "mechanics", collection: "mechanics" }
+  ];
+
+  async function exportFullBackup(){
+    var backup = { exportedAt: new Date().toISOString(), collections: {} };
+    BACKUP_COLLECTIONS.forEach(function(c){
+      var dict = state[c.key] || {};
+      var docs = {};
+      Object.keys(dict).forEach(function(id){
+        var item = Object.assign({}, dict[id]);
+        delete item.id; // idはファイル内のキーに保持されるため、値としては重複させない
+        docs[id] = item;
+      });
+      backup.collections[c.collection] = docs;
+    });
+    var json = JSON.stringify(backup, null, 2);
+    var blob = new Blob([json], { type: "application/json;charset=utf-8;" });
+    await saveBlobFile("備品管理バックアップ_" + todayISO() + ".json", blob);
+    var statusEl = $("fullBackupStatus");
+    if(statusEl) statusEl.textContent = "バックアップを書き出しました（" + new Date().toLocaleString("ja-JP") + "）";
+  }
+
+  function fullBackupImportText(text){
+    var statusEl = $("fullBackupStatus");
+    if(!db){ if(statusEl) statusEl.textContent = "復元に失敗しました：データベースに接続されていません"; return; }
+    var parsed;
+    try{ parsed = JSON.parse(text); }
+    catch(e){ if(statusEl) statusEl.textContent = "復元に失敗しました：ファイルの形式が正しくありません"; return; }
+    var collections = parsed && parsed.collections;
+    if(!collections || typeof collections !== "object"){
+      if(statusEl) statusEl.textContent = "復元に失敗しました：バックアップファイルの中身が見つかりません";
+      return;
+    }
+    var total = 0;
+    Object.keys(collections).forEach(function(collName){ total += Object.keys(collections[collName] || {}).length; });
+    if(!confirm("バックアップファイルの内容（合計" + total + "件）で、現在のすべてのデータを上書きします。よろしいですか？")) return;
+    var done = 0, failed = 0;
+    Object.keys(collections).forEach(function(collName){
+      var docs = collections[collName] || {};
+      Object.keys(docs).forEach(function(id){
+        db.collection(collName).doc(id).set(docs[id]).then(function(){
+          done++;
+          if(statusEl) statusEl.textContent = "復元中... " + done + " / " + total + "件";
+        }).catch(function(e){
+          failed++;
+          console.warn("restore failed", collName, id, e);
+          if(statusEl) statusEl.textContent = "復元中... " + done + " / " + total + "件（" + failed + "件失敗）";
+        });
+      });
+    });
+    if(statusEl) statusEl.textContent = "復元を開始しました（合計" + total + "件）。反映まで少し時間がかかる場合があります。";
   }
 
   function subscribeAll(){
