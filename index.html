@@ -842,7 +842,7 @@
           <table class="mastertable">
             <thead>
               <tr>
-                <th style="width:28px;"></th>
+                <th style="width:28px;"><input type="checkbox" class="mlSelectAllHeader" id="eqLocationSelectAll" aria-label="全選択"></th>
                 <th style="width:60px;">並び替え</th>
                 <th>ヤード名</th>
                 <th>倉庫名</th>
@@ -3013,6 +3013,21 @@
   }
 
   function masterSelKey(collectionName, id){ return collectionName + ":" + id; }
+  function setAllMasterSelected(collectionName, ids, checked){
+    ids.forEach(function(id){
+      var key = masterSelKey(collectionName, id);
+      if(checked) state.masterSelected[key] = true; else delete state.masterSelected[key];
+    });
+  }
+  function wireMasterSelectAllHeader(root, collectionName, list){
+    var selAllChk = root.querySelector(".mlSelectAllHeader");
+    if(!selAllChk) return;
+    selAllChk.checked = list.length > 0 && list.every(function(it){ return !!state.masterSelected[masterSelKey(collectionName, it.id)]; });
+    selAllChk.addEventListener("change", function(){
+      setAllMasterSelected(collectionName, list.map(function(it){ return it.id; }), selAllChk.checked);
+      renderAdmin();
+    });
+  }
   function selectedMasterIds(collectionName){
     var prefix = collectionName + ":";
     return Object.keys(state.masterSelected).filter(function(k){ return k.indexOf(prefix) === 0 && state.masterSelected[k]; }).map(function(k){ return k.slice(prefix.length); });
@@ -3212,6 +3227,8 @@
       toolbarRoot.innerHTML = renderMasterBulkToolbarHtml("eqLocations", dict);
       wireMasterBulkToolbar(toolbarRoot, "eqLocations", dict);
     }
+    var selAllChk = $("eqLocationSelectAll");
+    if(selAllChk) selAllChk.checked = list.length > 0 && list.every(function(it){ return !!state.masterSelected[masterSelKey("eqLocations", it.id)]; });
     if(list.length === 0){
       body.innerHTML = '<tr><td colspan="8"><div class="empty">まだ登録されていません</div></td></tr>';
     } else {
@@ -3479,7 +3496,7 @@
     html += '  </div>';
     if(bulk) html += renderMasterBulkToolbarHtml(collectionName, dict);
     html += '  <div style="overflow-x:auto;"><table class="mastertable"><thead><tr>';
-    if(bulk) html += '<th style="width:28px;"></th><th style="width:60px;">並び替え</th>';
+    if(bulk) html += '<th style="width:28px;"><input type="checkbox" class="mlSelectAllHeader" aria-label="全選択"></th><th style="width:60px;">並び替え</th>';
     cfg.fields.forEach(function(f){ html += '<th>' + esc(f.label) + '</th>'; });
     var usageColLabel = cfg.usageLabel || "使用中";
     html += '<th>' + esc(usageColLabel) + '</th><th style="width:70px;">操作</th></tr></thead><tbody>';
@@ -3514,6 +3531,7 @@
     root.innerHTML = html;
 
     if(bulk) wireMasterBulkToolbar(root, collectionName, dict);
+    if(bulk) wireMasterSelectAllHeader(root, collectionName, list);
 
     var addBtn = root.querySelector('[data-action="add"]');
     if(addBtn) addBtn.addEventListener("click", function(){ openGenericMasterModal(collectionName, null); });
@@ -3809,6 +3827,12 @@
     $("searchInput").addEventListener("input", function(e){
       state.search = e.target.value;
       renderList();
+    });
+    var eqLocSelAll = $("eqLocationSelectAll");
+    if(eqLocSelAll) eqLocSelAll.addEventListener("change", function(){
+      var ids = sortedLocations().map(function(loc){ return loc.id; });
+      setAllMasterSelected("eqLocations", ids, eqLocSelAll.checked);
+      renderAdmin();
     });
     Array.prototype.forEach.call($("statsRow").querySelectorAll(".statcard"), function(el){
       el.addEventListener("click", function(){
