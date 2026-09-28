@@ -2939,6 +2939,23 @@
     return confirm(msg);
   }
 
+  // CSVの各列に、マスタ未登録の値が含まれていた場合、それらもあわせてマスタへ新規登録する
+  function findNewMasterNames(collectionName, names){
+    var existing = {};
+    allMasterNames(state[collectionName] || {}).forEach(function(n){ existing[n] = true; });
+    var seen = {}, result = [];
+    names.forEach(function(n){
+      n = (n || "").trim();
+      if(!n || existing[n] || seen[n]) return;
+      seen[n] = true;
+      result.push(n);
+    });
+    return result;
+  }
+  function addNewMasterNames(collectionName, names, extraFn){
+    names.forEach(function(n){ addMasterItem(collectionName, n, extraFn ? extraFn(n) : {}); });
+  }
+
   function importEquipmentCsvText(text){
     if(!db) return;
     var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(Boolean);
@@ -2969,10 +2986,17 @@
       alert(msg0);
       return;
     }
+    var newCategories = findNewMasterNames("eqCategories", toAdd.map(function(r){ return r.category; }));
+    var newLocations = findNewMasterNames("eqLocations", toAdd.map(function(r){ return r.location; }));
+
     var note = "";
     if(skippedDup) note += "（" + skippedDup + "件は管理番号が既存と重複しているためスキップされます）";
     if(skippedInvalid) note += (note ? "\n" : "") + "（" + skippedInvalid + "件は品名が空欄のためスキップされます）";
+    if(newCategories.length) note += (note ? "\n" : "") + "（新しいカテゴリーを" + newCategories.length + "件マスタに追加登録します：" + newCategories.join("、") + "）";
+    if(newLocations.length) note += (note ? "\n" : "") + "（新しい保管場所を" + newLocations.length + "件マスタに追加登録します：" + newLocations.join("、") + "）";
     if(!confirmCsvImport(toAdd.length, note)) return;
+    addNewMasterNames("eqCategories", newCategories, function(n){ return { icon: autoIconForCategory(n) }; });
+    addNewMasterNames("eqLocations", newLocations, function(n){ return { yard: n }; });
     toAdd.forEach(function(rec){
       db.collection("equipment").add({
         name: rec.name, category: rec.category, location: rec.location, notes: rec.notes,
@@ -2984,6 +3008,7 @@
     var msg = toAdd.length + "件を取り込みました。";
     if(skippedDup) msg += "\n" + skippedDup + "件は管理番号が既存と重複していたためスキップしました。";
     if(skippedInvalid) msg += "\n" + skippedInvalid + "件は品名が空欄のためスキップしました。";
+    if(newCategories.length || newLocations.length) msg += "\nマスタへの新規登録：カテゴリー" + newCategories.length + "件／保管場所" + newLocations.length + "件";
     alert(msg);
   }
 
@@ -3022,13 +3047,26 @@
       alert(msg0);
       return;
     }
+    var newCompanies = findNewMasterNames("companies", toAdd.map(function(r){ return r.company; }));
+    var newDivisions = findNewMasterNames("divisions", toAdd.map(function(r){ return r.division; }));
+    var allQuals = [];
+    toAdd.forEach(function(r){ allQuals = allQuals.concat(r.qualifications); });
+    var newQualifications = findNewMasterNames("qualifications", allQuals);
+
     var note = skipped ? ("（" + skipped + "件は姓・名が空欄のためスキップされます）") : "";
+    if(newCompanies.length) note += (note ? "\n" : "") + "（新しい会社名を" + newCompanies.length + "件マスタに追加登録します：" + newCompanies.join("、") + "）";
+    if(newDivisions.length) note += (note ? "\n" : "") + "（新しい事業部を" + newDivisions.length + "件マスタに追加登録します：" + newDivisions.join("、") + "）";
+    if(newQualifications.length) note += (note ? "\n" : "") + "（新しい資格を" + newQualifications.length + "件マスタに追加登録します：" + newQualifications.join("、") + "）";
     if(!confirmCsvImport(toAdd.length, note)) return;
+    addNewMasterNames("companies", newCompanies);
+    addNewMasterNames("divisions", newDivisions);
+    addNewMasterNames("qualifications", newQualifications);
     toAdd.forEach(function(rec){
       addEmployeeParts(rec.lastName, rec.firstName, rec.company, rec.division, rec.qualifications);
     });
     var msg = toAdd.length + "件を取り込みました。";
     if(skipped) msg += "\n" + skipped + "件は姓・名が空欄のためスキップしました。";
+    if(newCompanies.length || newDivisions.length || newQualifications.length) msg += "\nマスタへの新規登録：会社名" + newCompanies.length + "件／事業部" + newDivisions.length + "件／資格" + newQualifications.length + "件";
     alert(msg);
   }
 
