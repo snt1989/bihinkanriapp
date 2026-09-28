@@ -2956,12 +2956,23 @@
     names.forEach(function(n){ addMasterItem(collectionName, n, extraFn ? extraFn(n) : {}); });
   }
 
+  var EQUIPMENT_STATUS_VALUES = ["利用可能", "貸出中", "修理中", "廃棄"];
+
   function importEquipmentCsvText(text){
     if(!db) return;
     var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(Boolean);
-    var existingNos = {};
-    allItems().forEach(function(it){ if(typeof it.no === "number") existingNos[it.no] = true; });
-    var toAdd = [], skippedDup = 0, skippedInvalid = 0;
+    var existingByNo = {};
+    var maxNo = 0;
+    allItems().forEach(function(it){
+      if(typeof it.no === "number"){
+        existingByNo[it.no] = it;
+        if(it.no > maxNo) maxNo = it.no;
+      }
+    });
+    var usedNos = {};
+    Object.keys(existingByNo).forEach(function(n){ usedNos[n] = true; });
+
+    var toAdd = [], toUpdate = [], skippedInvalid = 0, skippedNoChange = 0;
     lines.forEach(function(line, idx){
       var parts = parseCsvLine(line);
       if(idx === 0 && (parts[0] || "").trim().indexOf("管理番号") === 0) return;
@@ -2974,27 +2985,52 @@
       if(!name){ skippedInvalid++; return; }
       var noMatch = noRaw.match(/\d+/);
       var no = noMatch ? Number(noMatch[0]) : null;
-      if(no !== null && !isNaN(no) && existingNos[no]){ skippedDup++; return; } // skip duplicates already registered
-      var finalNo = (no !== null && !isNaN(no)) ? no : nextNo();
-      existingNos[finalNo] = true;
-      toAdd.push({ name: name, category: category, location: location, notes: notes, no: finalNo, status: status || "利用可能" });
+      var existing = (no !== null && !isNaN(no)) ? existingByNo[no] : null;
+
+      if(existing){
+        // 既存の管理番号と一致：品名・カテゴリー・定位置・状態・備考のいずれかに変更があれば更新候補にする
+        var patch = {};
+        if(name && name !== existing.name) patch.name = name;
+        if(category && category !== (existing.category || "")) patch.category = category;
+        if(location && location !== (existing.location || "")) patch.location = location;
+        if(status && EQUIPMENT_STATUS_VALUES.indexOf(status) !== -1 && status !== (existing.status || "")) patch.status = status;
+        if(notes && notes !== (existing.notes || "")) patch.notes = notes;
+        if(Object.keys(patch).length === 0){ skippedNoChange++; return; }
+        toUpdate.push({ id: existing.id, no: no, name: existing.name, patch: patch });
+      } else {
+        var finalNo;
+        if(no !== null && !isNaN(no) && !usedNos[no]){
+          finalNo = no;
+        } else {
+          finalNo = maxNo + 1;
+        }
+        usedNos[finalNo] = true;
+        if(finalNo > maxNo) maxNo = finalNo;
+        toAdd.push({ name: name, category: category, location: location, notes: notes, no: finalNo, status: (status && EQUIPMENT_STATUS_VALUES.indexOf(status) !== -1) ? status : "利用可能" });
+      }
     });
-    if(toAdd.length === 0){
-      var msg0 = "新規に追加できる項目はありませんでした。";
-      if(skippedDup) msg0 += "\n" + skippedDup + "件は管理番号が既存と重複していたためスキップしました。";
+
+    if(toAdd.length === 0 && toUpdate.length === 0){
+      var msg0 = "新規に追加・更新できる項目はありませんでした。";
+      if(skippedNoChange) msg0 += "\n" + skippedNoChange + "件は既存データと内容が同じでした。";
       if(skippedInvalid) msg0 += "\n" + skippedInvalid + "件は品名が空欄のためスキップしました。";
       alert(msg0);
       return;
     }
-    var newCategories = findNewMasterNames("eqCategories", toAdd.map(function(r){ return r.category; }));
-    var newLocations = findNewMasterNames("eqLocations", toAdd.map(function(r){ return r.location; }));
+
+    var allCategories = toAdd.map(function(r){ return r.category; }).concat(toUpdate.map(function(r){ return r.patch.category; }).filter(Boolean));
+    var allLocations = toAdd.map(function(r){ return r.location; }).concat(toUpdate.map(function(r){ return r.patch.location; }).filter(Boolean));
+    var newCategories = findNewMasterNames("eqCategories", allCategories);
+    var newLocations = findNewMasterNames("eqLocations", allLocations);
 
     var note = "";
-    if(skippedDup) note += "（" + skippedDup + "件は管理番号が既存と重複しているためスキップされます）";
+    if(toUpdate.length) note += "（うち" + toUpdate.length + "件は既存の管理番号と一致し、内容を更新します）";
+    if(skippedNoChange) note += (note ? "\n" : "") + "（" + skippedNoChange + "件は既存データと内容が同じためスキップされます）";
     if(skippedInvalid) note += (note ? "\n" : "") + "（" + skippedInvalid + "件は品名が空欄のためスキップされます）";
     if(newCategories.length) note += (note ? "\n" : "") + "（新しいカテゴリーを" + newCategories.length + "件マスタに追加登録します：" + newCategories.join("、") + "）";
     if(newLocations.length) note += (note ? "\n" : "") + "（新しい保管場所を" + newLocations.length + "件マスタに追加登録します：" + newLocations.join("、") + "）";
-    if(!confirmCsvImport(toAdd.length, note)) return;
+    if(!confirmCsvImport(toAdd.length + toUpdate.length, note)) return;
+
     addNewMasterNames("eqCategories", newCategories, function(n){ return { icon: autoIconForCategory(n) }; });
     addNewMasterNames("eqLocations", newLocations, function(n){ return { yard: n }; });
     toAdd.forEach(function(rec){
@@ -3005,8 +3041,10 @@
         imageData: null, createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); });
     });
-    var msg = toAdd.length + "件を取り込みました。";
-    if(skippedDup) msg += "\n" + skippedDup + "件は管理番号が既存と重複していたためスキップしました。";
+    toUpdate.forEach(function(rec){ updateItem(rec.id, rec.patch); });
+
+    var msg = toAdd.length + "件を新規追加、" + toUpdate.length + "件を更新しました。";
+    if(skippedNoChange) msg += "\n" + skippedNoChange + "件は既存データと内容が同じでした。";
     if(skippedInvalid) msg += "\n" + skippedInvalid + "件は品名が空欄のためスキップしました。";
     if(newCategories.length || newLocations.length) msg += "\nマスタへの新規登録：カテゴリー" + newCategories.length + "件／保管場所" + newLocations.length + "件";
     alert(msg);
