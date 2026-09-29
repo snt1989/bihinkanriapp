@@ -2953,7 +2953,11 @@
     return result;
   }
   function addNewMasterNames(collectionName, names, extraFn){
-    names.forEach(function(n){ addMasterItem(collectionName, n, extraFn ? extraFn(n) : {}); });
+    var order = nextMasterOrder(collectionName);
+    names.forEach(function(n){
+      addMasterItem(collectionName, n, extraFn ? extraFn(n) : {}, order);
+      order += 1;
+    });
   }
 
   var EQUIPMENT_STATUS_VALUES = ["利用可能", "貸出中", "修理中", "廃棄"];
@@ -3207,130 +3211,6 @@
     clearMasterSelection(collectionName);
   }
 
-  var MASTER_EXTRA_FIELDS = {
-    eqCategories: [ { key: "icon", label: "アイコン", placeholder: "🌳" }, { key: "description", label: "説明", placeholder: "説明（任意）" } ],
-    eqLocations: [ { key: "shelfNo", label: "棚番号", placeholder: "棚番号（任意）" }, { key: "notes", label: "備考", placeholder: "備考（任意）" } ]
-  };
-
-  function renderMasterList(collectionName, dict, rootId){
-    var root = $(rootId);
-    if(!root) return;
-    var extraFields = MASTER_EXTRA_FIELDS[collectionName] || null;
-    var list = masterSortedList(dict);
-    if(list.length === 0){
-      root.innerHTML = '<div class="empty">まだ登録されていません</div>';
-      return;
-    }
-    var selIds = selectedMasterIds(collectionName);
-    var html = "";
-    if(selIds.length > 0){
-      html += '<div class="masterbulkbar" data-bulkcoll="' + esc(collectionName) + '">';
-      html += '  <span class="bulkcount"><b class="tnum">' + selIds.length + '</b> 件選択中</span>';
-      if(selIds.length >= 2){
-        html += '  <select class="mergeTargetSelect">' + selIds.map(function(id){ return '<option value="' + esc(id) + '"' + (state.masterMergeTarget[collectionName]===id ? ' selected' : '') + '>' + esc(dict[id] ? dict[id].name : "") + '</option>'; }).join("") + '</select>';
-        html += '  <button class="btn btn-primary btn-sm" data-action="merge">統合する（他の選択項目をこの名称にまとめる）</button>';
-      }
-      html += '  <button class="btn btn-danger btn-sm" data-action="bulk-delete">選択削除</button>';
-      html += '  <button class="btn btn-ghost btn-sm" data-action="bulk-clear" style="margin-inline-start:auto;">選択解除</button>';
-      html += '</div>';
-    }
-    list.forEach(function(item, idx){
-      var editKey = collectionName + ":" + item.id;
-      var usage = masterUsageCount(collectionName, item.name);
-      var checked = !!state.masterSelected[masterSelKey(collectionName, item.id)];
-      if(state.masterEditing === editKey){
-        html += '<div class="masterlistrow" data-id="' + esc(item.id) + '">';
-        html += '  <input type="text" class="mlrename-input" id="masterRenameInput" value="' + esc(item.name) + '" placeholder="名称">';
-        if(extraFields) extraFields.forEach(function(f, fi){
-          html += '  <input type="text" class="mlrename-input" id="masterEditExtra' + fi + '" value="' + esc(item[f.key] || "") + '" placeholder="' + esc(f.label) + '"' + (f.key==="icon" ? ' maxlength="4" style="flex:0 0 56px; text-align:center;"' : '') + '>';
-        });
-        html += '  <button class="btn btn-primary btn-sm" data-action="save">保存（' + usage + '件に反映）</button>';
-        html += '  <button class="btn btn-ghost btn-sm" data-action="cancel">やめる</button>';
-        html += '</div>';
-      } else {
-        html += '<div class="masterlistrow" data-id="' + esc(item.id) + '">';
-        html += '  <input type="checkbox" class="mlCheck"' + (checked ? ' checked' : '') + '>';
-        html += '  <span class="mlorder">' + (idx+1) + '</span>';
-        html += '  <div class="mlreorder">';
-        html += '    <button class="iconbtn" data-action="up" aria-label="上へ"' + (idx===0 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg></button>';
-        html += '    <button class="iconbtn" data-action="down" aria-label="下へ"' + (idx===list.length-1 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>';
-        html += '  </div>';
-        if(collectionName === "eqCategories") html += '  <span class="mlicon">' + esc(item.icon || "📁") + '</span>';
-        var subLine = "";
-        if(collectionName === "eqCategories" && item.description) subLine = item.description;
-        if(collectionName === "eqLocations"){
-          var bits = [];
-          if(item.shelfNo) bits.push("棚番号: " + item.shelfNo);
-          if(item.notes) bits.push(item.notes);
-          subLine = bits.join(" ／ ");
-        }
-        html += '  <span class="mlname">' + esc(item.name) + (subLine ? '<span class="mldesc">' + esc(subLine) + '</span>' : '') + '</span>';
-        html += '  <span class="mlcount">使用中 ' + usage + ' 件</span>';
-        html += '  <button class="btn btn-ghost btn-sm" data-action="edit">編集</button>';
-        html += '  <button class="iconbtn danger" data-action="delete" aria-label="削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg></button>';
-        html += '</div>';
-      }
-    });
-    root.innerHTML = html;
-
-    var bulkbar = root.querySelector(".masterbulkbar");
-    if(bulkbar){
-      var mergeSelect = bulkbar.querySelector(".mergeTargetSelect");
-      if(mergeSelect) mergeSelect.addEventListener("change", function(){ state.masterMergeTarget[collectionName] = mergeSelect.value; });
-      var mergeBtn = bulkbar.querySelector('[data-action="merge"]');
-      if(mergeBtn) mergeBtn.addEventListener("click", function(){
-        var targetId = (mergeSelect && mergeSelect.value) || selIds[0];
-        mergeMasterSelected(collectionName, dict, targetId);
-      });
-      var bulkDelBtn = bulkbar.querySelector('[data-action="bulk-delete"]');
-      if(bulkDelBtn) bulkDelBtn.addEventListener("click", function(){ bulkDeleteMasterSelected(collectionName); });
-      var bulkClearBtn = bulkbar.querySelector('[data-action="bulk-clear"]');
-      if(bulkClearBtn) bulkClearBtn.addEventListener("click", function(){ clearMasterSelection(collectionName); });
-    }
-
-    Array.prototype.forEach.call(root.querySelectorAll(".masterlistrow"), function(row){
-      var id = row.getAttribute("data-id");
-      var item = dict[id];
-      var editKey = collectionName + ":" + id;
-      var chk = row.querySelector(".mlCheck");
-      if(chk) chk.addEventListener("change", function(){
-        var key = masterSelKey(collectionName, id);
-        if(chk.checked) state.masterSelected[key] = true; else delete state.masterSelected[key];
-        renderAdmin();
-      });
-      var editBtn = row.querySelector('[data-action="edit"]');
-      if(editBtn) editBtn.addEventListener("click", function(){ state.masterEditing = editKey; renderAdmin(); });
-      var cancelBtn = row.querySelector('[data-action="cancel"]');
-      if(cancelBtn) cancelBtn.addEventListener("click", function(){ state.masterEditing = null; renderAdmin(); });
-      var saveBtn = row.querySelector('[data-action="save"]');
-      if(saveBtn) saveBtn.addEventListener("click", function(){
-        var input = $("masterRenameInput");
-        var newName = input ? input.value.trim() : "";
-        var extraPatch = {};
-        if(extraFields) extraFields.forEach(function(f, fi){
-          var el = $("masterEditExtra" + fi);
-          extraPatch[f.key] = el ? el.value.trim() : "";
-        });
-        state.masterEditing = null;
-        if(!newName || !item){ renderAdmin(); return; }
-        if(db && Object.keys(extraPatch).length){
-          extraPatch.updatedAt = Date.now();
-          db.collection(collectionName).doc(id).update(extraPatch).catch(function(e){ console.warn(e); });
-        }
-        if(newName !== item.name){ renameMasterItem(collectionName, id, item.name, newName); }
-        else { renderAdmin(); }
-      });
-      var upBtn = row.querySelector('[data-action="up"]');
-      if(upBtn) upBtn.addEventListener("click", function(){ swapMasterOrder(collectionName, dict, id, -1); });
-      var downBtn = row.querySelector('[data-action="down"]');
-      if(downBtn) downBtn.addEventListener("click", function(){ swapMasterOrder(collectionName, dict, id, 1); });
-      var delBtn = row.querySelector('[data-action="delete"]');
-      if(delBtn) delBtn.addEventListener("click", function(){
-        if(!db) return;
-        db.collection(collectionName).doc(id).delete().catch(function(e){ console.warn(e); });
-      });
-    });
-  }
 
   function swapMasterOrder(collectionName, dict, id, dir){
     if(!db) return;
@@ -3345,14 +3225,25 @@
     db.collection(collectionName).doc(b.id).update({ order: orderA, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
   }
 
-  function addMasterItem(collectionName, name, extra){
+  function addMasterItem(collectionName, name, extra, orderOverride){
     name = (name || "").trim();
     if(!name || !db) return;
+    var order = orderOverride;
+    if(typeof order !== "number"){
+      var dict = state[collectionName] || {};
+      var maxOrder = -1;
+      Object.keys(dict).forEach(function(k){ var o = dict[k].order; if(typeof o === "number" && o > maxOrder) maxOrder = o; });
+      order = maxOrder + 1;
+    }
+    var data = Object.assign({ name: name, order: order, createdAt: Date.now() }, extra || {});
+    db.collection(collectionName).add(data).catch(function(e){ console.warn(e); });
+  }
+  // 同一バッチ内で複数件を addMasterItem する際、order の重複を避けるため連番を払い出す
+  function nextMasterOrder(collectionName){
     var dict = state[collectionName] || {};
     var maxOrder = -1;
     Object.keys(dict).forEach(function(k){ var o = dict[k].order; if(typeof o === "number" && o > maxOrder) maxOrder = o; });
-    var data = Object.assign({ name: name, order: maxOrder + 1, createdAt: Date.now() }, extra || {});
-    db.collection(collectionName).add(data).catch(function(e){ console.warn(e); });
+    return maxOrder + 1;
   }
 
   // ---------- 保管場所マスタ（ヤード名／倉庫名／棚番号／備考） ----------
@@ -3833,19 +3724,35 @@
       if(collectionName === "eqCategories" && !values.icon){ values.icon = autoIconForCategory(values.name); }
       toAdd.push(values);
     });
+    // 既にマスタに存在する名称は重複登録しない
+    var existingNames = {};
+    allMasterNames(state[collectionName] || {}).forEach(function(n){ existingNames[n] = true; });
+    var seenInBatch = {}, skippedExisting = 0, filtered = [];
+    toAdd.forEach(function(values){
+      if(existingNames[values.name] || seenInBatch[values.name]){ skippedExisting++; return; }
+      seenInBatch[values.name] = true;
+      filtered.push(values);
+    });
+    toAdd = filtered;
     if(toAdd.length === 0){
       var msg0 = "新規に追加できる項目はありませんでした。";
       if(skipped) msg0 += "\n" + skipped + "件は必須項目が空欄のためスキップしました。";
+      if(skippedExisting) msg0 += "\n" + skippedExisting + "件は既存のマスタと名称が重複していたためスキップしました。";
       alert(msg0);
       return;
     }
-    var note = skipped ? ("（" + skipped + "件は必須項目が空欄のためスキップされます）") : "";
+    var note = "";
+    if(skipped) note += "（" + skipped + "件は必須項目が空欄のためスキップされます）";
+    if(skippedExisting) note += (note ? "\n" : "") + "（" + skippedExisting + "件は既存のマスタと名称が重複しているためスキップされます）";
     if(!confirmCsvImport(toAdd.length, note)) return;
+    var order = nextMasterOrder(collectionName);
     toAdd.forEach(function(values){
-      addMasterItem(collectionName, values.name, values);
+      addMasterItem(collectionName, values.name, values, order);
+      order += 1;
     });
     var msg = toAdd.length + "件を取り込みました。";
     if(skipped) msg += "\n" + skipped + "件は必須項目が空欄のためスキップしました。";
+    if(skippedExisting) msg += "\n" + skippedExisting + "件は既存のマスタと名称が重複していたためスキップしました。";
     alert(msg);
   }
 
@@ -3874,6 +3781,9 @@
       pushUndo("「" + (it.name || "備品") + "」の操作", function(){
         db.collection("equipment").doc(id).update(Object.assign({}, oldPatch, { updatedAt: Date.now() })).catch(function(e){ console.warn(e); });
       });
+      // Firestoreのonsnapshot反映を待たず、直後に同じ項目が再更新されても正しい値を捕捉できるよう
+      // ローカルの状態にも即時反映しておく（サーバ側の値が届き次第、通常通り上書きされる）
+      Object.keys(patch).forEach(function(k){ it[k] = patch[k]; });
     }
     patch.updatedAt = Date.now();
     db.collection("equipment").doc(id).update(patch).catch(function(e){
