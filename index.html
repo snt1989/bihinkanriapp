@@ -718,6 +718,19 @@
     </div>
 
     <div class="adminblock">
+      <div class="adminblock-head">
+        データ使用量（目安）
+        <div class="desc" style="font-size:11.5px; color:var(--text-faint); font-weight:400; margin-block-start:2px;">現在ブラウザ上に読み込まれているデータからの概算値です。Firebaseの正式な使用量・請求額はFirebaseコンソールでご確認ください</div>
+      </div>
+      <div class="adminkv">
+        <div><div class="ak">合計データ量</div><div class="av tnum" id="admStorageTotal">-</div></div>
+        <div><div class="ak">うち画像データ</div><div class="av tnum" id="admStorageImages">-</div></div>
+        <div><div class="ak">うちその他データ</div><div class="av tnum" id="admStorageOther">-</div></div>
+        <div><div class="ak">画像登録件数</div><div class="av tnum" id="admStorageImageCount">-</div></div>
+      </div>
+    </div>
+
+    <div class="adminblock">
       <div class="adminblock-head" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
         <div>
           備品操作履歴
@@ -2454,6 +2467,43 @@
 
   // ---------- 管理画面 ----------
 
+  function formatDataBytes(n){
+    if(n < 1024) return n + " B";
+    if(n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+    return (n / (1024 * 1024)).toFixed(2) + " MB";
+  }
+  function renderStorageUsage(){
+    var totalEl = $("admStorageTotal"), imgEl = $("admStorageImages"), otherEl = $("admStorageOther"), imgCountEl = $("admStorageImageCount");
+    if(!totalEl) return;
+    var imageBytes = 0, otherBytes = 0, imageCount = 0;
+    var collections = [
+      state.items, state.equipmentLogs, state.maintenance, state.loans, state.employees,
+      state.companies, state.divisions, state.qualifications, state.eqCategories,
+      state.eqLocations, state.maintTypes, state.mechanics
+    ];
+    collections.forEach(function(dict){
+      if(!dict) return;
+      Object.keys(dict).forEach(function(id){
+        var doc = dict[id];
+        if(!doc) return;
+        if(doc.imageData){
+          imageBytes += doc.imageData.length;
+          imageCount++;
+          var rest = Object.assign({}, doc);
+          delete rest.imageData;
+          otherBytes += JSON.stringify(rest).length;
+        } else {
+          otherBytes += JSON.stringify(doc).length;
+        }
+      });
+    });
+    var totalBytes = imageBytes + otherBytes;
+    totalEl.textContent = formatDataBytes(totalBytes);
+    imgEl.textContent = formatDataBytes(imageBytes);
+    otherEl.textContent = formatDataBytes(otherBytes);
+    imgCountEl.textContent = imageCount;
+  }
+
   function renderAdmin(){
     Array.prototype.forEach.call($("adminTabs").querySelectorAll(".subtab"), function(el){
       el.classList.toggle("active", el.getAttribute("data-admintab") === state.adminTab);
@@ -2495,6 +2545,7 @@
     $("admCountBorrower").textContent = allEmployees().length;
     var cats = categoriesInOrder();
     $("admCountCat").textContent = cats.length;
+    renderStorageUsage();
 
     renderAdminEquipTable();
 
