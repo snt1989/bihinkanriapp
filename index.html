@@ -537,7 +537,7 @@
       <div class="field" id="loginPwField">
         <label for="loginPassword">パスワード</label>
         <div class="pwwrap">
-          <input type="password" id="loginPassword" autocomplete="current-password" required>
+          <input type="password" id="loginPassword" autocomplete="current-password" minlength="4" required>
           <button type="button" class="pwtoggle" id="loginPwToggle" aria-label="パスワードを表示">表示</button>
         </div>
       </div>
@@ -4549,6 +4549,10 @@
     var submitBtn = $("loginSubmit");
     var started = false;
     var ID_DOMAIN = "@bihinkanriapp.local"; // 社員番号を Firebase 用のメール形式に変換するための内部ドメイン
+    // Firebase Authentication はパスワード6文字以上が必須（変更不可）。
+    // 4〜5文字のパスワードは、末尾に固定文字列を足して Firebase に渡す（6文字以上はそのまま）。
+    var MIN_PW = 4, PW_PAD = "_bihin";
+    function toFirebasePassword(pw){ return pw.length < 6 ? pw + PW_PAD : pw; }
 
     // ヘッダーのロゴをログイン画面にも流用（画像データの二重持ちを避ける）
     var headImg = document.querySelector("header.top .logo img");
@@ -4579,8 +4583,9 @@
       var id = emailEl.value.trim();
       if(!id){ showError("社員番号（ID）を入力してください。"); emailEl.focus(); return; }
       if(!pwEl.value){ showError("パスワードを入力してください。"); pwEl.focus(); return; }
+      if(pwEl.value.length < MIN_PW){ showError("パスワードは" + MIN_PW + "文字以上で入力してください。"); pwEl.focus(); return; }
       submitBtn.disabled = true;
-      auth.signInWithEmailAndPassword(toLoginEmail(id), pwEl.value).catch(function(err){
+      auth.signInWithEmailAndPassword(toLoginEmail(id), toFirebasePassword(pwEl.value)).catch(function(err){
         showError(authErrorMessage(err));
         pwEl.value = "";
         pwEl.focus();
