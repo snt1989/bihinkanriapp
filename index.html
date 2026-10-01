@@ -460,7 +460,87 @@
   .modal h3{font-size:16.5px; margin-block-end:16px;}
   .modal .fields{display:flex; flex-direction:column; gap:14px;}
   .modal .foot{display:flex; justify-content:flex-end; gap:10px; margin-block-start:20px;}
+
+  /* login screen */
+  .login-overlay{
+    position:fixed; inset:0; z-index:100; background:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px 16px calc(24px + env(safe-area-inset-bottom,0px));
+    overflow-y:auto;
+  }
+  .login-overlay[hidden]{display:none;}
+  .login-card{
+    width:min(400px,100%); background:var(--surface); border:1px solid var(--line);
+    border-radius:16px; box-shadow:var(--shadow-md); padding:32px 28px 28px;
+  }
+  .login-brand{display:flex; flex-direction:column; align-items:center; gap:10px; margin-block-end:24px; text-align:center;}
+  .login-brand .logo{width:56px; height:56px; border-radius:14px; border:1px solid var(--line);}
+  .login-brand h1{font-size:19px; line-height:1.3;}
+  .login-brand .sub{font-size:12px; color:var(--text-faint);}
+  .login-form{display:flex; flex-direction:column; gap:16px;}
+  .login-form .pwwrap{position:relative; display:flex;}
+  .login-form .pwwrap input{width:100%; padding-inline-end:64px;}
+  .login-form .pwtoggle{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--text-muted); font-size:12px; font-weight:600;
+    padding:6px 8px; border-radius:6px; cursor:pointer;
+  }
+  .login-form .pwtoggle:hover{color:var(--text); background:var(--line-soft);}
+  .login-error{
+    font-size:12.5px; color:var(--danger); background:var(--repair-bg);
+    border-radius:8px; padding:9px 12px; font-weight:600;
+  }
+  .login-error[hidden]{display:none;}
+  .login-info{
+    font-size:12.5px; color:var(--accent-strong); background:var(--accent-soft);
+    border-radius:8px; padding:9px 12px; font-weight:600;
+  }
+  .login-info[hidden]{display:none;}
+  .login-submit{width:100%; padding-block:11px; font-size:14px; justify-content:center;}
+  .login-link{
+    background:none; border:none; padding:4px; color:var(--info); font-size:12.5px;
+    font-weight:600; cursor:pointer; align-self:center;
+  }
+  .login-link:hover{text-decoration:underline;}
+  .login-checking{text-align:center; font-size:13px; color:var(--text-muted); padding-block:18px;}
+  .login-foot{margin-block-start:20px; text-align:center; font-size:11px; color:var(--text-faint);}
+  .userbox{display:flex; align-items:center; gap:8px; flex:0 0 auto;}
+  .userbox[hidden]{display:none;}
+  .userbox .uemail{font-size:11.5px; color:var(--text-faint); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  @media (max-width:760px){ .userbox .uemail{display:none;} }
 </style>
+
+<!-- ログイン画面（Firebase Authentication：メールアドレス＋パスワード） -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="logo" id="loginLogo"></div>
+      <div>
+        <h1>備品管理システム</h1>
+        <span class="sub">株式会社三桜</span>
+      </div>
+    </div>
+    <div class="login-checking" id="loginChecking">ログイン状態を確認しています…</div>
+    <form class="login-form" id="loginForm" novalidate hidden>
+      <div class="login-error" id="loginError" role="alert" hidden></div>
+      <div class="login-info" id="loginInfo" role="status" hidden></div>
+      <div class="field">
+        <label for="loginEmail">メールアドレス</label>
+        <input type="email" id="loginEmail" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="name@example.com" required>
+      </div>
+      <div class="field" id="loginPwField">
+        <label for="loginPassword">パスワード</label>
+        <div class="pwwrap">
+          <input type="password" id="loginPassword" autocomplete="current-password" required>
+          <button type="button" class="pwtoggle" id="loginPwToggle" aria-label="パスワードを表示">表示</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary login-submit" id="loginSubmit">ログイン</button>
+      <button type="button" class="login-link" id="loginModeToggle">パスワードをお忘れの場合</button>
+    </form>
+    <div class="login-foot">アカウントが必要な場合は管理者にお問い合わせください</div>
+  </div>
+</div>
 
 <header class="top">
   <div class="brand">
@@ -496,6 +576,13 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-6.7L3 9"/></svg>
     元に戻す
   </button>
+  <div class="userbox" id="userBox" hidden>
+    <span class="uemail" id="userEmail"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" title="ログアウト">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+      ログアウト
+    </button>
+  </div>
 </header>
 
 <div class="topbar">
@@ -1292,6 +1379,7 @@
      こちらは使用されない。読み込みに失敗してもアプリ本体には影響しない。 -->
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-auth-compat.js"></script>
 <script>
   var FIREBASE_CONFIG = {
     apiKey: "AIzaSyCHTEIPRK6hvkTpxSYk4vVObp9Jh15Rtsw",
@@ -4395,16 +4483,19 @@
     }catch(e){ db = null; }
 
     // Claudeアーティファクト外（Vercel等）で開いた場合は、実際のFirebase/Firestoreに接続する
+    var usingFirebase = false;
     if(!db){
       try{
         if(window.firebase && typeof firebase.initializeApp === "function"){
           if(!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
           db = firebase.firestore();
+          usingFirebase = true;
         }
       }catch(e){ db = null; console.warn("firebase init failed", e); }
     }
 
     if(!db){
+      hideLogin();
       state.dbAvailable = false;
       $("connBanner").hidden = false;
       state.ready = true;
@@ -4412,7 +4503,122 @@
       return;
     }
     state.dbAvailable = true;
-    subscribeAll();
+
+    // Firebase 直結（Vercel等）の場合のみログインを必須にする。
+    // claude.ai アーティファクト内（window.claude.use("db")）では従来どおり認証なし。
+    if(usingFirebase && firebase.auth){
+      setupAuth(subscribeAll);
+    }else{
+      hideLogin();
+      subscribeAll();
+    }
+  }
+
+  // ---------- ログイン ----------
+  function hideLogin(){ $("loginOverlay").hidden = true; }
+
+  function authErrorMessage(err){
+    var code = (err && err.code) || "";
+    switch(code){
+      case "auth/invalid-email": return "メールアドレスの形式が正しくありません。";
+      case "auth/user-disabled": return "このアカウントは無効化されています。管理者にお問い合わせください。";
+      case "auth/user-not-found":
+      case "auth/wrong-password":
+      case "auth/invalid-credential":
+      case "auth/invalid-login-credentials": return "メールアドレスまたはパスワードが正しくありません。";
+      case "auth/too-many-requests": return "試行回数が多すぎます。しばらく待ってから再度お試しください。";
+      case "auth/network-request-failed": return "ネットワークに接続できません。通信状況をご確認ください。";
+      case "auth/missing-password": return "パスワードを入力してください。";
+      case "auth/operation-not-allowed": return "メール／パスワードによるログインが有効化されていません。管理者にお問い合わせください。";
+      default: return "ログインに失敗しました。（" + (code || "unknown") + "）";
+    }
+  }
+
+  function setupAuth(startApp){
+    var auth = firebase.auth();
+    var form = $("loginForm"), errBox = $("loginError"), infoBox = $("loginInfo");
+    var emailEl = $("loginEmail"), pwEl = $("loginPassword"), pwField = $("loginPwField");
+    var submitBtn = $("loginSubmit"), modeBtn = $("loginModeToggle");
+    var resetMode = false, started = false;
+
+    // ヘッダーのロゴをログイン画面にも流用（画像データの二重持ちを避ける）
+    var headImg = document.querySelector("header.top .logo img");
+    if(headImg){
+      var img = document.createElement("img");
+      img.src = headImg.src; img.alt = "";
+      $("loginLogo").appendChild(img);
+    }
+
+    function showError(msg){ infoBox.hidden = true; errBox.textContent = msg; errBox.hidden = false; }
+    function showInfo(msg){ errBox.hidden = true; infoBox.textContent = msg; infoBox.hidden = false; }
+    function clearMsg(){ errBox.hidden = true; infoBox.hidden = true; }
+
+    function setMode(reset){
+      resetMode = reset;
+      pwField.hidden = reset;
+      pwEl.required = !reset;
+      submitBtn.textContent = reset ? "再設定メールを送信" : "ログイン";
+      modeBtn.textContent = reset ? "ログイン画面に戻る" : "パスワードをお忘れの場合";
+      clearMsg();
+    }
+
+    modeBtn.addEventListener("click", function(){ setMode(!resetMode); });
+
+    $("loginPwToggle").addEventListener("click", function(){
+      var show = pwEl.type === "password";
+      pwEl.type = show ? "text" : "password";
+      this.textContent = show ? "隠す" : "表示";
+      this.setAttribute("aria-label", show ? "パスワードを隠す" : "パスワードを表示");
+    });
+
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      clearMsg();
+      var email = emailEl.value.trim();
+      if(!email){ showError("メールアドレスを入力してください。"); emailEl.focus(); return; }
+      submitBtn.disabled = true;
+      if(resetMode){
+        auth.sendPasswordResetEmail(email).then(function(){
+          showInfo("パスワード再設定用のメールを送信しました。メールをご確認ください。");
+        }).catch(function(err){
+          // アカウントの有無を推測されないよう、該当なしの場合も成功時と同じ文言にする
+          if(err && err.code === "auth/user-not-found"){
+            showInfo("パスワード再設定用のメールを送信しました。メールをご確認ください。");
+          }else{
+            showError(authErrorMessage(err));
+          }
+        }).then(function(){ submitBtn.disabled = false; });
+        return;
+      }
+      if(!pwEl.value){ showError("パスワードを入力してください。"); pwEl.focus(); submitBtn.disabled = false; return; }
+      auth.signInWithEmailAndPassword(email, pwEl.value).catch(function(err){
+        showError(authErrorMessage(err));
+        pwEl.value = "";
+        pwEl.focus();
+      }).then(function(){ submitBtn.disabled = false; });
+    });
+
+    $("logoutBtn").addEventListener("click", function(){
+      auth.signOut().then(function(){ location.reload(); });
+    });
+
+    auth.onAuthStateChanged(function(user){
+      $("loginChecking").hidden = true;
+      if(user){
+        pwEl.value = "";
+        $("userEmail").textContent = user.email || "";
+        $("userBox").hidden = false;
+        hideLogin();
+        if(!started){ started = true; startApp(); }
+      }else{
+        // ログアウト済み（または未ログイン）
+        $("userBox").hidden = true;
+        $("loginOverlay").hidden = false;
+        form.hidden = false;
+        setMode(false);
+        if(started){ location.reload(); } // 購読中のリスナーを確実に破棄する
+      }
+    });
   }
 
   boot();
