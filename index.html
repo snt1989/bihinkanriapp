@@ -506,8 +506,14 @@
   .login-foot{margin-block-start:20px; text-align:center; font-size:11px; color:var(--text-faint);}
   .userbox{display:flex; align-items:center; gap:8px; flex:0 0 auto;}
   .userbox[hidden]{display:none;}
-  .userbox .uemail{font-size:11.5px; color:var(--text-faint); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  @media (max-width:760px){ .userbox .uemail{display:none;} }
+  .ustatus{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px;
+    background:var(--in-bg); color:var(--in-fg); font-size:11.5px; font-weight:700; white-space:nowrap; max-width:220px;
+  }
+  .ustatus .udot{flex:0 0 auto; width:8px; height:8px; border-radius:999px; background:var(--in-fg);}
+  .ustatus .utext{overflow:hidden; text-overflow:ellipsis;}
+  .ustatus .uid:not(:empty)::before{content:"：";}
+  @media (max-width:760px){ .ustatus .uid{display:none;} }
 </style>
 
 <!-- ログイン画面（Firebase Authentication：メールアドレス＋パスワード） -->
@@ -576,7 +582,10 @@
     元に戻す
   </button>
   <div class="userbox" id="userBox" hidden>
-    <span class="uemail" id="userEmail"></span>
+    <span class="ustatus" id="userStatus" role="status" aria-live="polite" title="ログイン中">
+      <span class="udot" aria-hidden="true"></span>
+      <span class="utext">ログイン中<span class="uid" id="userEmail"></span></span>
+    </span>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" title="ログアウト">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
       ログアウト
