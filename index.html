@@ -525,8 +525,8 @@
       <div class="login-error" id="loginError" role="alert" hidden></div>
       <div class="login-info" id="loginInfo" role="status" hidden></div>
       <div class="field">
-        <label for="loginEmail">メールアドレス</label>
-        <input type="email" id="loginEmail" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="name@example.com" required>
+        <label for="loginEmail">社員番号（ID）</label>
+        <input type="text" id="loginEmail" autocomplete="username" inputmode="latin" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="例：1234" required autofocus>
       </div>
       <div class="field" id="loginPwField">
         <label for="loginPassword">パスワード</label>
@@ -536,9 +536,8 @@
         </div>
       </div>
       <button type="submit" class="btn btn-primary login-submit" id="loginSubmit">ログイン</button>
-      <button type="button" class="login-link" id="loginModeToggle">パスワードをお忘れの場合</button>
     </form>
-    <div class="login-foot">アカウントが必要な場合は管理者にお問い合わせください</div>
+    <div class="login-foot">IDの登録・パスワードの再設定は管理者にお問い合わせください</div>
   </div>
 </div>
 
@@ -4520,12 +4519,12 @@
   function authErrorMessage(err){
     var code = (err && err.code) || "";
     switch(code){
-      case "auth/invalid-email": return "メールアドレスの形式が正しくありません。";
+      case "auth/invalid-email": return "社員番号（ID）の形式が正しくありません。";
       case "auth/user-disabled": return "このアカウントは無効化されています。管理者にお問い合わせください。";
       case "auth/user-not-found":
       case "auth/wrong-password":
       case "auth/invalid-credential":
-      case "auth/invalid-login-credentials": return "メールアドレスまたはパスワードが正しくありません。";
+      case "auth/invalid-login-credentials": return "社員番号（ID）またはパスワードが正しくありません。";
       case "auth/too-many-requests": return "試行回数が多すぎます。しばらく待ってから再度お試しください。";
       case "auth/network-request-failed": return "ネットワークに接続できません。通信状況をご確認ください。";
       case "auth/missing-password": return "パスワードを入力してください。";
@@ -4537,9 +4536,10 @@
   function setupAuth(startApp){
     var auth = firebase.auth();
     var form = $("loginForm"), errBox = $("loginError"), infoBox = $("loginInfo");
-    var emailEl = $("loginEmail"), pwEl = $("loginPassword"), pwField = $("loginPwField");
-    var submitBtn = $("loginSubmit"), modeBtn = $("loginModeToggle");
-    var resetMode = false, started = false;
+    var emailEl = $("loginEmail"), pwEl = $("loginPassword");
+    var submitBtn = $("loginSubmit");
+    var started = false;
+    var ID_DOMAIN = "@bihinkanriapp.local"; // 社員番号を Firebase 用のメール形式に変換するための内部ドメイン
 
     // ヘッダーのロゴをログイン画面にも流用（画像データの二重持ちを避ける）
     var headImg = document.querySelector("header.top .logo img");
@@ -4550,19 +4550,12 @@
     }
 
     function showError(msg){ infoBox.hidden = true; errBox.textContent = msg; errBox.hidden = false; }
-    function showInfo(msg){ errBox.hidden = true; infoBox.textContent = msg; infoBox.hidden = false; }
     function clearMsg(){ errBox.hidden = true; infoBox.hidden = true; }
-
-    function setMode(reset){
-      resetMode = reset;
-      pwField.hidden = reset;
-      pwEl.required = !reset;
-      submitBtn.textContent = reset ? "再設定メールを送信" : "ログイン";
-      modeBtn.textContent = reset ? "ログイン画面に戻る" : "パスワードをお忘れの場合";
-      clearMsg();
+    // 社員番号のみ入力 → 内部メールに変換。「@」を含む場合は従来のメールアカウントとしてそのまま使う
+    function toLoginEmail(v){
+      v = v.trim().normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+      return v.indexOf("@") >= 0 ? v : v + ID_DOMAIN;
     }
-
-    modeBtn.addEventListener("click", function(){ setMode(!resetMode); });
 
     $("loginPwToggle").addEventListener("click", function(){
       var show = pwEl.type === "password";
@@ -4574,24 +4567,11 @@
     form.addEventListener("submit", function(e){
       e.preventDefault();
       clearMsg();
-      var email = emailEl.value.trim();
-      if(!email){ showError("メールアドレスを入力してください。"); emailEl.focus(); return; }
+      var id = emailEl.value.trim();
+      if(!id){ showError("社員番号（ID）を入力してください。"); emailEl.focus(); return; }
+      if(!pwEl.value){ showError("パスワードを入力してください。"); pwEl.focus(); return; }
       submitBtn.disabled = true;
-      if(resetMode){
-        auth.sendPasswordResetEmail(email).then(function(){
-          showInfo("パスワード再設定用のメールを送信しました。メールをご確認ください。");
-        }).catch(function(err){
-          // アカウントの有無を推測されないよう、該当なしの場合も成功時と同じ文言にする
-          if(err && err.code === "auth/user-not-found"){
-            showInfo("パスワード再設定用のメールを送信しました。メールをご確認ください。");
-          }else{
-            showError(authErrorMessage(err));
-          }
-        }).then(function(){ submitBtn.disabled = false; });
-        return;
-      }
-      if(!pwEl.value){ showError("パスワードを入力してください。"); pwEl.focus(); submitBtn.disabled = false; return; }
-      auth.signInWithEmailAndPassword(email, pwEl.value).catch(function(err){
+      auth.signInWithEmailAndPassword(toLoginEmail(id), pwEl.value).catch(function(err){
         showError(authErrorMessage(err));
         pwEl.value = "";
         pwEl.focus();
@@ -4606,7 +4586,7 @@
       $("loginChecking").hidden = true;
       if(user){
         pwEl.value = "";
-        $("userEmail").textContent = user.email || "";
+        $("userEmail").textContent = (user.email || "").replace(ID_DOMAIN, "");
         $("userBox").hidden = false;
         hideLogin();
         if(!started){ started = true; startApp(); }
@@ -4615,7 +4595,8 @@
         $("userBox").hidden = true;
         $("loginOverlay").hidden = false;
         form.hidden = false;
-        setMode(false);
+        clearMsg();
+        emailEl.focus();
         if(started){ location.reload(); } // 購読中のリスナーを確実に破棄する
       }
     });
