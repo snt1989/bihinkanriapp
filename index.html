@@ -4668,10 +4668,12 @@
       if(state.page === "admin") renderAdmin();
     }, function(err){ console.warn("loans subscribe error", err); });
 
-    db.collection("settings").doc("employeeNumber").onSnapshot(function(d){
-      state.empNoSettings = d.exists ? sanitizeEmpNo(d.data()) : null;
-      fillEmpNoForm();
-    }, function(err){ console.warn("settings subscribe error", err); });
+    try{
+      db.collection("settings").doc("employeeNumber").onSnapshot(function(d){
+        state.empNoSettings = d.exists ? sanitizeEmpNo(d.data()) : null;
+        fillEmpNoForm();
+      }, function(err){ console.warn("settings subscribe error", err); });
+    }catch(e){ console.warn("settings subscribe failed", e); }
 
     db.collection("employees").onSnapshot(function(snap){
       var next = {};
@@ -4896,7 +4898,10 @@
     // 管理画面で決めた設定を読み込む（ログイン前は読めない場合があるので、失敗・遅延時は初期値）
     function loadEmpNoSettings(){
       var timeout = new Promise(function(res){ setTimeout(function(){ res(EMPNO_DEFAULT); }, 3000); });
-      var read = db.collection("settings").doc("employeeNumber").get().then(function(d){
+      // 同期的な例外も含め、どんな失敗でも初期値で続行する（登録ボタンが固まらないように）
+      var read = Promise.resolve().then(function(){
+        return db.collection("settings").doc("employeeNumber").get();
+      }).then(function(d){
         return d.exists ? sanitizeEmpNo(d.data()) : EMPNO_DEFAULT;
       });
       return Promise.race([read, timeout]).catch(function(){ return EMPNO_DEFAULT; });
