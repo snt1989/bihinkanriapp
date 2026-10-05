@@ -2431,6 +2431,10 @@
         html += '  <div class="mc-loc">定位置: ' + esc(it.location) + '</div>';
       }
       html += '  <div class="mc-issue"><b>不具合:</b> ' + esc(m.issue || "内容の記載なし") + '</div>';
+      html += '  <div style="display:flex; gap:8px;">';
+      html += '    <button class="btn btn-primary btn-sm" data-action="mdone" style="flex:1;">完了</button>';
+      html += '    <button class="btn btn-ghost btn-sm" data-action="mretire" style="flex:1;">廃棄</button>';
+      html += '  </div>';
       html += '</div>';
     });
     root.innerHTML = html;
@@ -2441,12 +2445,40 @@
         if(e.target.closest('[data-action]')) return;
         if(state.items[eid]) openMaintRecordModal(eid);
       });
-      var btn = card.querySelector('[data-action="complete"]');
-      if(btn) btn.addEventListener("click", function(e){
-        e.stopPropagation();
-        openMaintRecordModal(eid);
-      });
+      var mid = card.getAttribute("data-mid");
+      var doneBtn = card.querySelector('[data-action="mdone"]');
+      if(doneBtn) doneBtn.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(mid, "完了"); });
+      var retireBtn = card.querySelector('[data-action="mretire"]');
+      if(retireBtn) retireBtn.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(mid, "廃棄"); });
     });
+  }
+
+  // 整備中の記録を、カードのボタンからそのまま「完了」または「廃棄」にする
+  function finishMaintQuick(mid, result){
+    var m = state.maintenance[mid];
+    if(!m || m.status !== "整備中" || !db) return;
+    var it = state.items[m.equipmentId];
+    var name = (it && it.name) || m.equipmentName || "この備品";
+    var msg = result === "廃棄"
+      ? "「" + name + "」を廃棄にします。よろしいですか？\n（あとから備品の詳細で「廃棄を取り消す」と戻せます）"
+      : "「" + name + "」の整備を完了にし、利用可能（保管中）に戻します。よろしいですか？";
+    if(!confirm(msg)) return;
+    var today = todayISO();
+    db.collection("maintenance").doc(mid).update({ status: result, endDate: today, updatedAt: Date.now() })
+      .catch(function(e){ console.warn(e); alertSaveFailed("整備記録の更新", e); });
+    m.status = result; m.endDate = today;
+    if(it){
+      var detail = [m.maintType, m.issue].filter(Boolean).join("／");
+      if(result === "廃棄"){
+        updateItem(it.id, { status: "廃棄" });
+        addLog(it.id, "廃棄登録", detail);
+      } else {
+        if(it.status === "修理中") updateItem(it.id, { status: "利用可能" });
+        addLog(it.id, "修理完了", detail);
+      }
+    }
+    renderAll();
+    if(state.page === "maintenance"){ renderMaintOpenGrid(); renderMaintHistoryTable(); }
   }
 
   function saveMaintDayNote(day, comment){
