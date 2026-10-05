@@ -499,6 +499,7 @@
   .login-brand .logo{width:56px; height:56px; border-radius:14px; border:1px solid var(--line);}
   .login-brand h1{font-size:19px; line-height:1.3;}
   .login-brand .sub{font-size:12px; color:var(--text-faint);}
+  .emprow .eno{flex:0 0 56px; font-size:12px; font-weight:700; color:var(--text-muted);}
   .namerow{display:flex; gap:8px;}
   .namerow input{flex:1 1 0; min-width:0;}
   .login-hint{font-size:11.5px; color:var(--text-faint);}
@@ -789,7 +790,7 @@
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="empSearchInput" type="text" placeholder="氏名・会社名・事業部で検索" autocomplete="off">
+      <input id="empSearchInput" type="text" placeholder="氏名・社員番号・会社名・事業部で検索" autocomplete="off">
     </div>
     <button class="btn btn-ghost" id="openEmpBulkBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
@@ -838,7 +839,7 @@
   </div>
   <div id="helpBody">
 <section class="help-group"><h3>ログイン</h3>
-<details class="qa"><summary>ログインできません。どうすればよいですか？</summary><div class="qa-a">社員番号（ID）とパスワードを確認してください。社員番号は全角でも入力できます。パスワードは4文字以上です。それでも入れない場合や、パスワードを忘れた場合は、管理者に連絡してください（パスワードの再設定は管理者が行います）。</div></details>
+<details class="qa"><summary>ログインできません。どうすればよいですか？</summary><div class="qa-a">社員番号（ID）とパスワードを確認してください。社員番号は全角でも入力できます。パスワードは4文字以上です。社員番号を忘れた場合は、管理画面の「借受者台帳マスタ」や「借受者台帳」画面の社員番号の列で、管理者が確認できます。パスワードを忘れた場合や、それでも入れない場合は、管理者に連絡してください。</div></details>
 <details class="qa"><summary>ログイン中かどうかを確認するには？</summary><div class="qa-a">画面右上に緑色の「ログイン中」バッジが出ていれば、ログイン済みです。パソコンの広い画面では「ログイン中：社員番号」の形で、自分のIDも表示されます。</div></details>
 <details class="qa"><summary>ログアウトするには？</summary><div class="qa-a">画面右上の「ログアウト」ボタンを押してください。共用のパソコンやタブレットでは、使い終わったら必ずログアウトしてください。</div></details>
 <details class="qa"><summary>初めて使うときは、どうすればよいですか？</summary><div class="qa-a">ログイン画面の「初めての方はアカウント登録」を押し、お名前（姓・名）と、4文字以上のパスワードを入力して「アカウントを登録」を押してください。4桁の社員番号が自動で割り振られて画面に表示されるので、メモしてください。次回からは、その社員番号とパスワードでログインします。借受者台帳に同じ名前の人がいれば、自動で連携されます。</div></details>
@@ -1172,7 +1173,7 @@
           <span class="bulkcount"><b class="tnum" id="admEmpSelCount">0</b> 名選択中</span>
           <div class="search" style="flex:0 1 260px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="admEmpSearchInput" type="text" placeholder="氏名・会社・資格で絞込..." autocomplete="off">
+            <input id="admEmpSearchInput" type="text" placeholder="氏名・社員番号・会社・資格で絞込..." autocomplete="off">
           </div>
         </div>
         <div class="bulkbar" id="admEmpBulkBar" hidden style="border-radius:0; border-inline:none; border-block-start:none; margin-block-end:0;">
@@ -1187,6 +1188,7 @@
             <thead>
               <tr>
                 <th style="width:34px;"><input type="checkbox" id="admEmpSelectAll"></th>
+                <th style="width:90px;">社員番号</th>
                 <th>氏名</th>
                 <th>会社名</th>
                 <th>事業部名</th>
@@ -1301,6 +1303,10 @@
           <label for="empFirstName">名</label>
           <input id="empFirstName" type="text" placeholder="例）太郎">
         </div>
+      </div>
+      <div class="field">
+        <label for="empLoginId">社員番号（任意）</label>
+        <input id="empLoginId" type="text" inputmode="latin" autocomplete="off" placeholder="アカウント登録時に自動で割り振られます">
       </div>
       <div class="field" style="flex-direction:row; gap:10px;">
         <div class="field" style="flex:1;">
@@ -2431,7 +2437,7 @@
     // employee master list
     var emps = allEmployees().filter(function(e){
       if(!q) return true;
-      return (empFullName(e) + " " + empCompanyDivision(e)).toLowerCase().includes(q);
+      return (empFullName(e) + " " + empCompanyDivision(e) + " " + (e.loginId || "")).toLowerCase().includes(q);
     });
     emps.sort(function(a,b){ return empFullName(a).localeCompare(empFullName(b),"ja"); });
 
@@ -2447,6 +2453,7 @@
         var active = e.active !== false;
         html += '<div class="emprow" data-id="' + esc(e.id) + '">';
         html += '  <input type="checkbox" class="empCheck" data-id="' + esc(e.id) + '"' + (state.empSelected[e.id] ? ' checked' : '') + '>';
+        html += '  <span class="eno tnum" title="社員番号">' + (e.loginId ? esc(e.loginId) : "-") + '</span>';
         html += '  <span class="ename">' + esc(empFullName(e)) + '</span>';
         html += '  <span class="edept">' + esc(empCompanyDivision(e) || "会社名・事業部未設定") + '</span>';
         html += '  <span class="badge ' + (active ? "in" : "retired") + '">' + (active ? "有効" : "無効") + '</span>';
@@ -2549,14 +2556,19 @@
     renderEmpBulkBar();
   }
 
-  function addEmployeeParts(lastName, firstName, company, division, qualifications){
+  // 社員番号の表記ゆれ（全角・空白・大文字）をそろえる
+  function normLoginId(v){ return (v || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase(); }
+
+  function addEmployeeParts(lastName, firstName, company, division, qualifications, loginId){
     if(!db) return;
     lastName = (lastName || "").trim();
     firstName = (firstName || "").trim();
     if(!lastName && !firstName) return;
-    db.collection("employees").add({
+    var rec = {
       lastName: lastName, firstName: firstName, company: company || "", division: division || "", qualifications: qualifications || [], active: true, createdAt: Date.now(), updatedAt: Date.now()
-    }).catch(function(e){ console.warn("borrower add failed", e); });
+    };
+    if(loginId) rec.loginId = loginId;
+    db.collection("employees").add(rec).catch(function(e){ console.warn("borrower add failed", e); });
   }
 
   function addEmployeeFromFullName(fullName, company, division, qualifications){
@@ -2647,6 +2659,7 @@
     $("empModalTitle").textContent = existing ? "借受者を編集" : "借受者を追加";
     $("empLastName").value = existing ? (existing.lastName || (existing.name ? splitFullName(existing.name).lastName : "")) : "";
     $("empFirstName").value = existing ? (existing.firstName || (existing.name ? splitFullName(existing.name).firstName : "")) : "";
+    $("empLoginId").value = existing ? (existing.loginId || "") : "";
     $("empCompany").value = existing ? (existing.company || "") : "";
     $("empDivision").value = existing ? (existing.division || existing.department || "") : "";
     fillCompanyOptions();
@@ -2664,13 +2677,22 @@
     var firstName = $("empFirstName").value.trim();
     var company = $("empCompany").value.trim();
     var division = $("empDivision").value.trim();
+    var loginId = normLoginId($("empLoginId").value);
     var qualifications = Array.prototype.slice.call($("empQualCheckList").querySelectorAll(".empQualChk:checked")).map(function(cb){ return cb.value; });
     if(!lastName && !firstName){ $("empLastName").focus(); return; }
+    if(loginId){
+      var dup = allEmployees().filter(function(e){ return e.id !== state.empEditingId && e.loginId === loginId; })[0];
+      if(dup){
+        alert("社員番号「" + loginId + "」は、すでに「" + empFullName(dup) + "」に割り当てられています。別の番号を入力してください。");
+        $("empLoginId").focus();
+        return;
+      }
+    }
     if(!db){ closeEmpModal(); return; }
     if(state.empEditingId){
-      db.collection("employees").doc(state.empEditingId).update({ lastName: lastName, firstName: firstName, company: company, division: division, qualifications: qualifications, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
+      db.collection("employees").doc(state.empEditingId).update({ lastName: lastName, firstName: firstName, loginId: loginId, company: company, division: division, qualifications: qualifications, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
     } else {
-      addEmployeeParts(lastName, firstName, company, division, qualifications);
+      addEmployeeParts(lastName, firstName, company, division, qualifications, loginId);
     }
     closeEmpModal();
   }
@@ -2857,12 +2879,12 @@
     var emps = allEmployees().filter(function(e){
       if(!q) return true;
       var qualText = (e.qualifications || []).join(" ");
-      return (empFullName(e) + " " + empCompanyDivision(e) + " " + qualText).toLowerCase().includes(q);
+      return (empFullName(e) + " " + (e.loginId || "") + " " + empCompanyDivision(e) + " " + qualText).toLowerCase().includes(q);
     });
     emps.sort(function(a,b){ return empFullName(a).localeCompare(empFullName(b),"ja"); });
 
     if(emps.length === 0){
-      body.innerHTML = '<tr><td colspan="7"><div class="empty">' + (allEmployees().length===0 ? "借受者が登録されていません。「新規スタッフ登録」から追加してください" : "該当する借受者が見つかりません") + '</div></td></tr>';
+      body.innerHTML = '<tr><td colspan="8"><div class="empty">' + (allEmployees().length===0 ? "借受者が登録されていません。「新規スタッフ登録」から追加してください" : "該当する借受者が見つかりません") + '</div></td></tr>';
     } else {
       var html = "";
       emps.forEach(function(e){
@@ -2874,6 +2896,7 @@
           : '<span class="qualnone">-</span>';
         html += '<tr data-id="' + esc(e.id) + '">';
         html += '  <td><input type="checkbox" class="admEmpCheck" data-id="' + esc(e.id) + '"' + (state.admEmpSelected[e.id] ? ' checked' : '') + '></td>';
+        html += '  <td class="tnum">' + esc(e.loginId || "-") + '</td>';
         html += '  <td class="mname">' + esc(empFullName(e)) + '</td>';
         html += '  <td>' + esc(e.company || "-") + '</td>';
         html += '  <td>' + esc(e.division || "-") + '</td>';
@@ -3316,11 +3339,11 @@
   }
 
   async function exportEmployeesCsv(){
-    var rows = [["姓","名","会社名","事業部","保有資格","状態"]];
+    var rows = [["姓","名","会社名","事業部","保有資格","状態","社員番号"]];
     allEmployees().slice().sort(function(a,b){ return empFullName(a).localeCompare(empFullName(b),"ja"); }).forEach(function(e){
       rows.push([
         e.lastName || "", e.firstName || "", e.company || "", e.division || "",
-        (e.qualifications || []).join(";"), (e.active !== false) ? "有効" : "無効"
+        (e.qualifications || []).join(";"), (e.active !== false) ? "有効" : "無効", e.loginId || ""
       ]);
     });
     var csv = rows.map(function(r){
