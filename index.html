@@ -4313,19 +4313,19 @@
       title: "会社名マスタ管理", desc: "借受者が所属する会社の一覧",
       rootId: "companyMasterRoot", newLabel: "会社名新規登録", editLabel: "会社名を編集",
       fields: [ { key: "name", label: "会社名", required: true, placeholder: "例）緑化産業株式会社" } ],
-      usageUnit: "名", csvName: "会社名マスタ.csv"
+      usageUnit: "名", csvName: "会社名マスタ.csv", bulkReorder: true
     },
     divisions: {
       title: "事業部マスタ管理", desc: "借受者が所属する事業部の一覧",
       rootId: "divisionMasterRoot", newLabel: "事業部新規登録", editLabel: "事業部を編集",
       fields: [ { key: "name", label: "事業部名", required: true, placeholder: "例）緑化事業部" } ],
-      usageUnit: "名", csvName: "事業部マスタ.csv"
+      usageUnit: "名", csvName: "事業部マスタ.csv", bulkReorder: true
     },
     qualifications: {
       title: "資格マスタ管理", desc: "借受者が保有する資格の一覧",
       rootId: "qualMasterRoot", newLabel: "資格新規登録", editLabel: "資格を編集",
       fields: [ { key: "name", label: "資格名", required: true, placeholder: "例）高所作業車運転技能講習" } ],
-      usageUnit: "名", csvName: "資格マスタ.csv"
+      usageUnit: "名", csvName: "資格マスタ.csv", bulkReorder: true
     },
     eqCategories: {
       title: "カテゴリマスタ管理", desc: "カテゴリー名・説明で整理された備品カテゴリ（アイコンは一覧から選べます。未選択は自動判定）",
@@ -4341,7 +4341,7 @@
       title: "整備種目マスタ管理", desc: "整備・点検の種類の一覧",
       rootId: "maintTypeMasterRoot", newLabel: "整備種目新規登録", editLabel: "整備種目を編集",
       fields: [ { key: "name", label: "整備種目名", required: true, placeholder: "例）エンジン整備" } ],
-      usageUnit: "件", csvName: "整備種目マスタ.csv"
+      usageUnit: "件", csvName: "整備種目マスタ.csv", bulkReorder: true
     },
     mechanics: {
       title: "整備担当者マスタ管理", desc: "整備を担当する整備担当者の一覧",
@@ -4351,7 +4351,7 @@
         { key: "firstName", label: "名", required: false, placeholder: "例）太郎" },
         { key: "company", label: "会社名", required: false, placeholder: "例）緑化産業株式会社" }
       ],
-      usageUnit: "件", csvName: "整備担当者マスタ.csv"
+      usageUnit: "件", csvName: "整備担当者マスタ.csv", bulkReorder: true
     }
   };
 
