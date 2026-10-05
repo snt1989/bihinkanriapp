@@ -461,6 +461,28 @@
   .modal .fields{display:flex; flex-direction:column; gap:14px;}
   .modal .foot{display:flex; justify-content:flex-end; gap:10px; margin-block-start:20px;}
 
+  /* help (Q&A) */
+  .help-group{margin-block-end:22px;}
+  .help-group h3{font-size:14px; margin-block-end:10px; color:var(--accent-strong);}
+  details.qa{background:var(--surface); border:1px solid var(--line); border-radius:10px; margin-block-end:8px; box-shadow:var(--shadow);}
+  details.qa[hidden]{display:none;}
+  details.qa summary{
+    list-style:none; cursor:pointer; padding:12px 40px 12px 14px; position:relative;
+    font-size:13.5px; font-weight:700; color:var(--text);
+  }
+  details.qa summary::-webkit-details-marker{display:none;}
+  details.qa summary::after{
+    content:""; position:absolute; right:16px; top:50%; width:8px; height:8px; margin-top:-6px;
+    border-right:2px solid var(--text-faint); border-bottom:2px solid var(--text-faint);
+    transform:rotate(45deg); transition:transform .15s;
+  }
+  details.qa[open] summary::after{transform:rotate(-135deg); margin-top:-2px;}
+  details.qa summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:10px;}
+  details.qa .qa-a{padding:0 14px 14px; font-size:13px; line-height:1.75; color:var(--text-muted);}
+  .help-group[hidden]{display:none;}
+  .help-empty{text-align:center; padding:32px 0; color:var(--text-faint); font-size:13px;}
+  .help-empty[hidden]{display:none;}
+
   /* login screen */
   .login-overlay{
     position:fixed; inset:0; z-index:100; background:var(--bg);
@@ -575,6 +597,10 @@
     <button class="navtab" data-page="admin">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1Z"/></svg>
       管理画面
+    </button>
+    <button class="navtab" data-page="help">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><path d="M12 17h.01"/></svg>
+      使い方
     </button>
   </nav>
   <button class="btn btn-ghost btn-sm" id="undoBtn" disabled title="元に戻す操作はありません">
@@ -765,6 +791,61 @@
 </div>
 
 <!-- 管理画面 -->
+<!-- 使い方（Q&A） -->
+<div class="page" id="pageHelp" hidden>
+  <div class="pagehead">
+    <h2>使い方（Q&amp;A）</h2>
+    <span class="desc">困ったときはここを見てください。キーワードで探せます</span>
+  </div>
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="helpSearch" placeholder="例）返却、ログイン、写真" autocomplete="off">
+    </div>
+  </div>
+  <div id="helpBody">
+<section class="help-group"><h3>ログイン</h3>
+<details class="qa"><summary>ログインできません。どうすればよいですか？</summary><div class="qa-a">社員番号（ID）とパスワードを確認してください。社員番号は全角でも入力できます。パスワードは4文字以上です。それでも入れない場合や、パスワードを忘れた場合は、管理者に連絡してください（パスワードの再設定は管理者が行います）。</div></details>
+<details class="qa"><summary>ログイン中かどうかを確認するには？</summary><div class="qa-a">画面右上に緑色の「ログイン中」バッジが出ていれば、ログイン済みです。パソコンの広い画面では「ログイン中：社員番号」の形で、自分のIDも表示されます。</div></details>
+<details class="qa"><summary>ログアウトするには？</summary><div class="qa-a">画面右上の「ログアウト」ボタンを押してください。共用のパソコンやタブレットでは、使い終わったら必ずログアウトしてください。</div></details>
+<details class="qa"><summary>新しく使う人のIDはどうやって作りますか？</summary><div class="qa-a">IDの登録は管理者が行います。管理者に社員番号と希望のパスワード（4文字以上）を伝えてください。</div></details>
+</section>
+<section class="help-group"><h3>備品台帳（探す・登録する）</h3>
+<details class="qa"><summary>備品を探すには？</summary><div class="qa-a">「備品台帳」画面の検索ボックスに、No.・品名・保管場所の一部を入力してください。カテゴリー・保管場所・状態のプルダウンで絞り込むこともできます。上部の「利用可能」「現場持出中」「点検・修理中」のカードを押すと、その状態だけが表示されます。</div></details>
+<details class="qa"><summary>備品の「状態」はどんな意味ですか？</summary><div class="qa-a">「利用可能（保管中）」は保管庫にあり使える状態、「現場持出中」は誰かが持ち出している状態、「点検・修理中」は整備中で使えない状態です。このほかに、使わなくなった備品の「廃棄」があります。</div></details>
+<details class="qa"><summary>新しい備品を登録するには？</summary><div class="qa-a">「備品台帳」画面の「新規登録」ボタンを押し、備品名を入力して「保存する」を押します。備品名以外は任意で、カテゴリ・保管場所・No.・備考・写真を登録できます。カテゴリと保管場所は、管理画面のマスタから選ぶこともできます。</div></details>
+<details class="qa"><summary>備品の写真を付けるには？</summary><div class="qa-a">備品の登録画面で「画像を選択」を押して写真を選びます。やめたいときは「写真を削除」を押してください。</div></details>
+<details class="qa"><summary>操作を間違えました。元に戻せますか？</summary><div class="qa-a">画面上部の「元に戻す」ボタンで、直前の操作を取り消せます。取り消せる操作がないときは、ボタンが押せない状態になっています。</div></details>
+</section>
+<section class="help-group"><h3>持出・返却</h3>
+<details class="qa"><summary>備品を持ち出すには？</summary><div class="qa-a">備品台帳で対象の備品を押して詳細を開き、「持出」を押します。借受者の姓・名、現場名／用途（任意）、返却予定日を入力し、「持出を確定」を押してください。状態が「現場持出中」に変わり、貸出台帳にも記録されます。</div></details>
+<details class="qa"><summary>借受者に未登録の人が持ち出すときは？</summary><div class="qa-a">姓と名を入力すれば持出できます。借受者として登録されていない名前を入力した場合は、借受者として登録するかどうかを選べます。あらかじめ「借受者台帳」に登録しておくこともできます。</div></details>
+<details class="qa"><summary>備品を返却するには？</summary><div class="qa-a">持出中の備品の詳細を開き、「返却する」を押します。返却前チェックリストを確認し、返却時の状態を「異常なし（保管庫へ）」か「要点検・修理（整備台帳へ）」から選んで、「返却を完了する」を押してください。</div></details>
+<details class="qa"><summary>返却時に不具合があったときは？</summary><div class="qa-a">返却の画面で「要点検・修理（整備台帳へ）」を選んでください。備品の状態が「点検・修理中」になり、整備台帳に「整備中」の記録が自動で作られます。不具合の内容は「返却チェック・不具合メモ」に書いておくと、整備台帳の作業内容に残ります。返却前チェックリストも、あわせて確認してください。</div></details>
+<details class="qa"><summary>返却予定日を過ぎたらどうなりますか？</summary><div class="qa-a">備品の詳細で、返却予定日が赤字で「（期限超過）」と表示されます。持出中の一覧は「貸出台帳」画面でも確認できます。</div></details>
+<details class="qa"><summary>誰がいつ借りたか知りたいときは？</summary><div class="qa-a">「貸出台帳」画面に、現場への持出・返却の履歴が出ます。備品ごとの履歴は、備品の詳細の「履歴」でも確認できます。</div></details>
+</section>
+<section class="help-group"><h3>点検・修理（整備台帳）</h3>
+<details class="qa"><summary>備品を点検・修理に出すには？</summary><div class="qa-a">返却のときに「要点検・修理（整備台帳へ）」を選ぶと、自動で整備中になります。整備台帳には、実施日・機材番号・整備種目・作業内容・交換部品／費用・整備担当者が記録されます。</div></details>
+<details class="qa"><summary>修理が終わったときの手続きは？</summary><div class="qa-a">「点検・修理中」の備品の詳細を開き、「修理完了（利用可能へ）」を押します。対象備品・整備種目・整備担当者・作業内容（いずれも必須）を入力し、「整備内容を記録」を押すと、備品が「利用可能」に戻ります。交換部品と費用は任意です。</div></details>
+<details class="qa"><summary>整備種目や整備担当者の選択肢を増やすには？</summary><div class="qa-a">管理画面の「整備台帳マスタ」を開き、「整備種目マスタ」または「整備担当者マスタ」から追加します。</div></details>
+</section>
+<section class="help-group"><h3>借受者台帳</h3>
+<details class="qa"><summary>借受者を登録するには？</summary><div class="qa-a">「借受者台帳」画面の「借受者を追加」を押して登録します。姓・名は必須、会社名・事業部・保有資格は任意です。会社名・事業部・資格は、管理画面のマスタから選べます。</div></details>
+<details class="qa"><summary>借受者をまとめて登録するには？</summary><div class="qa-a">「借受者台帳」画面の「一括登録」を押し、1行に1名ずつ「姓 名,会社名,事業部」の形で入力します。姓と名は半角スペースで区切り、会社名と事業部は省略できます。例：山田 太郎,緑化産業株式会社,緑化事業部</div></details>
+<details class="qa"><summary>履歴にあるのに台帳にない借受者とは？</summary><div class="qa-a">過去の持出履歴に名前があるのに、借受者台帳に登録されていない人です。「借受者台帳」画面の下部に一覧が出るので、必要なら登録してください。</div></details>
+</section>
+<section class="help-group"><h3>管理画面（管理者向け）</h3>
+<details class="qa"><summary>管理画面では何ができますか？</summary><div class="qa-a">各種マスタデータの一括管理ができます。「稼働ダッシュボード」「備品台帳マスタ」「整備台帳マスタ」「借受者台帳マスタ」の4つのタブがあります。現在、管理画面を開ける人は、ログインできる全員です。</div></details>
+<details class="qa"><summary>保管場所やカテゴリを追加するには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」を開き、「カテゴリマスタ」または「保管場所マスタ」から新規登録します。保管場所は、ヤード名・倉庫名・棚番号・備考で登録できます。</div></details>
+<details class="qa"><summary>複数の備品のカテゴリや保管場所をまとめて変えるには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」で備品にチェックを入れ、「マスタから一括編集」を押します。カテゴリーと定位置（保管場所）を選んで「選択中の備品に適用」を押してください。</div></details>
+<details class="qa"><summary>備品を廃棄扱いにするには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」で対象の備品にチェックを入れ、「廃棄にする」を押します。間違えたときは、備品の詳細にある「廃棄を取り消す」で戻せます。</div></details>
+<details class="qa"><summary>データ量はどこで確認できますか？</summary><div class="qa-a">管理画面の「稼働ダッシュボード」に、「データ使用量（目安）」として、合計データ量・画像データ量・その他データ量・画像登録件数の概算が出ます。</div></details>
+</section>
+  </div>
+  <div class="help-empty" id="helpEmpty" hidden>該当する質問が見つかりません。別のキーワードをお試しください。</div>
+</div>
+
 <div class="page" id="pageAdmin" hidden>
   <div class="pagehead">
     <h2>管理画面</h2>
@@ -1577,7 +1658,7 @@
 
   function switchPage(p){
     state.page = p;
-    ["equipment","maintenance","loans","borrowers","admin"].forEach(function(name){
+    ["equipment","maintenance","loans","borrowers","admin","help"].forEach(function(name){
       var el = $("page" + name.charAt(0).toUpperCase() + name.slice(1));
       if(el) el.hidden = (name !== p);
     });
@@ -4482,6 +4563,7 @@
 
   async function boot(){
     wireStatic();
+    wireHelp();
     switchPage("equipment");
     renderAll();
     try{
@@ -4520,6 +4602,28 @@
       hideLogin();
       subscribeAll();
     }
+  }
+
+  // ---------- 使い方（Q&A）の検索 ----------
+  function wireHelp(){
+    var input = $("helpSearch");
+    if(!input) return;
+    input.addEventListener("input", function(){
+      var q = input.value.trim().normalize("NFKC").toLowerCase();
+      var any = false;
+      Array.prototype.forEach.call(document.querySelectorAll("#helpBody .help-group"), function(g){
+        var shown = 0;
+        Array.prototype.forEach.call(g.querySelectorAll("details.qa"), function(d){
+          var hit = !q || d.textContent.normalize("NFKC").toLowerCase().indexOf(q) >= 0;
+          d.hidden = !hit;
+          if(hit) shown++;
+          if(q && hit) d.open = true; else if(!q) d.open = false;
+        });
+        g.hidden = shown === 0;
+        if(shown) any = true;
+      });
+      $("helpEmpty").hidden = any;
+    });
   }
 
   // ---------- ログイン ----------
