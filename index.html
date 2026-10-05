@@ -2149,9 +2149,7 @@
 
     // actions
     html += '<div class="actionrow">';
-    if(it.status === "利用可能"){
-      html += '<button class="btn btn-primary" id="btnLendOpen">持出</button>';
-    } else if(it.status === "貸出中" && !isMulti(it)){
+    if(it.status === "貸出中" && !isMulti(it)){
       html += '<button class="btn btn-info" id="btnReturn">返却する</button>';
     } else if(it.status === "修理中"){
       html += '<button class="btn btn-primary" id="btnRepairDone">修理完了（利用可能へ）</button>';
@@ -2161,7 +2159,7 @@
     html += '</div>';
 
     // 持出 subform
-    html += '<div class="subform" id="lendForm" hidden>';
+    html += '<div class="subform" id="lendForm"' + (it.status === "利用可能" ? '' : ' hidden') + '>';
     var me = currentBorrowerEmp();
     if(me){
       // ログイン中の本人の名前に統一する（他の人の名前では持出登録できない）
@@ -2181,7 +2179,7 @@
     }
     html += '<div class="field"><label for="lendSite">現場名／用途（任意）</label><input id="lendSite" type="text" placeholder="例）〇〇邸 庭木剪定" autocomplete="off"></div>';
     html += '<div class="field"><label for="lendDue">返却予定日</label><input id="lendDue" type="date" value="' + todayISO() + '"></div>';
-    html += '<div class="actionrow"><button class="btn btn-primary" id="btnLendSubmit">持出を確定</button><button class="btn btn-ghost" id="btnLendCancel">キャンセル</button></div>';
+    html += '<div class="actionrow"><button class="btn btn-primary" id="btnLendSubmit">持出を確定</button></div>';
     html += '</div>';
 
     // history
@@ -2195,10 +2193,6 @@
   function wireDrawerActions(it){
     var on = function(id, fn){ var el = $(id); if(el) el.addEventListener("click", fn); };
 
-    on("btnLendOpen", function(){
-      $("lendForm").hidden = false;
-    });
-    on("btnLendCancel", function(){ $("lendForm").hidden = true; });
     var lendLastEl = $("lendLastName");
     var lendFirstEl = $("lendFirstName");
     if(lendLastEl) lendLastEl.addEventListener("input", function(){ updateLendNewStaffHint(); });
