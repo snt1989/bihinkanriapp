@@ -1509,16 +1509,16 @@
       </div>
       <div class="field" style="flex-direction:row; gap:10px;">
         <div class="field" style="flex:1;">
-          <label for="maintAddType">整備種目 <span style="color:var(--danger);">*</span></label>
+          <label for="maintAddType">整備種目</label>
           <select id="maintAddType"><option value="">整備種目を選択...</option></select>
         </div>
         <div class="field" style="flex:1;">
-          <label for="maintAddStaff">整備担当者 <span style="color:var(--danger);">*</span></label>
+          <label for="maintAddStaff">整備担当者</label>
           <select id="maintAddStaff"><option value="">担当者を選択...</option></select>
         </div>
       </div>
       <div class="field">
-        <label for="maintAddIssue">作業内容・処置詳細 <span style="color:var(--danger);">*</span></label>
+        <label for="maintAddIssue">作業内容・処置詳細</label>
         <textarea id="maintAddIssue" placeholder="例）ソーチェン目立て、デプスゲージ調整、不具合処置内容など"></textarea>
       </div>
       <div class="field" style="flex-direction:row; gap:10px;">
@@ -2532,9 +2532,6 @@
     var issue = $("maintAddIssue").value.trim();
     var parts = $("maintAddParts").value.trim();
     var cost = $("maintAddCost").value.trim();
-    if(!maintType){ $("maintAddType").focus(); return; }
-    if(!staffName){ $("maintAddStaff").focus(); return; }
-    if(!issue){ $("maintAddIssue").focus(); return; }
     var resultEl = document.querySelector('input[name="maintAddResult"]:checked');
     var result = resultEl ? resultEl.value : "open";
     var willComplete = result === "done" && !$("maintAddResultDoneLabel").hidden;
