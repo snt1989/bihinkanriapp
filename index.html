@@ -1062,6 +1062,7 @@
                 <th class="sortable" data-sort="name" style="cursor:pointer; white-space:nowrap;">品名・仕様<span class="sortarrow"></span></th>
                 <th class="sortable" data-sort="category" style="cursor:pointer; white-space:nowrap;">カテゴリー<span class="sortarrow"></span></th>
                 <th class="sortable" data-sort="location" style="cursor:pointer; white-space:nowrap;">定位置（保管場所）<span class="sortarrow"></span></th>
+                <th class="sortable" data-sort="qty" style="cursor:pointer; white-space:nowrap; text-align:right;">個数<span class="sortarrow"></span></th>
                 <th class="sortable" data-sort="status" style="cursor:pointer; white-space:nowrap;">状態<span class="sortarrow"></span></th>
                 <th style="width:70px;">操作</th>
               </tr>
@@ -3404,12 +3405,13 @@
         vb = (typeof b.no==="number") ? b.no : 999999;
         return (va - vb) * sortDir;
       }
+      if(sortField === "qty") return (qtyOf(a) - qtyOf(b)) * sortDir;
       va = (a[sortField] || "");
       vb = (b[sortField] || "");
       return va.localeCompare(vb, "ja") * sortDir;
     });
     if(items.length === 0){
-      body.innerHTML = '<tr><td colspan="8"><div class="empty">' + (allItems().length===0 ? "備品が登録されていません" : "該当する備品が見つかりません") + '</div></td></tr>';
+      body.innerHTML = '<tr><td colspan="9"><div class="empty">' + (allItems().length===0 ? "備品が登録されていません" : "該当する備品が見つかりません") + '</div></td></tr>';
     } else {
       var html = "";
       items.forEach(function(it){
@@ -3426,6 +3428,8 @@
         html += '  <td class="mname">' + esc(nm.main) + (nm.model ? ' <span style="color:var(--text-faint); font-weight:400;">(' + esc(nm.model) + ')</span>' : '') + '</td>';
         html += '  <td>' + (icon ? esc(icon) + ' ' : '') + esc(it.category || "-") + '</td>';
         html += '  <td>' + esc(it.location || "-") + '</td>';
+        var lentN = isMulti(it) ? lentQty(it.id) : 0;
+        html += '  <td class="tnum" style="text-align:right; white-space:nowrap;">' + qtyOf(it) + '個' + (lentN > 0 ? '<div style="font-size:11px; color:var(--text-faint);">持出中 ' + lentN + '</div>' : '') + '</td>';
         html += '  <td><span class="badge ' + statusClass(it.status) + '">' + esc(it.status) + '</span></td>';
         if(state.confirmDeleteId === it.id){
           html += '  <td class="mactions"><button class="btn btn-danger btn-sm" data-action="delete-confirm">削除</button><button class="btn btn-ghost btn-sm" data-action="delete-cancel">やめる</button></td>';
