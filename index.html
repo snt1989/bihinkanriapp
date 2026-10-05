@@ -850,7 +850,7 @@
 <section class="help-group"><h3>備品台帳（探す・登録する）</h3>
 <details class="qa"><summary>備品を探すには？</summary><div class="qa-a">「備品台帳」画面の検索ボックスに、No.・品名・保管場所の一部を入力してください。カテゴリー・保管場所・状態のプルダウンで絞り込むこともできます。上部の「利用可能」「現場持出中」「点検・修理中」のカードを押すと、その状態だけが表示されます。</div></details>
 <details class="qa"><summary>備品の「状態」はどんな意味ですか？</summary><div class="qa-a">「利用可能（保管中）」は保管庫にあり使える状態、「現場持出中」は誰かが持ち出している状態、「点検・修理中」は整備中で使えない状態です。このほかに、使わなくなった備品の「廃棄」があります。</div></details>
-<details class="qa"><summary>新しい備品を登録するには？</summary><div class="qa-a">「備品台帳」画面の「新規登録」ボタンを押し、備品名を入力して「保存する」を押します。備品名以外は任意で、カテゴリ・保管場所・No.・備考・写真を登録できます。カテゴリと保管場所は、管理画面のマスタから選ぶこともできます。マスタにないカテゴリ名を入力して保存すると、新規登録でも編集でも、自動でカテゴリマスタに追加されます。</div></details>
+<details class="qa"><summary>新しい備品を登録するには？</summary><div class="qa-a">「備品台帳」画面の「新規登録」ボタンを押し、備品名を入力して「保存する」を押します。備品名以外は任意で、カテゴリ・保管場所・No.・備考・写真を登録できます。カテゴリと保管場所は、管理画面のマスタから選ぶこともできます。マスタにないカテゴリ名や保管場所を入力して保存すると、新規登録でも編集でも、自動でカテゴリマスタ・保管場所マスタに追加されます。</div></details>
 <details class="qa"><summary>備品の写真を付けるには？</summary><div class="qa-a">備品の登録画面で「画像を選択」を押して写真を選びます。やめたいときは「写真を削除」を押してください。</div></details>
 <details class="qa"><summary>操作を間違えました。元に戻せますか？</summary><div class="qa-a">画面上部の「元に戻す」ボタンで、直前の操作を取り消せます。取り消せる操作がないときは、ボタンが押せない状態になっています。</div></details>
 </section>
@@ -1585,6 +1585,7 @@
     empEditingId: null,
     adminTab: "dashboard",
     adminBorrowerTab: "list",
+    loaded: {},           // 初回データ読み込み済みのコレクション（マスタ反映の判定用）
     empNoSettings: null,  // 社員番号の自動割り振り設定（settings/employeeNumber）
     admEmpSearch: "",
     admEmpSelected: {},   // employee id -> true (admin master table)
@@ -3610,6 +3611,55 @@
     db.collection(collectionName).doc(b.id).update({ order: orderA, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
   }
 
+  // ---------- 登録済み備品のカテゴリー・保管場所をマスタへ反映（初回のみ自動実行） ----------
+  // 名称から決まるIDで書き込むので、複数の端末が同時に実行しても重複登録にならない
+  function cyrb53(str){
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for(var i = 0; i < str.length; i++){
+      var ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  }
+  function autoMasterId(name){ return "auto_" + cyrb53(name).toString(36); }
+
+  function backfillMastersFromItems(){
+    var items = allItems();
+    var cats = findNewMasterNames("eqCategories", items.map(function(it){ return it.category; }));
+    var locs = findNewMasterNames("eqLocations", items.map(function(it){ return it.location; }));
+    var orderC = nextMasterOrder("eqCategories"), orderL = nextMasterOrder("eqLocations");
+    var ops = [];
+    cats.forEach(function(n, i){
+      ops.push(db.collection("eqCategories").doc(autoMasterId(n)).set({ name: n, order: orderC + i, icon: autoIconForCategory(n), createdAt: Date.now() }));
+    });
+    locs.forEach(function(n, i){
+      ops.push(db.collection("eqLocations").doc(autoMasterId(n)).set({ name: n, yard: n, order: orderL + i, createdAt: Date.now() }));
+    });
+    return Promise.all(ops).then(function(){ return { cats: cats.length, locs: locs.length }; });
+  }
+
+  var masterBackfillStarted = false;
+  function maybeBackfillMasters(){
+    if(masterBackfillStarted || !db) return;
+    var l = state.loaded;
+    if(!(l.items && l.eqCategories && l.eqLocations)) return; // マスタを読み込む前に実行すると重複登録になるため待つ
+    masterBackfillStarted = true;
+    var flagRef;
+    Promise.resolve().then(function(){
+      flagRef = db.collection("settings").doc("masterSync");
+      return flagRef.get();
+    }).then(function(d){
+      if(d.exists && d.data() && d.data().done) return;
+      return backfillMastersFromItems().then(function(r){
+        console.info("マスタへ反映しました：カテゴリ" + r.cats + "件／保管場所" + r.locs + "件");
+        return flagRef.set({ done: true, categories: r.cats, locations: r.locs, at: Date.now() });
+      });
+    }).catch(function(e){ console.warn("master backfill failed", e); });
+  }
+
   function addMasterItem(collectionName, name, extra, orderOverride){
     name = (name || "").trim();
     if(!name || !db) return;
@@ -4289,9 +4339,11 @@
     var no = noVal === "" ? null : Number(noVal);
     if(!db){ closeModal(); return; }
 
-    // マスタにないカテゴリー名は、新規登録でも編集でも自動でカテゴリマスタに追加する
+    // マスタにないカテゴリー名・保管場所は、新規登録でも編集でも自動でマスタに追加する
     var newCats = findNewMasterNames("eqCategories", [category]);
     if(newCats.length) addNewMasterNames("eqCategories", newCats, function(n){ return { icon: autoIconForCategory(n) }; });
+    var newLocs = findNewMasterNames("eqLocations", [location]);
+    if(newLocs.length) addNewMasterNames("eqLocations", newLocs, function(n){ return { yard: n }; });
 
     if(state.editingId){
       var patch = { name: name, category: category, location: location, notes: notes, updatedAt: Date.now() };
@@ -4630,7 +4682,9 @@
       });
       state.items = next;
       state.ready = true;
+      state.loaded.items = true;
       renderAll();
+      maybeBackfillMasters();
     }, function(err){ console.warn("equipment subscribe error", err); });
 
     db.collection("equipmentLogs").onSnapshot(function(snap){
@@ -4725,7 +4779,9 @@
           next[d.id] = Object.assign({ id: d.id }, data);
         });
         state[coll] = next;
+        state.loaded[coll] = true;
         if(state.page === "admin") renderAdmin();
+        maybeBackfillMasters();
       }, function(err){ console.warn(coll + " subscribe error", err); });
     });
   }
