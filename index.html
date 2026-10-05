@@ -774,6 +774,7 @@
             <th>作業内容</th>
             <th style="width:140px;">交換部品 / 費用</th>
             <th style="width:110px;">整備担当者</th>
+            <th style="width:80px;">状態</th>
           </tr>
         </thead>
         <tbody id="maintHistoryTableBody"></tbody>
@@ -1513,10 +1514,23 @@
           <input id="maintAddCost" type="number" inputmode="numeric" min="0" placeholder="例: 2500">
         </div>
       </div>
-      <div class="field" id="maintAddCompleteRow">
+      <div class="field" id="maintAddResultRow">
+        <label>整備の結果</label>
         <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
-          <input type="checkbox" id="maintAddComplete" checked style="width:16px;height:16px;accent-color:var(--accent);">
+          <input type="radio" name="maintAddResult" id="maintAddResultOpen" value="open" style="width:16px;height:16px;accent-color:var(--accent);">
+          整備中のまま（機材の状態を「点検・修理中」にする）
+        </label>
+        <label id="maintAddResultDoneLabel" style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="radio" name="maintAddResult" id="maintAddResultDone" value="done" checked style="width:16px;height:16px;accent-color:var(--accent);">
           整備を完了とし、機材の状態を「利用可能（保管中）」に戻す
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="radio" name="maintAddResult" id="maintAddResultRetire" value="retire" style="width:16px;height:16px;accent-color:var(--accent);">
+          修理せず廃棄とし、機材の状態を「廃棄」にする
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="radio" name="maintAddResult" id="maintAddResultCancel" value="cancel" style="width:16px;height:16px;accent-color:var(--accent);">
+          整備を中止とし、機材の状態を「利用可能（保管中）」に戻す
         </label>
       </div>
     </div>
@@ -2297,8 +2311,8 @@
     if(!body) return;
     var rows = allMaint().slice();
     rows.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
-    if(!state.ready){ body.innerHTML = '<tr><td colspan="6"><div class="empty">読み込み中…</div></td></tr>'; return; }
-    if(rows.length === 0){ body.innerHTML = '<tr><td colspan="6"><div class="empty">整備記録がありません</div></td></tr>'; return; }
+    if(!state.ready){ body.innerHTML = '<tr><td colspan="7"><div class="empty">読み込み中…</div></td></tr>'; return; }
+    if(rows.length === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">整備記録がありません</div></td></tr>'; return; }
 
     var html = "";
     rows.forEach(function(m){
@@ -2309,6 +2323,7 @@
       html += '  <td>' + esc(m.issue || "") + '</td>';
       html += '  <td>' + esc(m.partsCost || "-") + '</td>';
       html += '  <td>' + esc(m.staffName || "") + '</td>';
+      html += '  <td><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span></td>';
       html += '</tr>';
     });
     body.innerHTML = html;
@@ -2345,9 +2360,11 @@
     $("maintAddParts").value = om ? (om.parts || "") : "";
     $("maintAddCost").value = om && om.cost ? om.cost : "";
     var isRepairing = !!(it && it.status === "修理中");
-    var completeRow = $("maintAddCompleteRow");
-    if(completeRow) completeRow.hidden = !isRepairing;
-    $("maintAddComplete").checked = isRepairing;
+    $("maintAddResultDoneLabel").hidden = !isRepairing;
+    $("maintAddResultDone").checked = isRepairing;
+    $("maintAddResultRetire").checked = false;
+    $("maintAddResultCancel").checked = false;
+    $("maintAddResultOpen").checked = !isRepairing;
   }
   function openMaintRecordModal(equipmentId){
     var sel = $("maintAddEquip");
@@ -2382,16 +2399,20 @@
     if(!maintType){ $("maintAddType").focus(); return; }
     if(!staffName){ $("maintAddStaff").focus(); return; }
     if(!issue){ $("maintAddIssue").focus(); return; }
-    var completeRow = $("maintAddCompleteRow");
-    var willComplete = !completeRow.hidden && $("maintAddComplete").checked;
+    var resultEl = document.querySelector('input[name="maintAddResult"]:checked');
+    var result = resultEl ? resultEl.value : "open";
+    var willComplete = result === "done" && !$("maintAddResultDoneLabel").hidden;
+    var willRetire = result === "retire";
+    var willCancel = result === "cancel";
+    if(willRetire && !confirm("「" + (it.name || "") + "」を廃棄にします。よろしいですか？\n（あとから備品の詳細で「廃棄を取り消す」と戻せます）")) return;
     var today = todayISO();
     var om = findOpenMaintenance(eid);
     var payload = {
       equipmentId: eid, equipmentName: it.name, no: (typeof it.no==="number"?it.no:null), category: it.category,
       issue: issue, maintType: maintType, staffName: staffName, parts: parts, cost: cost,
       partsCost: [parts, cost ? cost + "円" : ""].filter(Boolean).join("／"),
-      status: willComplete ? "完了" : "整備中",
-      endDate: willComplete ? today : null,
+      status: willRetire ? "廃棄" : (willCancel ? "中止" : (willComplete ? "完了" : "整備中")),
+      endDate: (willComplete || willRetire || willCancel) ? today : null,
       updatedAt: Date.now()
     };
     if(om){
@@ -2402,7 +2423,13 @@
       payload.notes = "";
       db.collection("maintenance").add(payload).catch(function(e){ console.warn("maintenance add failed", e); });
     }
-    if(willComplete){
+    if(willRetire){
+      updateItem(eid, { status: "廃棄" });
+      addLog(eid, "廃棄登録", [maintType, issue].filter(Boolean).join("／"));
+    } else if(willCancel){
+      if(it.status === "修理中") updateItem(eid, { status: "利用可能" });
+      addLog(eid, "整備中止", [maintType, issue].filter(Boolean).join("／"));
+    } else if(willComplete){
       updateItem(eid, { status: "利用可能" });
       addLog(eid, "修理完了", [maintType, issue].filter(Boolean).join("／"));
     } else if(it.status !== "修理中"){
@@ -3059,7 +3086,7 @@
       if(m.maintType) html += '  <span class="acat">' + esc(m.maintType) + '</span>';
       if(m.staffName) html += '  <span class="acat">整備担当者: ' + esc(m.staffName) + '</span>';
       html += '  <span class="acat">開始 ' + fmtDate(m.startDate) + (m.endDate ? " ／ 完了 " + fmtDate(m.endDate) : "") + '</span>';
-      html += '  <span class="badge ' + (open ? "repair" : "in") + '">' + esc(m.status) + '</span>';
+      html += '  <span class="badge ' + (open ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status) + '</span>';
       html += '</div>';
     });
     root.innerHTML = html;
