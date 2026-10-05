@@ -461,6 +461,19 @@
   .modal .fields{display:flex; flex-direction:column; gap:14px;}
   .modal .foot{display:flex; justify-content:flex-end; gap:10px; margin-block-start:20px;}
 
+  /* icon picker */
+  .iconpick-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(46px,1fr)); gap:6px;}
+  .iconpick-grid button{
+    font-size:22px; line-height:1; padding:10px 0; border:1.5px solid var(--line); border-radius:10px;
+    background:var(--surface); cursor:pointer;
+  }
+  .iconpick-grid button:hover{border-color:var(--accent); background:var(--accent-soft);}
+  .iconpick-grid button.current{border-color:var(--accent); background:var(--accent-soft); box-shadow:0 0 0 2px var(--accent-soft);}
+  .iconpick-btn{
+    font-size:18px; line-height:1; padding:5px 8px; border:1px dashed var(--line); border-radius:8px;
+    background:var(--surface); cursor:pointer;
+  }
+  .iconpick-btn:hover{border-color:var(--accent); background:var(--accent-soft);}
   /* help (Q&A) */
   .help-group{margin-block-end:22px;}
   .help-group h3{font-size:14px; margin-block-end:10px; color:var(--accent-strong);}
@@ -878,6 +891,7 @@
 <details class="qa"><summary>複数の備品のカテゴリや保管場所をまとめて変えるには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」で備品にチェックを入れ、「マスタから一括編集」を押します。カテゴリーと定位置（保管場所）を選んで「選択中の備品に適用」を押してください。</div></details>
 <details class="qa"><summary>備品を廃棄扱いにするには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」で対象の備品にチェックを入れ、「廃棄にする」を押します。間違えたときは、備品の詳細にある「廃棄を取り消す」で戻せます。</div></details>
 <details class="qa"><summary>自動で割り振られる社員番号の桁数や範囲を変えるには？</summary><div class="qa-a">管理画面の「借受者台帳マスタ」を開き、「社員番号設定」のタブで、先頭に付ける文字・開始番号・終了番号を決めて「設定を保存」を押します。変更は次のアカウント登録から反映され、すでに割り振られた番号は変わりません。</div></details>
+<details class="qa"><summary>カテゴリのアイコンを変えるには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」→「カテゴリマスタ」を開き、一覧のアイコンを押すと、アイコンの一覧が開きます。選ぶとすぐに変わります。一覧にない絵文字は、入力して「決定」を押してください。「自動判定に戻す」を押すと、カテゴリ名から自動で選ばれたアイコンに戻ります。カテゴリの編集画面の「一覧から選ぶ」からも変えられます。</div></details>
 <details class="qa"><summary>データ量はどこで確認できますか？</summary><div class="qa-a">管理画面の「稼働ダッシュボード」に、「データ使用量（目安）」として、合計データ量・画像データ量・その他データ量・画像登録件数の概算が出ます。</div></details>
 </section>
   </div>
@@ -1256,6 +1270,23 @@
     <div class="foot">
       <button class="btn btn-ghost" id="genericMasterCancelBtn">キャンセル</button>
       <button class="btn btn-primary" id="genericMasterSaveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- アイコン選択（カテゴリマスタ） -->
+<div class="modal-overlay" id="iconPickerOverlay" style="z-index:60;">
+  <div class="modal">
+    <h3>アイコンを選ぶ</h3>
+    <div class="iconpick-grid" id="iconPickerGrid"></div>
+    <div class="field" style="margin-block-start:14px;">
+      <label for="iconPickerCustom">一覧にない絵文字を使う場合は入力</label>
+      <input id="iconPickerCustom" type="text" maxlength="4" autocomplete="off" placeholder="例）🚜">
+    </div>
+    <div class="foot" style="flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="iconPickerAuto" style="margin-inline-end:auto;">自動判定に戻す</button>
+      <button class="btn btn-ghost" id="iconPickerClose">キャンセル</button>
+      <button class="btn btn-primary" id="iconPickerOk">決定</button>
     </div>
   </div>
 </div>
@@ -3909,10 +3940,10 @@
       usageUnit: "名", csvName: "資格マスタ.csv"
     },
     eqCategories: {
-      title: "カテゴリマスタ管理", desc: "カテゴリー名・説明で整理された備品カテゴリ（アイコンは自動判定）",
+      title: "カテゴリマスタ管理", desc: "カテゴリー名・説明で整理された備品カテゴリ（アイコンは一覧から選べます。未選択は自動判定）",
       rootId: "eqCategoryMasterRoot", newLabel: "カテゴリ新規登録", editLabel: "カテゴリを編集",
       fields: [
-        { key: "icon", label: "アイコン（空欄で自動判定）", required: false, placeholder: "未入力で自動設定", maxlength: 4 },
+        { key: "icon", label: "アイコン（空欄で自動判定）", required: false, placeholder: "「一覧から選ぶ」で選択", maxlength: 4 },
         { key: "name", label: "カテゴリー名", required: true, placeholder: "例）刈払機" },
         { key: "description", label: "説明", required: false, placeholder: "説明（任意）" }
       ],
@@ -4008,7 +4039,7 @@
         }
         cfg.fields.forEach(function(f){
           if(f.key === "icon"){
-            html += '<td class="mlicon" style="text-align:left;">' + esc(item.icon || autoIconForCategory(item.name)) + '</td>';
+            html += '<td class="mlicon" style="text-align:left;"><button type="button" class="iconpick-btn" data-action="pickicon" title="アイコンを変更" aria-label="アイコンを変更">' + esc(item.icon || autoIconForCategory(item.name)) + '</button></td>';
           } else {
             var cellVal = item[f.key];
             if(!cellVal && legacySplit && (f.key === "lastName" || f.key === "firstName")) cellVal = legacySplit[f.key];
@@ -4025,6 +4056,18 @@
 
     if(bulk) wireMasterBulkToolbar(root, collectionName, dict);
     if(bulk) wireMasterSelectAllHeader(root, collectionName, list);
+
+    Array.prototype.forEach.call(root.querySelectorAll('[data-action="pickicon"]'), function(btn){
+      btn.addEventListener("click", function(){
+        var row = btn.closest("tr"); var id = row && row.getAttribute("data-id");
+        var item = id && state[collectionName] && state[collectionName][id];
+        if(!item || !db) return;
+        openIconPicker(item.icon || autoIconForCategory(item.name), function(ic){
+          var icon = ic || autoIconForCategory(item.name);
+          db.collection(collectionName).doc(id).update({ icon: icon, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
+        });
+      });
+    });
 
     var addBtn = root.querySelector('[data-action="add"]');
     if(addBtn) addBtn.addEventListener("click", function(){ openGenericMasterModal(collectionName, null); });
@@ -4073,6 +4116,38 @@
     });
   }
 
+  // ---------- アイコン選択 ----------
+  var ICON_CHOICES = ["🪚","🌿","🚜","✂️","🍃","🪧","🚧","🦺","📏","🔋","⛽","🚚","🪜","💧","🧪","🌳","🔧","📋",
+    "🪓","🔨","🪛","🧰","⚙️","🔩","🛠️","🧯","🔦","💡","🔌","🧤","🥾","⛑️","🌱","🌲","🌾","🍂","🪴","🚛","🚐","🛻",
+    "🏗️","🧱","🪣","🧹","📦","🗂️","📎","🔒","📡","🖨️","🔥","🌧️","🎒","📁"];
+  var iconPickerCb = null;
+  function openIconPicker(current, onPick){
+    iconPickerCb = onPick;
+    var grid = $("iconPickerGrid");
+    grid.innerHTML = ICON_CHOICES.map(function(ic){
+      return '<button type="button" data-icon="' + ic + '"' + (ic === current ? ' class="current"' : '') + ' aria-label="' + ic + '">' + ic + '</button>';
+    }).join("");
+    $("iconPickerCustom").value = (current && ICON_CHOICES.indexOf(current) === -1) ? current : "";
+    $("iconPickerOverlay").classList.add("show");
+  }
+  function closeIconPicker(){ $("iconPickerOverlay").classList.remove("show"); iconPickerCb = null; }
+  function pickIcon(ic){ var cb = iconPickerCb; closeIconPicker(); if(cb) cb(ic); }
+  function wireIconPicker(){
+    if(!$("iconPickerGrid")) return;
+    $("iconPickerGrid").addEventListener("click", function(e){
+      var b = e.target.closest("button[data-icon]");
+      if(b) pickIcon(b.getAttribute("data-icon"));
+    });
+    $("iconPickerOk").addEventListener("click", function(){
+      var v = $("iconPickerCustom").value.trim();
+      if(!v){ $("iconPickerCustom").focus(); return; }
+      pickIcon(v);
+    });
+    $("iconPickerAuto").addEventListener("click", function(){ pickIcon(""); });
+    $("iconPickerClose").addEventListener("click", closeIconPicker);
+    $("iconPickerOverlay").addEventListener("click", function(e){ if(e.target === $("iconPickerOverlay")) closeIconPicker(); });
+  }
+
   function openGenericMasterModal(collectionName, existing){
     var cfg = MASTER_CONFIGS[collectionName];
     if(!cfg) return;
@@ -4089,6 +4164,18 @@
       var v = existing ? (existing[f.key] || "") : "";
       if(!v && splitExisting && (f.key === "lastName" || f.key === "firstName")) v = splitExisting[f.key] || "";
       $("gmField" + i).value = v;
+    });
+    cfg.fields.forEach(function(f, i){
+      if(f.key !== "icon") return;
+      var inp = $("gmField" + i);
+      var nameIdx = -1; cfg.fields.forEach(function(g, j){ if(g.key === "name") nameIdx = j; });
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.className = "btn btn-ghost btn-sm"; btn.textContent = "一覧から選ぶ"; btn.style.alignSelf = "flex-start";
+      btn.addEventListener("click", function(){
+        var nameVal = nameIdx >= 0 && $("gmField" + nameIdx) ? $("gmField" + nameIdx).value : "";
+        openIconPicker(inp.value.trim() || autoIconForCategory(nameVal), function(ic){ inp.value = ic; });
+      });
+      inp.parentNode.appendChild(btn);
     });
     $("genericMasterModalOverlay").classList.add("show");
     setTimeout(function(){ var el = $("gmField0"); if(el) el.focus(); }, 50);
@@ -4790,6 +4877,7 @@
     wireStatic();
     wireHelp();
     wireEmpNo();
+    wireIconPicker();
     switchPage("equipment");
     renderAll();
     try{
