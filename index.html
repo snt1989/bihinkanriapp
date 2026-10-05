@@ -499,6 +499,9 @@
   .login-brand .logo{width:56px; height:56px; border-radius:14px; border:1px solid var(--line);}
   .login-brand h1{font-size:19px; line-height:1.3;}
   .login-brand .sub{font-size:12px; color:var(--text-faint);}
+  .empno-form{display:flex; flex-direction:column; gap:14px; padding:16px; max-width:560px;}
+  .empno-desc{margin:0; font-size:12px; line-height:1.7; color:var(--text-muted);}
+  .empno-preview{font-size:12.5px; font-weight:700; color:var(--accent-strong); background:var(--accent-soft); border-radius:8px; padding:9px 12px;}
   .emprow .eno{flex:0 0 56px; font-size:12px; font-weight:700; color:var(--text-muted);}
   .namerow{display:flex; gap:8px;}
   .namerow input{flex:1 1 0; min-width:0;}
@@ -847,7 +850,7 @@
 <section class="help-group"><h3>備品台帳（探す・登録する）</h3>
 <details class="qa"><summary>備品を探すには？</summary><div class="qa-a">「備品台帳」画面の検索ボックスに、No.・品名・保管場所の一部を入力してください。カテゴリー・保管場所・状態のプルダウンで絞り込むこともできます。上部の「利用可能」「現場持出中」「点検・修理中」のカードを押すと、その状態だけが表示されます。</div></details>
 <details class="qa"><summary>備品の「状態」はどんな意味ですか？</summary><div class="qa-a">「利用可能（保管中）」は保管庫にあり使える状態、「現場持出中」は誰かが持ち出している状態、「点検・修理中」は整備中で使えない状態です。このほかに、使わなくなった備品の「廃棄」があります。</div></details>
-<details class="qa"><summary>新しい備品を登録するには？</summary><div class="qa-a">「備品台帳」画面の「新規登録」ボタンを押し、備品名を入力して「保存する」を押します。備品名以外は任意で、カテゴリ・保管場所・No.・備考・写真を登録できます。カテゴリと保管場所は、管理画面のマスタから選ぶこともできます。</div></details>
+<details class="qa"><summary>新しい備品を登録するには？</summary><div class="qa-a">「備品台帳」画面の「新規登録」ボタンを押し、備品名を入力して「保存する」を押します。備品名以外は任意で、カテゴリ・保管場所・No.・備考・写真を登録できます。カテゴリと保管場所は、管理画面のマスタから選ぶこともできます。マスタにないカテゴリ名を入力して保存すると、新規登録でも編集でも、自動でカテゴリマスタに追加されます。</div></details>
 <details class="qa"><summary>備品の写真を付けるには？</summary><div class="qa-a">備品の登録画面で「画像を選択」を押して写真を選びます。やめたいときは「写真を削除」を押してください。</div></details>
 <details class="qa"><summary>操作を間違えました。元に戻せますか？</summary><div class="qa-a">画面上部の「元に戻す」ボタンで、直前の操作を取り消せます。取り消せる操作がないときは、ボタンが押せない状態になっています。</div></details>
 </section>
@@ -874,6 +877,7 @@
 <details class="qa"><summary>保管場所やカテゴリを追加するには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」を開き、「カテゴリマスタ」または「保管場所マスタ」から新規登録します。保管場所は、ヤード名・倉庫名・棚番号・備考で登録できます。</div></details>
 <details class="qa"><summary>複数の備品のカテゴリや保管場所をまとめて変えるには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」で備品にチェックを入れ、「マスタから一括編集」を押します。カテゴリーと定位置（保管場所）を選んで「選択中の備品に適用」を押してください。</div></details>
 <details class="qa"><summary>備品を廃棄扱いにするには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」で対象の備品にチェックを入れ、「廃棄にする」を押します。間違えたときは、備品の詳細にある「廃棄を取り消す」で戻せます。</div></details>
+<details class="qa"><summary>自動で割り振られる社員番号の桁数や範囲を変えるには？</summary><div class="qa-a">管理画面の「借受者台帳マスタ」を開き、「社員番号設定」のタブで、先頭に付ける文字・開始番号・終了番号を決めて「設定を保存」を押します。変更は次のアカウント登録から反映され、すでに割り振られた番号は変わりません。</div></details>
 <details class="qa"><summary>データ量はどこで確認できますか？</summary><div class="qa-a">管理画面の「稼働ダッシュボード」に、「データ使用量（目安）」として、合計データ量・画像データ量・その他データ量・画像登録件数の概算が出ます。</div></details>
 </section>
   </div>
@@ -1144,6 +1148,7 @@
       <button class="subtab2" data-abtab="companies">会社名マスタ</button>
       <button class="subtab2" data-abtab="divisions">事業部マスタ</button>
       <button class="subtab2" data-abtab="qualifications">資格マスタ</button>
+      <button class="subtab2" data-abtab="empno">社員番号設定</button>
     </div>
 
     <div class="abpane" id="abPaneList">
@@ -1211,6 +1216,34 @@
     </div>
     <div class="abpane" id="abPaneQualifications" hidden>
       <div id="qualMasterRoot"></div>
+    </div>
+    <div class="abpane" id="abPaneEmpNo" hidden>
+      <div class="adminblock">
+        <div class="adminblock-head">社員番号の自動割り振り設定</div>
+        <div class="empno-form">
+          <p class="empno-desc">アカウント登録のとき、ここで決めた範囲の番号がランダムに割り振られます。すでに割り振られた番号は変わりません。</p>
+          <div class="field">
+            <label for="empNoPrefix">先頭に付ける文字（任意・半角英数字4文字まで）</label>
+            <input id="empNoPrefix" type="text" maxlength="4" autocomplete="off" placeholder="例）s">
+          </div>
+          <div class="field" style="flex-direction:row; gap:10px;">
+            <div class="field" style="flex:1;">
+              <label for="empNoMin">開始番号</label>
+              <input id="empNoMin" type="text" inputmode="numeric" autocomplete="off">
+            </div>
+            <div class="field" style="flex:1;">
+              <label for="empNoMax">終了番号</label>
+              <input id="empNoMax" type="text" inputmode="numeric" autocomplete="off">
+            </div>
+          </div>
+          <div class="empno-preview" id="empNoPreview"></div>
+          <div class="actionrow">
+            <button class="btn btn-primary" id="empNoSaveBtn">設定を保存</button>
+            <button class="btn btn-ghost" id="empNoResetBtn">初期値に戻す</button>
+          </div>
+          <p class="empno-desc">桁数は終了番号の桁数にそろえて、0で埋めます（例：1〜9999 なら 0001）。登録画面（ログイン前）でこの設定を使うには、Firestore のセキュリティルールで settings/employeeNumber の読み取りを許可する必要があります。許可がない場合は、初期値（1000〜9999）で割り振られます。</p>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1552,6 +1585,7 @@
     empEditingId: null,
     adminTab: "dashboard",
     adminBorrowerTab: "list",
+    empNoSettings: null,  // 社員番号の自動割り振り設定（settings/employeeNumber）
     admEmpSearch: "",
     admEmpSelected: {},   // employee id -> true (admin master table)
     admEquipSearch: "",
@@ -2556,6 +2590,73 @@
     renderEmpBulkBar();
   }
 
+  // ---------- 社員番号の自動割り振り設定 ----------
+  var EMPNO_DEFAULT = { prefix: "", min: 1000, max: 9999 };
+  function sanitizeEmpNo(d){
+    d = d || {};
+    var prefix = normLoginId(String(d.prefix == null ? "" : d.prefix)).replace(/[^a-z0-9]/g, "").slice(0, 4);
+    var min = parseInt(d.min, 10), max = parseInt(d.max, 10);
+    if(!isFinite(min) || min < 0) min = EMPNO_DEFAULT.min;
+    if(!isFinite(max) || max < min) max = Math.max(min, EMPNO_DEFAULT.max);
+    return { prefix: prefix, min: min, max: max };
+  }
+  function currentEmpNo(){ return state.empNoSettings || EMPNO_DEFAULT; }
+  function formatEmpNo(cfg, n){
+    var width = String(cfg.max).length;
+    var body = String(n);
+    while(body.length < width) body = "0" + body;
+    return cfg.prefix + body;
+  }
+  function randomEmpNo(cfg){
+    return formatEmpNo(cfg, cfg.min + Math.floor(Math.random() * (cfg.max - cfg.min + 1)));
+  }
+  function updateEmpNoPreview(){
+    var el = $("empNoPreview");
+    if(!el) return;
+    var cfg = readEmpNoForm();
+    if(!cfg.ok){ el.textContent = cfg.error; el.style.color = "var(--danger)"; return; }
+    var used = allEmployees().filter(function(e){ return e.loginId; }).length;
+    var cap = cfg.max - cfg.min + 1;
+    el.style.color = "";
+    el.textContent = "割り振り例：" + randomEmpNo(cfg) + "　／　割り振り可能：" + cap + " 件　／　台帳で使用中：" + used + " 件";
+  }
+  function readEmpNoForm(){
+    var rawMin = $("empNoMin").value.trim(), rawMax = $("empNoMax").value.trim();
+    var prefix = normLoginId($("empNoPrefix").value);
+    if(prefix && !/^[a-z0-9]{1,4}$/.test(prefix)) return { ok: false, error: "先頭の文字は、半角の英数字4文字までで入力してください。" };
+    if(!/^\d{1,8}$/.test(rawMin) || !/^\d{1,8}$/.test(rawMax)) return { ok: false, error: "開始番号と終了番号は、半角の数字（8桁まで）で入力してください。" };
+    var min = parseInt(rawMin, 10), max = parseInt(rawMax, 10);
+    if(min > max) return { ok: false, error: "開始番号は終了番号以下にしてください。" };
+    return { ok: true, prefix: prefix, min: min, max: max };
+  }
+  function fillEmpNoForm(){
+    if(!$("empNoMin")) return;
+    var cfg = currentEmpNo();
+    $("empNoPrefix").value = cfg.prefix;
+    $("empNoMin").value = cfg.min;
+    $("empNoMax").value = cfg.max;
+    updateEmpNoPreview();
+  }
+  function wireEmpNo(){
+    if(!$("empNoMin")) return;
+    ["empNoPrefix","empNoMin","empNoMax"].forEach(function(id){ $(id).addEventListener("input", updateEmpNoPreview); });
+    $("empNoSaveBtn").addEventListener("click", function(){
+      var cfg = readEmpNoForm();
+      if(!cfg.ok){ alert(cfg.error); return; }
+      if(!db){ return; }
+      db.collection("settings").doc("employeeNumber").set({ prefix: cfg.prefix, min: cfg.min, max: cfg.max, updatedAt: Date.now() })
+        .then(function(){ alert("社員番号の設定を保存しました。次回のアカウント登録から反映されます。"); })
+        .catch(function(e){ console.warn(e); alert("設定を保存できませんでした。Firestore のセキュリティルールをご確認ください。"); });
+    });
+    $("empNoResetBtn").addEventListener("click", function(){
+      $("empNoPrefix").value = EMPNO_DEFAULT.prefix;
+      $("empNoMin").value = EMPNO_DEFAULT.min;
+      $("empNoMax").value = EMPNO_DEFAULT.max;
+      updateEmpNoPreview();
+    });
+    fillEmpNoForm();
+  }
+
   // 社員番号の表記ゆれ（全角・空白・大文字）をそろえる
   function normLoginId(v){ return (v || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase(); }
 
@@ -2747,7 +2848,7 @@
     Array.prototype.forEach.call($("adminBorrowerTabs").querySelectorAll(".subtab2"), function(el){
       el.classList.toggle("active", el.getAttribute("data-abtab") === state.adminBorrowerTab);
     });
-    var abPaneMap = { list: "abPaneList", companies: "abPaneCompanies", divisions: "abPaneDivisions", qualifications: "abPaneQualifications" };
+    var abPaneMap = { list: "abPaneList", companies: "abPaneCompanies", divisions: "abPaneDivisions", qualifications: "abPaneQualifications", empno: "abPaneEmpNo" };
     Object.keys(abPaneMap).forEach(function(key){
       var el = $(abPaneMap[key]);
       if(el) el.hidden = (key !== state.adminBorrowerTab);
@@ -4188,6 +4289,10 @@
     var no = noVal === "" ? null : Number(noVal);
     if(!db){ closeModal(); return; }
 
+    // マスタにないカテゴリー名は、新規登録でも編集でも自動でカテゴリマスタに追加する
+    var newCats = findNewMasterNames("eqCategories", [category]);
+    if(newCats.length) addNewMasterNames("eqCategories", newCats, function(n){ return { icon: autoIconForCategory(n) }; });
+
     if(state.editingId){
       var patch = { name: name, category: category, location: location, notes: notes, updatedAt: Date.now() };
       if(no !== null) patch.no = no;
@@ -4563,6 +4668,11 @@
       if(state.page === "admin") renderAdmin();
     }, function(err){ console.warn("loans subscribe error", err); });
 
+    db.collection("settings").doc("employeeNumber").onSnapshot(function(d){
+      state.empNoSettings = d.exists ? sanitizeEmpNo(d.data()) : null;
+      fillEmpNoForm();
+    }, function(err){ console.warn("settings subscribe error", err); });
+
     db.collection("employees").onSnapshot(function(snap){
       var next = {};
       snap.docs.forEach(function(d){
@@ -4621,6 +4731,7 @@
   async function boot(){
     wireStatic();
     wireHelp();
+    wireEmpNo();
     switchPage("equipment");
     renderAll();
     try{
@@ -4699,6 +4810,7 @@
       case "auth/invalid-email": return "社員番号（ID）の形式が正しくありません。";
       case "auth/email-already-in-use": return "この社員番号（ID）はすでに登録されています。ログイン画面からログインしてください。";
       case "app/name-registered": return "このお名前はすでにアカウント登録済みです。ログイン画面から、割り振られた社員番号でログインしてください。社員番号を忘れた場合は管理者にお問い合わせください。";
+      case "app/no-number": return "割り振れる社員番号がありません。管理者にお問い合わせください。";
       case "app/link-failed": return "借受者台帳との連携に失敗しました。通信状況や、Firestore のセキュリティルールをご確認ください。";
       case "auth/weak-password": return "パスワードが短すぎます。";
       case "auth/user-disabled": return "このアカウントは無効化されています。管理者にお問い合わせください。";
@@ -4769,14 +4881,25 @@
     function normName(v){ return (v || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase(); }
 
     // 4桁の社員番号を自動で割り振る。Authで重複した番号なら別の番号で再試行する
-    function createWithAutoId(password, tries){
-      var num = String(1000 + Math.floor(Math.random() * 9000));
+    function createWithAutoId(password, tries, cfg){
+      var num = randomEmpNo(cfg);
       return auth.createUserWithEmailAndPassword(num + ID_DOMAIN, password).then(function(cred){
         return { id: num, user: cred.user };
       }, function(err){
-        if(err && err.code === "auth/email-already-in-use" && tries > 1) return createWithAutoId(password, tries - 1);
+        if(err && err.code === "auth/email-already-in-use"){
+          if(tries > 1) return createWithAutoId(password, tries - 1, cfg);
+          throw { code: "app/no-number" }; // 範囲内の番号を使い切った
+        }
         throw err;
       });
+    }
+    // 管理画面で決めた設定を読み込む（ログイン前は読めない場合があるので、失敗・遅延時は初期値）
+    function loadEmpNoSettings(){
+      var timeout = new Promise(function(res){ setTimeout(function(){ res(EMPNO_DEFAULT); }, 3000); });
+      var read = db.collection("settings").doc("employeeNumber").get().then(function(d){
+        return d.exists ? sanitizeEmpNo(d.data()) : EMPNO_DEFAULT;
+      });
+      return Promise.race([read, timeout]).catch(function(){ return EMPNO_DEFAULT; });
     }
 
     // 借受者台帳（employees）と連携する。同名で未連携の借受者がいればその人に社員番号を紐づけ、
@@ -4822,7 +4945,10 @@
         if(!pwEl.value){ showError("パスワードを入力してください。"); pwEl.focus(); return; }
         if(pwEl.value.length < MIN_PW){ showError("パスワードは" + MIN_PW + "文字以上で入力してください。"); pwEl.focus(); return; }
         registering = true; submitBtn.disabled = true;
-        createWithAutoId(toFirebasePassword(pwEl.value), 30).then(function(r){
+        loadEmpNoSettings().then(function(cfg){
+          var cap = cfg.max - cfg.min + 1;
+          return createWithAutoId(toFirebasePassword(pwEl.value), Math.min(80, Math.max(5, cap * 3)), cfg);
+        }).then(function(r){
           function rollback(code){
             return r.user.delete().catch(function(){}).then(function(){ return auth.signOut().catch(function(){}); })
               .then(function(){ throw { code: code }; });
