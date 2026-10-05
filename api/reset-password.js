@@ -11,7 +11,8 @@
  *   ADMIN_IDS                : 再設定を実行してよい社員番号（カンマ区切り。例: admin,s0001）
  *
  * リクエスト: POST /api/reset-password
- *   { idToken: "<呼び出した人の Firebase ID トークン>", loginId: "<対象の社員番号>", newPassword: "<新しいパスワード>" }
+ *   { idToken: "<呼び出した人の Firebase ID トークン>", loginId: "<対象の社員番号>", newPassword: "<新しいパスワード>", create: true（任意） }
+ *   create: true のとき、対象のアカウントがまだ無ければ、その社員番号のアカウントを新しく作成する（管理者のみ）
  */
 const admin = require("firebase-admin");
 
@@ -66,7 +67,15 @@ module.exports = async function handler(req, res){
   var target;
   try{ target = await admin.auth().getUserByEmail(toEmail(loginId)); }
   catch(e){
-    if(e && e.code === "auth/user-not-found") return send(res, 404, "user-not-found");
+    if(e && e.code === "auth/user-not-found"){
+      if(body.create !== true) return send(res, 404, "user-not-found");
+      try{
+        await admin.auth().createUser({ email: toEmail(loginId), password: toFirebasePassword(newPassword) });
+      }catch(e2){
+        return send(res, 500, "create-failed");
+      }
+      return send(res, 200);
+    }
     return send(res, 500, "lookup-failed");
   }
   try{

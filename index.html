@@ -2983,13 +2983,13 @@
   }
 
   // ---------- パスワード再設定（管理者）：サーバー側API /api/reset-password を呼ぶ ----------
-  function resetPasswordViaApi(loginId, newPassword){
+  function resetPasswordViaApi(loginId, newPassword, create){
     var user = authRef && authRef.currentUser;
     if(!user) return Promise.reject({ userMessage: "ログイン状態を確認できません。ログインし直してください。" });
     return user.getIdToken().then(function(token){
       return fetch("/api/reset-password", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken: token, loginId: loginId, newPassword: newPassword })
+        body: JSON.stringify({ idToken: token, loginId: loginId, newPassword: newPassword, create: create === true })
       });
     }).then(function(res){
       return res.json().catch(function(){ return null; }).then(function(body){ return { status: res.status, body: body }; });
@@ -3000,6 +3000,7 @@
     if(r.status === 200 && r.body && r.body.ok) return null;
     if(err === "forbidden") return "パスワードの再設定は、管理者として登録されたアカウントのみ実行できます。";
     if(err === "user-not-found") return "対象のアカウントが見つかりません。まだアカウント登録をしていない可能性があります。";
+    if(err === "create-failed") return "アカウントを作成できませんでした。";
     if(err === "invalid-token") return "ログインの有効期限が切れています。ログインし直してください。";
     if(err === "password-too-short") return "パスワードは4文字以上で入力してください。";
     if(err === "not-configured") return "サーバーの設定（FIREBASE_SERVICE_ACCOUNT）が済んでいません。管理者設定を確認してください。";
@@ -3017,6 +3018,16 @@
       if(!confirm("「" + empFullName(e) + "」（社員番号 " + e.loginId + "）のパスワードを変更します。よろしいですか？")) return;
       btn.disabled = true;
       resetPasswordViaApi(e.loginId, pw).then(function(r){
+        if(r.body && r.body.error === "user-not-found"){
+          // 台帳に社員番号はあるが、ログイン用アカウントがまだ無い：管理者がその場で作成できる
+          if(!confirm("社員番号 " + e.loginId + " のログイン用アカウントは、まだ作成されていません。\n入力したパスワードで、このアカウントを新しく作成しますか？\n（作成後、本人はこの社員番号とパスワードでログインできます）")) return;
+          return resetPasswordViaApi(e.loginId, pw, true).then(function(r2){
+            var msg2 = resetPasswordMessage(r2);
+            if(msg2){ alert(msg2); return; }
+            $("empNewPassword").value = "";
+            alert("アカウントを作成しました。社員番号 " + e.loginId + " と、設定したパスワードを本人にお伝えください。");
+          });
+        }
         var msg = resetPasswordMessage(r);
         if(msg){ alert(msg); return; }
         $("empNewPassword").value = "";
