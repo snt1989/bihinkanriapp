@@ -2473,6 +2473,39 @@
     Promise.resolve(op).catch(function(e){ console.warn("day note save failed", e); alertSaveFailed("日付コメントの保存", e); });
   }
 
+  // ---- 整備日誌：記録ごとの、日付つきコメント ----
+  function maintCommentsHtml(m){
+    var list = (m.comments || []).map(function(c, i){ return { c: c, i: i }; })
+      .sort(function(a,b){ return (a.c.date || "").localeCompare(b.c.date || "") || a.i - b.i; });
+    var h = '<div class="mcomments" style="margin-block-start:6px; display:flex; flex-direction:column; gap:3px;">';
+    list.forEach(function(x){
+      h += '<div style="font-size:12px; color:var(--text-muted); display:flex; gap:6px; align-items:baseline;">' +
+        '<span class="tnum" style="white-space:nowrap; color:var(--text-faint);">' + esc(fmtDate(x.c.date)) + '</span>' +
+        '<span style="flex:1; white-space:pre-wrap;">' + esc(x.c.text || "") + '</span>' +
+        '<button type="button" class="iconbtn" data-action="mc-del" data-idx="' + x.i + '" aria-label="コメントを削除" title="削除" style="width:22px;height:22px;">✕</button></div>';
+    });
+    h += '<div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">' +
+      '<input type="date" class="mcomment-date" value="' + todayISO() + '" style="font-size:12px; padding:4px 6px; border:1px solid var(--line); border-radius:8px; background:var(--surface,#fff); color:inherit;">' +
+      '<input type="text" class="mcomment-input" placeholder="コメントを追加（Enterで保存）" autocomplete="off" style="flex:1; min-width:160px; font-size:12.5px; padding:5px 9px; border:1px solid var(--line); border-radius:8px; background:var(--surface,#fff); color:inherit;">' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-action="mc-add">追加</button></div></div>';
+    return h;
+  }
+  function saveMaintComments(mid, next){
+    var m = state.maintenance[mid];
+    if(!m || !db) return;
+    m.comments = next;
+    db.collection("maintenance").doc(mid).update({ comments: next, updatedAt: Date.now() })
+      .catch(function(e){ console.warn(e); alertSaveFailed("コメントの保存", e); });
+    renderMaintHistoryTable();
+  }
+  function addMaintComment(mid, date, text){
+    var m = state.maintenance[mid];
+    text = (text || "").trim();
+    if(!m || !text) return;
+    var by = (authRef && authRef.currentUser && authRef.currentUser.email) ? authRef.currentUser.email.replace("@bihinkanriapp.local", "") : "";
+    saveMaintComments(mid, (m.comments || []).concat([{ date: date || todayISO(), text: text, by: by, createdAt: Date.now() }]));
+  }
+
   function renderMaintHistoryTable(){
     var body = $("maintHistoryTableBody");
     if(!body) return;
@@ -2499,7 +2532,7 @@
       html += '  <td class="tnum">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
       html += '  <td class="mname"><span style="color:var(--accent-strong);">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span> <span style="font-weight:400; color:var(--text-muted);">(' + esc(m.equipmentName || "") + ')</span></td>';
       html += '  <td>' + esc(m.maintType || "") + '</td>';
-      html += '  <td>' + esc(m.issue || "") + '</td>';
+      html += '  <td>' + esc(m.issue || "") + maintCommentsHtml(m) + '</td>';
       html += '  <td>' + esc(m.partsCost || "-") + '</td>';
       html += '  <td>' + esc(m.staffName || "") + '</td>';
       html += '  <td><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>' +
@@ -2510,7 +2543,22 @@
 
     Array.prototype.forEach.call(body.querySelectorAll("tr[data-eid]"), function(row){
       var eid = row.getAttribute("data-eid");
-      row.addEventListener("click", function(e){ if(e.target.closest("[data-action]")) return; if(state.items[eid]) openDrawer(eid); });
+      var mid0 = row.getAttribute("data-mid");
+      var addBtn = row.querySelector('[data-action="mc-add"]');
+      var cInput = row.querySelector(".mcomment-input"), cDate = row.querySelector(".mcomment-date");
+      function doAddComment(){ addMaintComment(mid0, cDate.value, cInput.value); }
+      if(addBtn) addBtn.addEventListener("click", function(e){ e.stopPropagation(); doAddComment(); });
+      if(cInput) cInput.addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); doAddComment(); } });
+      Array.prototype.forEach.call(row.querySelectorAll('[data-action="mc-del"]'), function(b){
+        b.addEventListener("click", function(e){
+          e.stopPropagation();
+          var mm = state.maintenance[mid0];
+          if(!mm || !confirm("このコメントを削除します。よろしいですか？")) return;
+          var idx = parseInt(b.getAttribute("data-idx"), 10);
+          saveMaintComments(mid0, (mm.comments || []).filter(function(_, i){ return i !== idx; }));
+        });
+      });
+      row.addEventListener("click", function(e){ if(e.target.closest("[data-action], input")) return; if(state.items[eid]) openDrawer(eid); });
       var hd = row.querySelector('[data-action="hdone"]');
       if(hd) hd.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(row.getAttribute("data-mid"), "完了"); });
       var hr = row.querySelector('[data-action="hretire"]');
@@ -2522,9 +2570,9 @@
   }
 
   async function exportMaintenanceCsv(){
-    var rows = [["実施日","管理番号","品名","整備種目","作業内容","交換部品／費用","整備担当者","状態"]];
+    var rows = [["実施日","管理番号","品名","整備種目","作業内容","交換部品／費用","整備担当者","状態","コメント"]];
     allMaint().slice().sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); }).forEach(function(m){
-      rows.push([fmtDate(m.endDate || m.startDate), typeof m.no==="number"?fmtNo(m.no):"", m.equipmentName||"", m.maintType||"", m.issue||"", m.partsCost||"", m.staffName||"", m.status||""]);
+      rows.push([fmtDate(m.endDate || m.startDate), typeof m.no==="number"?fmtNo(m.no):"", m.equipmentName||"", m.maintType||"", m.issue||"", m.partsCost||"", m.staffName||"", m.status||"", (m.comments||[]).map(function(c){ return fmtDate(c.date) + " " + (c.text||""); }).join(" / ")]);
     });
     var csv = rows.map(function(r){
       return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
@@ -5157,7 +5205,8 @@
       });
       state.maintenance = next;
       renderNavCounts();
-      if(state.page === "maintenance") renderMaintList();
+      var ae2 = document.activeElement;
+      if(state.page === "maintenance" && !(ae2 && ae2.classList && (ae2.classList.contains("mcomment-input") || ae2.classList.contains("mcomment-date")))) renderMaintList();
       if(state.page === "admin") renderAdmin();
     }, function(err){ console.warn("maintenance subscribe error", err); });
 
