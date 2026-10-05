@@ -319,6 +319,10 @@
   .masteraddform input{flex:1 1 140px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font-size:13px; min-width:0;}
   .masteraddform input:focus{outline:none; border-color:var(--accent);}
   .masteraddform input.micon-input{flex:0 0 56px; text-align:center; font-size:16px;}
+  /* 整備士アカウント：整備に関する画面だけ使える */
+  body.role-mechanic .navtab[data-page="loans"], body.role-mechanic .navtab[data-page="borrowers"], body.role-mechanic .navtab[data-page="admin"],
+  body.role-mechanic #openAddBtn, body.role-mechanic .card [data-action="edit"],
+  body.role-mechanic #btnLendOpen, body.role-mechanic #btnReturn, body.role-mechanic #btnUnretire, body.role-mechanic #lendForm{display:none !important;}
   .masterlistrow{display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid var(--line-soft);}
   .masterlistrow:last-child{border-bottom:none;}
   .masterlistrow .mlname{flex:1; font-size:13px; font-weight:600; min-width:0;}
@@ -1291,6 +1295,26 @@
   </div>
 </div>
 
+<!-- 整備士アカウント作成 -->
+<div class="modal-overlay" id="mechAcctOverlay">
+  <div class="modal">
+    <h3>整備士アカウントを作成</h3>
+    <div class="fields">
+      <div class="field" style="flex-direction:row; gap:10px;">
+        <div class="field" style="flex:1;"><label for="mechAcctLast">姓 <span style="color:var(--danger);">*</span></label><input id="mechAcctLast" type="text" placeholder="例）山田" autocomplete="off"></div>
+        <div class="field" style="flex:1;"><label for="mechAcctFirst">名</label><input id="mechAcctFirst" type="text" placeholder="例）太郎" autocomplete="off"></div>
+      </div>
+      <div class="field"><label for="mechAcctId">ログインID（社員番号・任意）</label><input id="mechAcctId" type="text" inputmode="latin" autocomplete="off" placeholder="空欄のまま作成すると、自動で割り振られます"></div>
+      <div class="field"><label for="mechAcctPw">パスワード（4文字以上） <span style="color:var(--danger);">*</span></label><input id="mechAcctPw" type="text" autocomplete="off" placeholder="本人にお伝えするパスワード"></div>
+      <div class="login-hint" style="font-size:12px; color:var(--text-muted);">整備士アカウントは、整備台帳（整備記録・コメント・完了・廃棄）の操作だけができます。備品の持出・返却、備品や借受者の編集、マスタ・管理画面は使えません。整備担当者マスタにも自動で登録されます。</div>
+    </div>
+    <div class="foot">
+      <button class="btn btn-ghost" id="mechAcctCancelBtn">キャンセル</button>
+      <button class="btn btn-primary" id="mechAcctSaveBtn">アカウントを作成</button>
+    </div>
+  </div>
+</div>
+
 <!-- アイコン選択（カテゴリマスタ） -->
 <div class="modal-overlay" id="iconPickerOverlay" style="z-index:60;">
   <div class="modal">
@@ -1619,6 +1643,7 @@
     loans: {},           // loan id -> data
     employees: {},        // employee id -> data
     ready: false,
+    role: "",            // ログイン中のアカウントの権限（"mechanic" = 整備士）
     dbAvailable: null,
     search: "",
     statusFilter: "all",
@@ -1802,7 +1827,15 @@
 
   // ---------- page switching ----------
 
+  // ---- 整備士アカウント（整備に関する操作だけ許可） ----
+  function isMechanicRole(){ return state.role === "mechanic"; }
+  function applyRole(role){
+    state.role = role || "";
+    document.body.classList.toggle("role-mechanic", isMechanicRole());
+    if(isMechanicRole() && ["maintenance","equipment","help"].indexOf(state.page) === -1) switchPage("maintenance");
+  }
   function switchPage(p){
+    if(isMechanicRole() && ["equipment","maintenance","help"].indexOf(p) === -1) p = "maintenance";
     state.page = p;
     ["equipment","maintenance","loans","borrowers","admin","help"].forEach(function(name){
       var el = $("page" + name.charAt(0).toUpperCase() + name.slice(1));
@@ -2020,6 +2053,10 @@
   function handlePrimaryAction(id){
     var it = state.items[id];
     if(!it) return;
+    if(isMechanicRole()){
+      if(it.status === "修理中") openMaintRecordModal(id); else openDrawer(id);
+      return;
+    }
     if(it.status === "利用可能"){
       openDrawer(id);
       var el = $("lendForm");
@@ -2594,6 +2631,11 @@
     $("maintAddIssue").value = om ? (om.issue || "") : "";
     $("maintAddParts").value = om ? (om.parts || "") : "";
     $("maintAddCost").value = om && om.cost ? om.cost : "";
+    if(isMechanicRole() && !$("maintAddStaff").value){
+      // 整備士でログインしている人は、整備担当者に自分の名前を初期入力する
+      var myKey = Object.keys(state.mechanics || {}).filter(function(k){ return state.mechanics[k].loginId === currentLoginId; })[0];
+      if(myKey && state.mechanics[myKey].name) $("maintAddStaff").value = state.mechanics[myKey].name;
+    }
   }
   function openMaintRecordModal(equipmentId){
     var sel = $("maintAddEquip");
@@ -2968,6 +3010,7 @@
     var cfg = currentEmpNo();
     var used = {};
     allEmployees().forEach(function(e){ if(e.loginId) used[normLoginId(e.loginId)] = true; });
+    Object.keys(state.mechanics || {}).forEach(function(k){ var l = state.mechanics[k].loginId; if(l) used[normLoginId(l)] = true; });
     Object.keys(pendingEmpNos).forEach(function(k){ used[k] = true; });
     var cap = cfg.max - cfg.min + 1, n = "", i;
     for(i = 0; i < 300; i++){
@@ -3081,13 +3124,13 @@
   }
 
   // ---------- パスワード再設定（管理者）：サーバー側API /api/reset-password を呼ぶ ----------
-  function resetPasswordViaApi(loginId, newPassword, create){
+  function resetPasswordViaApi(loginId, newPassword, create, role){
     var user = authRef && authRef.currentUser;
     if(!user) return Promise.reject({ userMessage: "ログイン状態を確認できません。ログインし直してください。" });
     return user.getIdToken().then(function(token){
       return fetch("/api/reset-password", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken: token, loginId: loginId, newPassword: newPassword, create: create === true })
+        body: JSON.stringify({ idToken: token, loginId: loginId, newPassword: newPassword, create: create === true, role: role })
       });
     }).then(function(res){
       return res.json().catch(function(){ return null; }).then(function(body){ return { status: res.status, body: body }; });
@@ -3099,6 +3142,7 @@
     if(err === "forbidden") return "パスワードの再設定は、管理者として登録されたアカウントのみ実行できます。";
     if(err === "user-not-found") return "対象のアカウントが見つかりません。まだアカウント登録をしていない可能性があります。";
     if(err === "create-failed") return "アカウントを作成できませんでした。";
+    if(err === "role-failed") return "アカウントの権限（整備士）を設定できませんでした。";
     if(err === "invalid-token") return "ログインの有効期限が切れています。ログインし直してください。";
     if(err === "password-too-short") return "パスワードは4文字以上で入力してください。";
     if(err === "not-configured") return "サーバーの設定（FIREBASE_SERVICE_ACCOUNT）が済んでいません。管理者設定を確認してください。";
@@ -4403,6 +4447,7 @@
     html += '      <button class="btn btn-ghost btn-sm" data-action="csv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>CSV出力</button>';
     html += '      <button class="btn btn-ghost btn-sm" data-action="import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M4 3h16"/></svg>CSV取込</button>';
     html += '      <input type="file" class="gmImportFile" accept=".csv,text/csv" hidden>';
+    if(collectionName === "mechanics") html += '      <button class="btn btn-primary btn-sm" data-action="mech-account">整備士アカウントを作成</button>';
     html += '      <button class="addbtn" data-action="add" style="margin-inline-start:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>新規追加</button>';
     html += '    </div>';
     html += '  </div>';
@@ -4410,11 +4455,12 @@
     html += '  <div style="overflow-x:auto;"><table class="mastertable"><thead><tr>';
     if(bulk) html += '<th style="width:28px;"><input type="checkbox" class="mlSelectAllHeader" aria-label="全選択"></th><th style="width:60px;">並び替え</th>';
     cfg.fields.forEach(function(f){ html += '<th>' + esc(f.label) + '</th>'; });
+    if(collectionName === "mechanics") html += '<th>ログインID</th>';
     var usageColLabel = cfg.usageLabel || "使用中";
     html += '<th>' + esc(usageColLabel) + '</th><th style="width:70px;">操作</th></tr></thead><tbody>';
     var extraCols = (bulk ? 2 : 0);
     if(list.length === 0){
-      html += '<tr><td colspan="' + (cfg.fields.length + 2 + extraCols) + '"><div class="empty">まだ登録されていません</div></td></tr>';
+      html += '<tr><td colspan="' + (cfg.fields.length + 3 + extraCols) + '"><div class="empty">まだ登録されていません</div></td></tr>';
     } else {
       list.forEach(function(item, idx){
         var usage = masterUsageCount(collectionName, item.name);
@@ -4434,6 +4480,7 @@
             html += '<td' + (f.key === "name" ? ' class="mname"' : '') + '>' + esc(cellVal || (f.required ? "" : "-")) + '</td>';
           }
         });
+        if(collectionName === "mechanics") html += '<td class="tnum">' + esc(item.loginId || "-") + '</td>';
         html += '<td>' + usage + ' ' + esc(cfg.usageUnit) + '</td>';
         html += '<td class="mactions"><button class="iconbtn" data-action="edit" aria-label="編集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="iconbtn danger" data-action="delete" aria-label="削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg></button></td>';
         html += '</tr>';
@@ -4459,6 +4506,8 @@
 
     var addBtn = root.querySelector('[data-action="add"]');
     if(addBtn) addBtn.addEventListener("click", function(){ openGenericMasterModal(collectionName, null); });
+    var mechAcctBtn = root.querySelector('[data-action="mech-account"]');
+    if(mechAcctBtn) mechAcctBtn.addEventListener("click", openMechAcctModal);
     var csvBtn = root.querySelector('[data-action="csv"]');
     if(csvBtn) csvBtn.addEventListener("click", function(){ exportGenericMasterCsv(collectionName); });
     var importBtn = root.querySelector('[data-action="import"]');
@@ -4534,6 +4583,51 @@
     $("iconPickerAuto").addEventListener("click", function(){ pickIcon(""); });
     $("iconPickerClose").addEventListener("click", closeIconPicker);
     $("iconPickerOverlay").addEventListener("click", function(e){ if(e.target === $("iconPickerOverlay")) closeIconPicker(); });
+  }
+
+  // ---------- 整備士アカウント ----------
+  function openMechAcctModal(){
+    ["mechAcctLast","mechAcctFirst","mechAcctId","mechAcctPw"].forEach(function(id){ $(id).value = ""; });
+    $("mechAcctOverlay").classList.add("show");
+    setTimeout(function(){ $("mechAcctLast").focus(); }, 50);
+  }
+  function closeMechAcctModal(){ $("mechAcctOverlay").classList.remove("show"); }
+  function submitMechAcct(){
+    var last = $("mechAcctLast").value.trim(), first = $("mechAcctFirst").value.trim();
+    var pw = $("mechAcctPw").value;
+    var loginId = normLoginId($("mechAcctId").value);
+    var isReset = false;
+    if(!last){ $("mechAcctLast").focus(); return; }
+    if(pw.length < 4){ alert("パスワードは4文字以上で入力してください。"); $("mechAcctPw").focus(); return; }
+    if(loginId){
+      var dupEmp = allEmployees().some(function(e){ return e.loginId && normLoginId(e.loginId) === loginId; });
+      var dupMech = Object.keys(state.mechanics || {}).some(function(k){ var l = state.mechanics[k].loginId; return l && normLoginId(l) === loginId; });
+      if(dupMech && !dupEmp){
+        if(!confirm("ログインID「" + loginId + "」の整備士アカウントはすでにあります。\n入力したパスワードに変更しますか？")) return;
+        isReset = true;
+      } else if(dupEmp){ alert("ログインID「" + loginId + "」は、すでに使われています。別のIDを入力するか、空欄にして自動で割り振ってください。"); $("mechAcctId").focus(); return; }
+    } else {
+      loginId = allocateEmpNo();
+      if(!loginId){ alert("割り振れる社員番号がありません。管理画面の「社員番号設定」の範囲を広げてください。"); return; }
+    }
+    var full = (last + " " + first).trim();
+    var btn = $("mechAcctSaveBtn");
+    btn.disabled = true;
+    resetPasswordViaApi(loginId, pw, true, "mechanic").then(function(r){
+      var msg = resetPasswordMessage(r);
+      if(msg){ alert(msg); return; }
+      var exists = allMasterNames(state.mechanics).indexOf(full) !== -1;
+      if(isReset){ /* 既存の整備士のパスワード変更のみ */ }
+      else if(!exists) addMasterItem("mechanics", full, { lastName: last, firstName: first, loginId: loginId, role: "mechanic" });
+      else {
+        var hit = Object.keys(state.mechanics).map(function(k){ return state.mechanics[k]; }).filter(function(m){ return m.name === full; })[0];
+        if(hit && db) db.collection("mechanics").doc(hit.id).update({ loginId: loginId, role: "mechanic" }).catch(function(e){ console.warn(e); });
+      }
+      closeMechAcctModal();
+      alert("整備士アカウントを作成しました。\n\nログインID：" + loginId + "\nパスワード：" + pw + "\n\n本人にお伝えください。\n（この画面を閉じると、パスワードは再表示できません。変えるときは、同じログインIDでもう一度作成してください）");
+    }).catch(function(err){
+      alert((err && err.userMessage) || "通信に失敗しました。ネットワークをご確認ください。");
+    }).then(function(){ btn.disabled = false; });
   }
 
   function openGenericMasterModal(collectionName, existing){
@@ -5087,6 +5181,8 @@
     });
 
     // ---- 管理画面: 会社名／事業部／資格／カテゴリ／整備種目／整備士マスタ（共通モーダル） ----
+    $("mechAcctCancelBtn").addEventListener("click", closeMechAcctModal);
+    $("mechAcctSaveBtn").addEventListener("click", submitMechAcct);
     $("genericMasterCancelBtn").addEventListener("click", closeGenericMasterModal);
     $("genericMasterSaveBtn").addEventListener("click", saveGenericMasterModal);
     $("genericMasterModalOverlay").addEventListener("click", function(e){ if(e.target === $("genericMasterModalOverlay")) closeGenericMasterModal(); });
@@ -5375,7 +5471,12 @@
   function refreshUserBadge(){
     if(!currentLoginId) return;
     var e = allEmployees().filter(function(x){ return x.loginId === currentLoginId; })[0];
-    $("userEmail").textContent = e ? empFullName(e) + "（" + currentLoginId + "）" : currentLoginId;
+    var nm = e ? empFullName(e) : "";
+    if(!nm){
+      var mk = Object.keys(state.mechanics || {}).filter(function(k){ return state.mechanics[k].loginId === currentLoginId; })[0];
+      if(mk) nm = state.mechanics[mk].name || "";
+    }
+    $("userEmail").textContent = (nm ? nm + "（" + currentLoginId + "）" : currentLoginId) + (isMechanicRole() ? "［整備士］" : "");
   }
   function hideLogin(){ $("loginOverlay").hidden = true; }
 
@@ -5560,7 +5661,13 @@
       $("userEmail").textContent = currentLoginId;
       $("userBox").hidden = false;
       hideLogin();
-      if(!started){ started = true; startApp(); }
+      if(!started){
+        started = true;
+        // 権限（整備士など）を確認してから画面を開く。確認できなかった場合は通常の権限
+        var roleP = (user.getIdTokenResult ? user.getIdTokenResult() : Promise.resolve(null))
+          .then(function(r){ return (r && r.claims && r.claims.role) || ""; }, function(){ return ""; });
+        roleP.then(function(role){ applyRole(role); startApp(); applyRole(role); if(isMechanicRole()) switchPage("maintenance"); refreshUserBadge(); });
+      }
     }
     // 登録直後は、割り振られた社員番号を確認してもらってからアプリを開く
     $("lwStart").addEventListener("click", function(){

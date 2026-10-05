@@ -12,6 +12,7 @@
  *
  * リクエスト: POST /api/reset-password
  *   { idToken: "<呼び出した人の Firebase ID トークン>", loginId: "<対象の社員番号>", newPassword: "<新しいパスワード>", create: true（任意） }
+ *   role: "mechanic"（任意）を付けると、そのアカウントを「整備士」にする（整備に関する操作だけ許可）。role: "none" で解除
  *   create: true のとき、対象のアカウントがまだ無ければ、その社員番号のアカウントを新しく作成する（管理者のみ）
  */
 const admin = require("firebase-admin");
@@ -51,6 +52,10 @@ module.exports = async function handler(req, res){
   if(newPassword.length < MIN_PW) return send(res, 400, "password-too-short");
   if(newPassword.length > 128) return send(res, 400, "password-too-long");
 
+  var roleParam = body.role;
+  if(roleParam !== undefined && roleParam !== "mechanic" && roleParam !== "none") return send(res, 400, "bad-role");
+  var roleClaims = roleParam === "mechanic" ? { role: "mechanic" } : {};
+
   try{ initAdmin(); }catch(e){ return send(res, 500, "not-configured"); }
 
   // 1) 呼び出した人が本人確認済み（有効なログイン）か
@@ -69,16 +74,22 @@ module.exports = async function handler(req, res){
   catch(e){
     if(e && e.code === "auth/user-not-found"){
       if(body.create !== true) return send(res, 404, "user-not-found");
+      var created;
       try{
-        await admin.auth().createUser({ email: toEmail(loginId), password: toFirebasePassword(newPassword) });
+        created = await admin.auth().createUser({ email: toEmail(loginId), password: toFirebasePassword(newPassword) });
       }catch(e2){
         return send(res, 500, "create-failed");
+      }
+      if(roleParam !== undefined){
+        try{ await admin.auth().setCustomUserClaims(created.uid, roleClaims); }
+        catch(e3){ return send(res, 500, "role-failed"); }
       }
       return send(res, 200);
     }
     return send(res, 500, "lookup-failed");
   }
   try{
+    if(roleParam !== undefined) await admin.auth().setCustomUserClaims(target.uid, roleClaims);
     await admin.auth().updateUser(target.uid, { password: toFirebasePassword(newPassword) });
     await admin.auth().revokeRefreshTokens(target.uid); // 古いパスワードで開いていたログインを無効化
   }catch(e){
