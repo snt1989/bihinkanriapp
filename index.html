@@ -885,6 +885,7 @@
 <details class="qa"><summary>備品を持ち出すには？</summary><div class="qa-a">備品台帳で対象の備品を押して詳細を開き、「持出」を押します。借受者の姓・名、現場名／用途（任意）、返却予定日を入力し、「持出を確定」を押してください。状態が「現場持出中」に変わり、貸出台帳にも記録されます。</div></details>
 <details class="qa"><summary>借受者に未登録の人が持ち出すときは？</summary><div class="qa-a">姓と名を入力すれば持出できます。借受者として登録されていない名前を入力した場合は、借受者として登録するかどうかを選べます。あらかじめ「借受者台帳」に登録しておくこともできます。</div></details>
 <details class="qa"><summary>備品を返却するには？</summary><div class="qa-a">持出中の備品の詳細を開き、「返却する」を押します。返却前チェックリストを確認し、返却時の状態を「異常なし（保管庫へ）」か「要点検・修理（整備台帳へ）」から選んで、「返却を完了する」を押してください。</div></details>
+<details class="qa"><summary>同じ備品が2個以上あるときは？</summary><div class="qa-a">備品の登録・編集画面の「数量」に個数を入れてください（初期値は1）。数量が2個以上の備品は、持出のときに「持出数量」を入力します。一部だけ持ち出した間は「利用可能」のまま、備品カードに在庫数と持出者が表示されます。全部持ち出されると「貸出中」になります。返却は、備品の詳細画面（または貸出台帳）で、持出の記録ごとに行います。</div></details>
 <details class="qa"><summary>返却時に不具合があったときは？</summary><div class="qa-a">返却の画面で「要点検・修理（整備台帳へ）」を選んでください。備品の状態が「点検・修理中」になり、整備台帳に「整備中」の記録が自動で作られます。不具合の内容は「返却チェック・不具合メモ」に書いておくと、整備台帳の作業内容に残ります。返却前チェックリストも、あわせて確認してください。</div></details>
 <details class="qa"><summary>返却予定日を過ぎたらどうなりますか？</summary><div class="qa-a">備品の詳細で、返却予定日が赤字で「（期限超過）」と表示されます。持出中の一覧は「貸出台帳」画面でも確認できます。</div></details>
 <details class="qa"><summary>誰がいつ借りたか知りたいときは？</summary><div class="qa-a">「貸出台帳」画面に、現場への持出・返却の履歴が出ます。備品ごとの履歴は、備品の詳細の「履歴」でも確認できます。</div></details>
@@ -1357,6 +1358,10 @@
         <input id="fNo" type="number" inputmode="numeric" min="0">
       </div>
       <div class="field">
+        <label for="fQuantity">数量（同じ備品が2個以上あるとき。持出時に数量を入力します）</label>
+        <input id="fQuantity" type="number" inputmode="numeric" min="1" step="1" value="1">
+      </div>
+      <div class="field">
         <label for="fNotes">備考</label>
         <textarea id="fNotes" placeholder="型番・状態など"></textarea>
       </div>
@@ -1642,6 +1647,7 @@
     loanFilter: "open",
     activeId: null,
     returningId: null,
+    returningLoanId: null,
     logsUnsub: null,
     editingId: null,
     editingImageData: null,
@@ -1771,7 +1777,22 @@
     if(typeof n !== "number") return "No.—";
     return "No." + String(n).padStart(3,"0");
   }
+  // ---- 数量（2個以上ある備品は、貸出ごとに数量を入力する） ----
+  function qtyOf(it){ var n = parseInt(it && it.quantity, 10); return n >= 1 ? n : 1; }
+  function loanQty(l){ var n = parseInt(l && l.qty, 10); return n >= 1 ? n : 1; }
+  function openLoansOf(id){
+    return Object.keys(state.loans).map(function(k){ return state.loans[k]; })
+      .filter(function(l){ return l.equipmentId === id && l.status === "貸出中"; })
+      .sort(function(a,b){ return (a.createdAt||0) - (b.createdAt||0); });
+  }
+  function lentQty(id){ return openLoansOf(id).reduce(function(sum, l){ return sum + loanQty(l); }, 0); }
+  function isMulti(it){ return qtyOf(it) >= 2; }
+  function isLentAny(it){
+    if(it.status === "貸出中") return true;
+    return it.status === "利用可能" && isMulti(it) && lentQty(it.id) > 0;
+  }
   function isOverdue(item){
+    if(isMulti(item)) return openLoansOf(item.id).some(function(l){ return l.dueDate && l.dueDate < todayISO(); });
     return item.status === "貸出中" && item.dueDate && item.dueDate < todayISO();
   }
   function statusClass(s){
@@ -1847,7 +1868,7 @@
     var items = allItems();
     $("statTotal").textContent = items.length;
     $("statIn").textContent = items.filter(function(i){return i.status==="利用可能";}).length;
-    $("statLent").textContent = items.filter(function(i){return i.status==="貸出中";}).length;
+    $("statLent").textContent = items.filter(isLentAny).length;
     $("statRepair").textContent = items.filter(function(i){return i.status==="修理中";}).length;
     Array.prototype.forEach.call($("statsRow").querySelectorAll(".statcard"), function(el){
       el.classList.toggle("active", el.getAttribute("data-status") === state.statusFilter);
@@ -1893,7 +1914,8 @@
   function filteredItems(){
     var q = state.search.trim().toLowerCase();
     return allItems().filter(function(it){
-      if(state.statusFilter !== "all" && it.status !== state.statusFilter) return false;
+      if(state.statusFilter === "貸出中"){ if(!isLentAny(it)) return false; }
+      else if(state.statusFilter !== "all" && it.status !== state.statusFilter) return false;
       if(state.categoryFilter !== "all" && it.category !== state.categoryFilter) return false;
       if(state.locationFilter !== "all" && it.location !== state.locationFilter) return false;
       if(q){
@@ -1964,9 +1986,17 @@
       html += '  </div>';
       html += '  <div class="card-body" data-open="1">';
       html += '    <div class="card-top"><span class="no tnum">' + fmtNo(it.no) + '</span><span class="badge ' + sc + '">' + statusBadgeIcon(it.status) + '<span>' + esc(cardStatusLabel(it.status)) + '</span></span></div>';
-      html += '    <div class="cname">' + esc(it.name) + '</div>';
+      html += '    <div class="cname">' + esc(it.name) + (isMulti(it) ? ' <span class="tnum" style="font-weight:600; color:var(--text-muted); font-size:.85em;">×' + qtyOf(it) + '</span>' : '') + '</div>';
       html += '    <div class="cloc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.5 7-12.5A7 7 0 0 0 5 9.5C5 14.5 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.3"/></svg><span>' + (categoryIcon(it.category) ? esc(categoryIcon(it.category)) + ' ' : '') + esc(it.category) + (it.location ? '　／　' + esc(it.location) : '') + '</span></div>';
-      if(it.status === "貸出中" && it.borrower){
+      if(isMulti(it) && lentQty(it.id) > 0){
+        var ols = openLoansOf(it.id), od0 = isOverdue(it);
+        html += '    <div class="checkoutbox">';
+        html += '      <div class="row"><span class="k">在庫:</span><span class="v">' + Math.max(0, qtyOf(it) - lentQty(it.id)) + '／' + qtyOf(it) + '個（持出中 ' + lentQty(it.id) + '個）</span></div>';
+        html += '      <div class="row' + (od0 ? " overdue" : "") + '"><span class="k">持出者:</span><span class="v">' + ols.map(function(l){ return esc(l.borrower || "") + '(' + loanQty(l) + ')'; }).join("、") + (od0 ? '（超過あり）' : '') + '</span></div>';
+        html += '    </div>';
+      } else if(isMulti(it) && it.status === "利用可能"){
+        html += '    <div class="cmeta">在庫 ' + qtyOf(it) + '／' + qtyOf(it) + '個</div>';
+      } else if(it.status === "貸出中" && it.borrower){
         var od = isOverdue(it);
         html += '    <div class="checkoutbox">';
         html += '      <div class="row"><span class="k">持出者:</span><span class="v">' + esc(it.borrower) + '</span></div>';
@@ -2013,7 +2043,7 @@
       if(el) el.hidden = false;
       return;
     }
-    if(it.status === "貸出中"){ openReturnModal(id); return; }
+    if(it.status === "貸出中"){ if(isMulti(it)) openDrawer(id); else openReturnModal(id); return; }
     if(it.status === "修理中"){ openMaintRecordModal(id); return; }
     if(it.status === "廃棄"){
       updateItem(id, { status: "利用可能" });
@@ -2090,7 +2120,10 @@
     html += '<div class="kv">';
     html += '<div class="kv-row"><span class="k">No.</span><span class="v tnum">' + fmtNo(it.no) + '</span></div>';
     html += '<div class="kv-row"><span class="k">状態</span><span class="v"><span class="badge ' + statusClass(it.status) + '">' + esc(it.status) + '</span></span></div>';
-    if(it.status === "貸出中"){
+    if(isMulti(it)){
+      html += '<div class="kv-row"><span class="k">数量</span><span class="v tnum">全' + qtyOf(it) + '個（在庫 ' + Math.max(0, qtyOf(it) - lentQty(it.id)) + '個／持出中 ' + lentQty(it.id) + '個）</span></div>';
+    }
+    if(it.status === "貸出中" && !isMulti(it)){
       html += '<div class="kv-row"><span class="k">借用者</span><span class="v">' + esc(it.borrower||"—") + '</span></div>';
       if(it.siteName){
         html += '<div class="kv-row"><span class="k">現場名／用途</span><span class="v">' + esc(it.siteName) + '</span></div>';
@@ -2103,11 +2136,20 @@
     }
     html += '</div>';
 
+    if(isMulti(it) && lentQty(it.id) > 0){
+      html += '<div class="field"><label>持出中の記録（返却は行ごと）</label>';
+      openLoansOf(it.id).forEach(function(l){
+        var odl = l.dueDate && l.dueDate < todayISO();
+        html += '<div class="kv-row" style="align-items:center; gap:8px;"><span class="k" style="flex:1;">' + esc(l.borrower || "") + '　' + loanQty(l) + '個' + (l.siteName ? '・' + esc(l.siteName) : '') + '<br><span class="tnum ' + (odl ? "overdue" : "") + '" style="font-size:11.5px;">返却予定 ' + esc(fmtDate(l.dueDate)) + (odl ? '（期限超過）' : '') + '</span></span><button class="btn btn-info btn-sm" data-return-loan="' + esc(l.id) + '">返却する</button></div>';
+      });
+      html += '</div>';
+    }
+
     // actions
     html += '<div class="actionrow">';
     if(it.status === "利用可能"){
       html += '<button class="btn btn-primary" id="btnLendOpen">持出</button>';
-    } else if(it.status === "貸出中"){
+    } else if(it.status === "貸出中" && !isMulti(it)){
       html += '<button class="btn btn-info" id="btnReturn">返却する</button>';
     } else if(it.status === "修理中"){
       html += '<button class="btn btn-primary" id="btnRepairDone">修理完了（利用可能へ）</button>';
@@ -2124,6 +2166,10 @@
     html += '  <div class="field" style="flex:1;"><label for="lendFirstName">名</label><input id="lendFirstName" type="text" placeholder="例）太郎" autocomplete="off"></div>';
     html += '</div>';
     html += '<div class="field" id="lendNewStaffRow" hidden><label style="display:flex; align-items:center; gap:8px; font-weight:400;"><input type="checkbox" id="lendRegisterStaff" checked style="width:15px;height:15px;accent-color:var(--accent);">この名前は借受者マスターに未登録です。持出登録と同時に借受者として登録する</label></div>';
+    if(isMulti(it)){
+      var availNow = Math.max(0, qtyOf(it) - lentQty(it.id));
+      html += '<div class="field"><label for="lendQty">持出数量（在庫 ' + availNow + '個まで）</label><input id="lendQty" type="number" inputmode="numeric" min="1" max="' + availNow + '" value="1"></div>';
+    }
     html += '<div class="field"><label for="lendSite">現場名／用途（任意）</label><input id="lendSite" type="text" placeholder="例）〇〇邸 庭木剪定" autocomplete="off"></div>';
     html += '<div class="field"><label for="lendDue">返却予定日</label><input id="lendDue" type="date" value="' + todayISO() + '"></div>';
     html += '<div class="actionrow"><button class="btn btn-primary" id="btnLendSubmit">持出を確定</button><button class="btn btn-ghost" id="btnLendCancel">キャンセル</button></div>';
@@ -2164,9 +2210,22 @@
       if(!lastName && !firstName){ $("lendLastName").focus(); return; }
       var staffRow = $("lendNewStaffRow");
       var registerStaff = !staffRow.hidden && $("lendRegisterStaff").checked;
-      doLend(it.id, lastName, firstName, due, registerStaff, siteName);
+      var qty = 1;
+      if(isMulti(it)){
+        var availQ = Math.max(0, qtyOf(it) - lentQty(it.id));
+        qty = parseInt(($("lendQty").value || "").normalize("NFKC"), 10);
+        if(!(qty >= 1) || qty > availQ){
+          alert("持出数量は1〜" + availQ + "個の範囲で入力してください。");
+          $("lendQty").focus();
+          return;
+        }
+      }
+      doLend(it.id, lastName, firstName, due, registerStaff, siteName, qty);
     });
     on("btnReturn", function(){ openReturnModal(it.id); });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-return-loan]"), function(b){
+      b.addEventListener("click", function(){ openReturnModal(it.id, b.getAttribute("data-return-loan")); });
+    });
     on("btnRepairDone", function(){ openMaintRecordModal(it.id); });
     on("btnUnretire", function(){
       updateItem(it.id, { status: "利用可能" });
@@ -2189,30 +2248,46 @@
     row.hidden = !full || isKnownStaff(full);
   }
 
-  function doLend(id, lastName, firstName, due, registerStaff, siteName){
+  function doLend(id, lastName, firstName, due, registerStaff, siteName, qty){
     var it = state.items[id];
     if(!it) return;
+    qty = qty >= 1 ? qty : 1;
+    var multi = isMulti(it);
     var borrower = (lastName + " " + firstName).trim();
-    updateItem(id, { status: "貸出中", borrower: borrower, checkoutDate: todayISO(), dueDate: due || null, siteName: siteName || "" });
-    addLog(id, "持出登録", borrower + (siteName ? "・" + siteName : "") + (due ? "（返却予定 " + fmtDate(due) + "）" : ""));
+    var remain = qtyOf(it) - lentQty(id) - qty;
+    var qtyText = multi ? "（" + qty + "個）" : "";
+    if(!multi || remain <= 0){
+      updateItem(id, { status: "貸出中", borrower: borrower, checkoutDate: todayISO(), dueDate: due || null, siteName: siteName || "" });
+    }
+    addLog(id, "持出登録", borrower + qtyText + (siteName ? "・" + siteName : "") + (due ? "（返却予定 " + fmtDate(due) + "）" : ""));
     if(registerStaff && !isKnownStaff(borrower)){
       addEmployeeParts(lastName, firstName, "", "");
     }
     if(db){
+      var tempId = "tmp_" + Date.now();
+      state.loans[tempId] = { id: tempId, equipmentId: id, status: "貸出中", qty: qty, borrower: borrower, dueDate: due || null, createdAt: Date.now() }; // 直後の連続持出でも在庫を正しく数えるための仮データ
       db.collection("loans").add({
         equipmentId: id, equipmentName: it.name, no: (typeof it.no==="number"?it.no:null), category: it.category,
-        borrower: borrower, siteName: siteName || "", checkoutDate: todayISO(), dueDate: due || null, returnDate: null,
+        qty: qty, borrower: borrower, siteName: siteName || "", checkoutDate: todayISO(), dueDate: due || null, returnDate: null,
         status: "貸出中", createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn("loan add failed", e); });
     }
   }
 
-  function openReturnModal(id){
+  function openReturnModal(id, loanId){
     var it = state.items[id];
     if(!it) return;
+    var loan = null;
+    if(isMulti(it)){
+      var ols = openLoansOf(id);
+      loan = (loanId && state.loans[loanId]) || ols[0] || null;
+    }
     state.returningId = id;
-    $("returnModalItemName").textContent = "[" + fmtNo(it.no) + "] " + it.name;
-    $("returnModalItemSub").textContent = "借受担当者: " + (it.borrower || "—") + (it.siteName ? " ／ 現場: " + it.siteName : "");
+    state.returningLoanId = loan ? loan.id : null;
+    $("returnModalItemName").textContent = "[" + fmtNo(it.no) + "] " + it.name + (loan ? "　" + loanQty(loan) + "個" : "");
+    $("returnModalItemSub").textContent = loan
+      ? "借受担当者: " + (loan.borrower || "—") + (loan.siteName ? " ／ 現場: " + loan.siteName : "")
+      : "借受担当者: " + (it.borrower || "—") + (it.siteName ? " ／ 現場: " + it.siteName : "");
     $("returnCondOk").checked = true;
     $("returnMemo").value = "";
     Array.prototype.forEach.call(document.querySelectorAll(".returnChk"), function(c){ c.checked = false; });
@@ -2229,10 +2304,39 @@
   function closeReturnModal(){
     $("returnModalOverlay").classList.remove("show");
     state.returningId = null;
+    state.returningLoanId = null;
   }
-  function doReturnConfirm(id, condition, memo){
+  function doReturnConfirmMulti(it, loan, condition, memo){
+    var id = it.id;
+    var note = (memo || "").trim();
+    var qtyN = loan ? loanQty(loan) : 1;
+    var base = (loan && loan.borrower ? loan.borrower + " から" : "") + qtyN + "個返却";
+    if(it.status === "貸出中") updateItem(id, { status: "利用可能" });
+    if(condition === "repair"){
+      addLog(id, "返却（要点検・修理）", base + (note ? "／" + note : ""));
+      if(db){
+        db.collection("maintenance").add({
+          equipmentId: id, equipmentName: it.name, no: (typeof it.no==="number"?it.no:null), category: it.category,
+          issue: note || "返却時点検", maintType: "", staffName: "",
+          startDate: todayISO(), endDate: null, status: "整備中", notes: "",
+          createdAt: Date.now(), updatedAt: Date.now()
+        }).catch(function(e){ console.warn("maintenance add failed", e); });
+      }
+    } else {
+      addLog(id, "返却", base + (note ? "／" + note : ""));
+    }
+    if(db && loan && loan.id && loan.id.indexOf("tmp_") !== 0){
+      db.collection("loans").doc(loan.id).update({ status: "返却済み", returnDate: todayISO(), updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
+    }
+    if(loan) loan.status = "返却済み"; // 反映待ちの間も在庫が正しく見えるように
+  }
+  function doReturnConfirm(id, condition, memo, loanId){
     var it = state.items[id];
     if(!it) return;
+    if(isMulti(it)){
+      doReturnConfirmMulti(it, (loanId && state.loans[loanId]) || openLoansOf(id)[0] || null, condition, memo);
+      return;
+    }
     var who = it.borrower;
     var note = (memo || "").trim();
     var base = who ? who + " から返却" : "返却";
@@ -2491,9 +2595,9 @@
     rows.forEach(function(l){
       var open = l.status === "貸出中";
       var overdue = open && l.dueDate && l.dueDate < today;
-      html += '<div class="rec" data-eid="' + esc(l.equipmentId) + '">';
+      html += '<div class="rec" data-eid="' + esc(l.equipmentId) + '" data-lid="' + esc(l.id) + '">';
       html += '  <span class="rno tnum">' + (typeof l.no==="number" ? fmtNo(l.no) : "") + '</span>';
-      html += '  <div class="rmain"><div class="rname">' + esc(l.equipmentName) + '</div><div class="rsub">借用: ' + esc(l.borrower) + (l.siteName ? '・' + esc(l.siteName) : '') + '</div></div>';
+      html += '  <div class="rmain"><div class="rname">' + esc(l.equipmentName) + '</div><div class="rsub">借用: ' + esc(l.borrower) + (loanQty(l) > 1 ? '（' + loanQty(l) + '個）' : '') + (l.siteName ? '・' + esc(l.siteName) : '') + '</div></div>';
       html += '  <div class="rdates">貸出 ' + fmtDate(l.checkoutDate) + '<br>' + (open ? ('返却予定 <span class="' + (overdue?"overdue":"") + '">' + fmtDate(l.dueDate) + (overdue?'（超過）':'') + '</span>') : ('返却 ' + fmtDate(l.returnDate))) + '</div>';
       html += '  <span class="badge ' + (open ? "lent" : "in") + '">' + esc(l.status) + '</span>';
       if(open){
@@ -2505,6 +2609,7 @@
 
     Array.prototype.forEach.call(root.querySelectorAll(".rec"), function(el){
       var eid = el.getAttribute("data-eid");
+      var lid = el.getAttribute("data-lid");
       el.addEventListener("click", function(e){
         if(e.target.closest('[data-action]')) return;
         if(state.items[eid]) openDrawer(eid);
@@ -2512,7 +2617,7 @@
       var btn = el.querySelector('[data-action="return"]');
       if(btn) btn.addEventListener("click", function(e){
         e.stopPropagation();
-        openReturnModal(eid);
+        openReturnModal(eid, lid);
       });
     });
   }
@@ -3461,13 +3566,13 @@
   }
 
   async function exportEquipmentCsv(){
-    var rows = [["管理番号","品名・仕様","カテゴリー","定位置（保管場所）","状態","備考"]];
+    var rows = [["管理番号","品名・仕様","カテゴリー","定位置（保管場所）","状態","備考","数量"]];
     allItems().slice().sort(function(a,b){
       var na = (typeof a.no==="number") ? a.no : 999999;
       var nb = (typeof b.no==="number") ? b.no : 999999;
       return na - nb;
     }).forEach(function(it){
-      rows.push([fmtNo(it.no), it.name || "", it.category || "", it.location || "", it.status || "", it.notes || ""]);
+      rows.push([fmtNo(it.no), it.name || "", it.category || "", it.location || "", it.status || "", it.notes || "", qtyOf(it)]);
     });
     var csv = rows.map(function(r){
       return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
@@ -3530,6 +3635,8 @@
       var location = (parts[3] || "").trim();
       var status = (parts[4] || "").trim();
       var notes = (parts[5] || "").trim();
+      var qtyRaw = parseInt((parts[6] || "").normalize("NFKC").trim(), 10);
+      var qty = (qtyRaw >= 1) ? qtyRaw : null;
       if(!name){ skippedInvalid++; return; }
       var noMatch = noRaw.match(/\d+/);
       var no = noMatch ? Number(noMatch[0]) : null;
@@ -3543,6 +3650,7 @@
         if(location && location !== (existing.location || "")) patch.location = location;
         if(status && EQUIPMENT_STATUS_VALUES.indexOf(status) !== -1 && status !== (existing.status || "")) patch.status = status;
         if(notes && notes !== (existing.notes || "")) patch.notes = notes;
+        if(qty !== null && qty !== qtyOf(existing)) patch.quantity = qty;
         if(Object.keys(patch).length === 0){ skippedNoChange++; return; }
         toUpdate.push({ id: existing.id, no: no, name: existing.name, patch: patch });
       } else {
@@ -3554,7 +3662,7 @@
         }
         usedNos[finalNo] = true;
         if(finalNo > maxNo) maxNo = finalNo;
-        toAdd.push({ name: name, category: category, location: location, notes: notes, no: finalNo, status: (status && EQUIPMENT_STATUS_VALUES.indexOf(status) !== -1) ? status : "利用可能" });
+        toAdd.push({ name: name, category: category, location: location, notes: notes, quantity: qty || 1, no: finalNo, status: (status && EQUIPMENT_STATUS_VALUES.indexOf(status) !== -1) ? status : "利用可能" });
       }
     });
 
@@ -3584,7 +3692,7 @@
     toAdd.forEach(function(rec){
       db.collection("equipment").add({
         name: rec.name, category: rec.category, location: rec.location, notes: rec.notes,
-        no: rec.no,
+        no: rec.no, quantity: rec.quantity || 1,
         status: rec.status, borrower: null, checkoutDate: null, dueDate: null,
         imageData: null, createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); });
@@ -4557,6 +4665,7 @@
     $("fLocation").value = existing ? (existing.location || "") : "";
     $("fNo").value = existing && typeof existing.no === "number" ? existing.no : nextNo();
     $("fNotes").value = existing ? (existing.notes || "") : "";
+    $("fQuantity").value = existing ? qtyOf(existing) : 1;
     state.editingImageData = existing ? (existing.imageData || null) : null;
     state.editingImageRemoved = false;
     $("fImageFile").value = "";
@@ -4579,6 +4688,16 @@
     if(!name){ $("fName").focus(); return; }
     if(!category){ $("fCategory").focus(); return; }
     var no = noVal === "" ? null : Number(noVal);
+    var quantity = parseInt(($("fQuantity").value || "1").normalize("NFKC"), 10);
+    if(!(quantity >= 1)){ alert("数量は1以上の整数で入力してください。"); $("fQuantity").focus(); return; }
+    if(state.editingId){
+      var lentNow = lentQty(state.editingId);
+      if(quantity < lentNow){
+        alert("現在 " + lentNow + "個が持出中のため、数量は " + lentNow + " 以上にしてください。\n（先に返却を登録してください）");
+        $("fQuantity").focus();
+        return;
+      }
+    }
     if(!db){ closeModal(); return; }
 
     // マスタにないカテゴリー名・保管場所は、新規登録でも編集でも自動でマスタに追加する
@@ -4588,7 +4707,14 @@
     if(newLocs.length) addNewMasterNames("eqLocations", newLocs, function(n){ return { yard: n }; });
 
     if(state.editingId){
-      var patch = { name: name, category: category, location: location, notes: notes, updatedAt: Date.now() };
+      var patch = { name: name, category: category, location: location, notes: notes, quantity: quantity, updatedAt: Date.now() };
+      var cur = state.items[state.editingId];
+      if(cur && quantity !== qtyOf(cur) && (cur.status === "利用可能" || cur.status === "貸出中")){
+        // 数量の変更で在庫が増減した場合、状態（利用可能／貸出中）も合わせる
+        var lentAfter = lentQty(state.editingId) || (cur.status === "貸出中" && !isMulti(cur) ? 1 : 0);
+        patch.status = lentAfter >= quantity ? "貸出中" : "利用可能";
+        if(patch.status === "利用可能"){ patch.borrower = null; patch.checkoutDate = null; patch.dueDate = null; patch.siteName = ""; }
+      }
       if(no !== null) patch.no = no;
       if(state.editingImageRemoved) patch.imageData = null;
       else if(state.editingImageData) patch.imageData = state.editingImageData;
@@ -4596,7 +4722,7 @@
       addLog(state.editingId, "編集", "");
     } else {
       var data = {
-        name: name, category: category, location: location, notes: notes,
+        name: name, category: category, location: location, notes: notes, quantity: quantity,
         no: no === null ? nextNo() : no,
         status: "利用可能", borrower: null, checkoutDate: null, dueDate: null,
         imageData: state.editingImageData || null,
@@ -4669,7 +4795,7 @@
       var memo = $("returnMemo").value.trim();
       var checklist = returnChecklistSummary();
       var combined = [checklist, memo].filter(function(s){ return s; }).join("／");
-      doReturnConfirm(state.returningId, cond, combined);
+      doReturnConfirm(state.returningId, cond, combined, state.returningLoanId);
       closeReturnModal();
     });
     $("maintAddBtn").addEventListener("click", function(){ openMaintRecordModal(null); });
@@ -4965,6 +5091,7 @@
         next[d.id] = Object.assign({ id: d.id }, data);
       });
       state.loans = next;
+      if(state.ready) renderAll(); // 数量つき備品の在庫表示・持出中の一覧も更新する
       renderNavCounts();
       if(state.page === "loans") renderLoanList();
       if(state.page === "borrowers") renderBorrowers();
