@@ -1531,25 +1531,6 @@
           <input id="maintAddCost" type="number" inputmode="numeric" min="0" placeholder="例: 2500">
         </div>
       </div>
-      <div class="field" id="maintAddResultRow">
-        <label>整備の結果</label>
-        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
-          <input type="radio" name="maintAddResult" id="maintAddResultOpen" value="open" style="width:16px;height:16px;accent-color:var(--accent);">
-          整備中のまま（機材の状態を「点検・修理中」にする）
-        </label>
-        <label id="maintAddResultDoneLabel" style="display:flex; align-items:center; gap:8px; font-weight:400;">
-          <input type="radio" name="maintAddResult" id="maintAddResultDone" value="done" checked style="width:16px;height:16px;accent-color:var(--accent);">
-          整備を完了とし、機材の状態を「利用可能（保管中）」に戻す
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
-          <input type="radio" name="maintAddResult" id="maintAddResultRetire" value="retire" style="width:16px;height:16px;accent-color:var(--accent);">
-          修理せず廃棄とし、機材の状態を「廃棄」にする
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
-          <input type="radio" name="maintAddResult" id="maintAddResultCancel" value="cancel" style="width:16px;height:16px;accent-color:var(--accent);">
-          整備を中止とし、機材の状態を「利用可能（保管中）」に戻す
-        </label>
-      </div>
     </div>
     <div class="foot">
       <button class="btn btn-ghost" id="maintAddCancelBtn">キャンセル</button>
@@ -2565,12 +2546,6 @@
     $("maintAddIssue").value = om ? (om.issue || "") : "";
     $("maintAddParts").value = om ? (om.parts || "") : "";
     $("maintAddCost").value = om && om.cost ? om.cost : "";
-    var isRepairing = !!(it && it.status === "修理中");
-    $("maintAddResultDoneLabel").hidden = !isRepairing;
-    $("maintAddResultDone").checked = isRepairing;
-    $("maintAddResultRetire").checked = false;
-    $("maintAddResultCancel").checked = false;
-    $("maintAddResultOpen").checked = !isRepairing;
   }
   function openMaintRecordModal(equipmentId){
     var sel = $("maintAddEquip");
@@ -2602,20 +2577,14 @@
     var issue = $("maintAddIssue").value.trim();
     var parts = $("maintAddParts").value.trim();
     var cost = $("maintAddCost").value.trim();
-    var resultEl = document.querySelector('input[name="maintAddResult"]:checked');
-    var result = resultEl ? resultEl.value : "open";
-    var willComplete = result === "done" && !$("maintAddResultDoneLabel").hidden;
-    var willRetire = result === "retire";
-    var willCancel = result === "cancel";
-    if(willRetire && !confirm("「" + (it.name || "") + "」を廃棄にします。よろしいですか？\n（あとから備品の詳細で「廃棄を取り消す」と戻せます）")) return;
     var today = todayISO();
     var om = findOpenMaintenance(eid);
     var payload = {
       equipmentId: eid, equipmentName: it.name, no: (typeof it.no==="number"?it.no:null), category: it.category,
       issue: issue, maintType: maintType, staffName: staffName, parts: parts, cost: cost,
       partsCost: [parts, cost ? cost + "円" : ""].filter(Boolean).join("／"),
-      status: willRetire ? "廃棄" : (willCancel ? "中止" : (willComplete ? "完了" : "整備中")),
-      endDate: (willComplete || willRetire || willCancel) ? today : null,
+      status: "整備中",
+      endDate: null,
       updatedAt: Date.now()
     };
     if(om){
@@ -2626,16 +2595,7 @@
       payload.notes = "";
       db.collection("maintenance").add(payload).catch(function(e){ console.warn("maintenance add failed", e); });
     }
-    if(willRetire){
-      updateItem(eid, { status: "廃棄" });
-      addLog(eid, "廃棄登録", [maintType, issue].filter(Boolean).join("／"));
-    } else if(willCancel){
-      if(it.status === "修理中") updateItem(eid, { status: "利用可能" });
-      addLog(eid, "整備中止", [maintType, issue].filter(Boolean).join("／"));
-    } else if(willComplete){
-      updateItem(eid, { status: "利用可能" });
-      addLog(eid, "修理完了", [maintType, issue].filter(Boolean).join("／"));
-    } else if(it.status !== "修理中"){
+    if(it.status !== "修理中"){
       updateItem(eid, { status: "修理中" });
       addLog(eid, "修理登録", [maintType, issue].filter(Boolean).join("／"));
     } else {
