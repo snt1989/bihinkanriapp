@@ -388,6 +388,7 @@
   .drawer-body{flex:1; overflow-y:auto; padding:18px 22px 30px; display:flex; flex-direction:column; gap:20px;}
 
   .field{display:flex; flex-direction:column; gap:6px;}
+  .field[hidden]{display:none;}
   .field label{font-size:12px; color:var(--text-muted); font-weight:600;}
   .field input, .field select, .field textarea{
     padding:9px 11px; border:1px solid var(--line); border-radius:8px;
@@ -461,6 +462,7 @@
   .modal .fields{display:flex; flex-direction:column; gap:14px;}
   .modal .foot{display:flex; justify-content:flex-end; gap:10px; margin-block-start:20px;}
 
+  .empPwSection{border-top:1px solid var(--line); padding-block-start:14px;}
   /* icon picker */
   .iconpick-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(46px,1fr)); gap:6px;}
   .iconpick-grid button{
@@ -855,7 +857,7 @@
   </div>
   <div id="helpBody">
 <section class="help-group"><h3>ログイン</h3>
-<details class="qa"><summary>ログインできません。どうすればよいですか？</summary><div class="qa-a">社員番号（ID）とパスワードを確認してください。社員番号は全角でも入力できます。パスワードは4文字以上です。社員番号を忘れた場合は、管理画面の「借受者台帳マスタ」や「借受者台帳」画面の社員番号の列で、管理者が確認できます。パスワードを忘れた場合や、それでも入れない場合は、管理者に連絡してください。</div></details>
+<details class="qa"><summary>ログインできません。どうすればよいですか？</summary><div class="qa-a">社員番号（ID）とパスワードを確認してください。社員番号は全角でも入力できます。パスワードは4文字以上です。社員番号を忘れた場合は、管理画面の「借受者台帳マスタ」や「借受者台帳」画面の社員番号の列で、管理者が確認できます。パスワードを忘れた場合や、それでも入れない場合は、管理者に連絡してください。管理者は、借受者台帳の編集画面から新しいパスワードを設定できます。</div></details>
 <details class="qa"><summary>ログイン中かどうかを確認するには？</summary><div class="qa-a">画面右上に緑色の「ログイン中」バッジが出ていれば、ログイン済みです。パソコンの広い画面では「ログイン中：社員番号」の形で、自分のIDも表示されます。</div></details>
 <details class="qa"><summary>ログアウトするには？</summary><div class="qa-a">画面右上の「ログアウト」ボタンを押してください。共用のパソコンやタブレットでは、使い終わったら必ずログアウトしてください。</div></details>
 <details class="qa"><summary>初めて使うときは、どうすればよいですか？</summary><div class="qa-a">ログイン画面の「初めての方はアカウント登録」を押し、お名前（姓・名）と、4文字以上のパスワードを入力して「アカウントを登録」を押してください。4桁の社員番号が自動で割り振られて画面に表示されるので、メモしてください。次回からは、その社員番号とパスワードでログインします。借受者台帳に同じ名前の人がいれば、自動で連携されます。</div></details>
@@ -892,6 +894,7 @@
 <details class="qa"><summary>備品を廃棄扱いにするには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」で対象の備品にチェックを入れ、「廃棄にする」を押します。間違えたときは、備品の詳細にある「廃棄を取り消す」で戻せます。</div></details>
 <details class="qa"><summary>自動で割り振られる社員番号の桁数や範囲を変えるには？</summary><div class="qa-a">管理画面の「借受者台帳マスタ」を開き、「社員番号設定」のタブで、先頭に付ける文字・開始番号・終了番号を決めて「設定を保存」を押します。変更は次のアカウント登録から反映され、すでに割り振られた番号は変わりません。</div></details>
 <details class="qa"><summary>カテゴリのアイコンを変えるには？</summary><div class="qa-a">管理画面の「備品台帳マスタ」→「カテゴリマスタ」を開き、一覧のアイコンを押すと、アイコンの一覧が開きます。選ぶとすぐに変わります。一覧にない絵文字は、入力して「決定」を押してください。「自動判定に戻す」を押すと、カテゴリ名から自動で選ばれたアイコンに戻ります。カテゴリの編集画面の「一覧から選ぶ」からも変えられます。</div></details>
+<details class="qa"><summary>他の人のパスワードを再設定するには？</summary><div class="qa-a">管理者として登録されたアカウントでログインし、「借受者台帳」または管理画面の借受者台帳マスタで、対象の人の編集（鉛筆）を押します。下の「パスワードの再設定（管理者用）」に新しいパスワード（4文字以上）を入力して「再設定」を押してください。その人は、古いパスワードで開いていた画面からログアウトされ、新しいパスワードで入り直します。社員番号が未連携の人（まだアカウント登録していない人）には使えません。</div></details>
 <details class="qa"><summary>データ量はどこで確認できますか？</summary><div class="qa-a">管理画面の「稼働ダッシュボード」に、「データ使用量（目安）」として、合計データ量・画像データ量・その他データ量・画像登録件数の概算が出ます。</div></details>
 </section>
   </div>
@@ -1387,6 +1390,14 @@
       <div class="field">
         <label>保有資格（任意・マスタから複数選択）</label>
         <div class="qualcheck" id="empQualCheckList"></div>
+      </div>
+      <div class="field empPwSection" id="empPwSection" hidden>
+        <label for="empNewPassword">パスワードの再設定（管理者用）</label>
+        <div style="display:flex; gap:8px;">
+          <input id="empNewPassword" type="password" autocomplete="new-password" placeholder="新しいパスワード（4文字以上）" style="flex:1; min-width:0;">
+          <button type="button" class="btn btn-danger btn-sm" id="empPwResetBtn">再設定</button>
+        </div>
+        <span class="login-hint" id="empPwHint"></span>
       </div>
     </div>
     <div class="foot">
@@ -2787,12 +2798,61 @@
     }).join("");
   }
 
+  // ---------- パスワード再設定（管理者）：サーバー側API /api/reset-password を呼ぶ ----------
+  function resetPasswordViaApi(loginId, newPassword){
+    var user = authRef && authRef.currentUser;
+    if(!user) return Promise.reject({ userMessage: "ログイン状態を確認できません。ログインし直してください。" });
+    return user.getIdToken().then(function(token){
+      return fetch("/api/reset-password", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token, loginId: loginId, newPassword: newPassword })
+      });
+    }).then(function(res){
+      return res.json().catch(function(){ return null; }).then(function(body){ return { status: res.status, body: body }; });
+    });
+  }
+  function resetPasswordMessage(r){
+    var err = r.body && r.body.error;
+    if(r.status === 200 && r.body && r.body.ok) return null;
+    if(err === "forbidden") return "パスワードの再設定は、管理者として登録されたアカウントのみ実行できます。";
+    if(err === "user-not-found") return "対象のアカウントが見つかりません。まだアカウント登録をしていない可能性があります。";
+    if(err === "invalid-token") return "ログインの有効期限が切れています。ログインし直してください。";
+    if(err === "password-too-short") return "パスワードは4文字以上で入力してください。";
+    if(err === "not-configured") return "サーバーの設定（FIREBASE_SERVICE_ACCOUNT）が済んでいません。管理者設定を確認してください。";
+    if(r.status === 404 || !r.body) return "この環境ではパスワード再設定の機能を使えません（公開サイト上でのみ動作します）。";
+    return "パスワードを再設定できませんでした。（" + (err || r.status) + "）";
+  }
+  function wireEmpPwReset(){
+    var btn = $("empPwResetBtn");
+    if(!btn) return;
+    btn.addEventListener("click", function(){
+      var e = state.empEditingId ? state.employees[state.empEditingId] : null;
+      var pw = $("empNewPassword").value;
+      if(!e || !e.loginId) return;
+      if(pw.length < 4){ alert("新しいパスワードは4文字以上で入力してください。"); $("empNewPassword").focus(); return; }
+      if(!confirm("「" + empFullName(e) + "」（社員番号 " + e.loginId + "）のパスワードを変更します。よろしいですか？")) return;
+      btn.disabled = true;
+      resetPasswordViaApi(e.loginId, pw).then(function(r){
+        var msg = resetPasswordMessage(r);
+        if(msg){ alert(msg); return; }
+        $("empNewPassword").value = "";
+        alert("パスワードを変更しました。新しいパスワードを本人にお伝えください。");
+      }).catch(function(err){
+        alert((err && err.userMessage) || "通信に失敗しました。ネットワークをご確認ください。");
+      }).then(function(){ btn.disabled = false; });
+    });
+  }
+
   function openEmpModal(existing){
     state.empEditingId = existing ? existing.id : null;
     $("empModalTitle").textContent = existing ? "借受者を編集" : "借受者を追加";
     $("empLastName").value = existing ? (existing.lastName || (existing.name ? splitFullName(existing.name).lastName : "")) : "";
     $("empFirstName").value = existing ? (existing.firstName || (existing.name ? splitFullName(existing.name).firstName : "")) : "";
     $("empLoginId").value = existing ? (existing.loginId || "") : "";
+    var pwBox = $("empPwSection");
+    pwBox.hidden = !(existing && existing.loginId);
+    $("empNewPassword").value = "";
+    $("empPwHint").textContent = existing && existing.loginId ? "社員番号 " + existing.loginId + " のログイン用パスワードを変更します。変更後、その人は新しいパスワードで入り直す必要があります。" : "";
     $("empCompany").value = existing ? (existing.company || "") : "";
     $("empDivision").value = existing ? (existing.division || existing.department || "") : "";
     fillCompanyOptions();
@@ -4878,6 +4938,7 @@
     wireHelp();
     wireEmpNo();
     wireIconPicker();
+    wireEmpPwReset();
     switchPage("equipment");
     renderAll();
     try{
@@ -4942,6 +5003,7 @@
 
   // ---------- ログイン ----------
   var currentLoginId = null;
+  var authRef = null; // firebase.auth()（ログイン前は null）
   // ヘッダーのバッジに、借受者台帳と連携した氏名を表示する
   function refreshUserBadge(){
     if(!currentLoginId) return;
@@ -4974,6 +5036,7 @@
 
   function setupAuth(startApp){
     var auth = firebase.auth();
+    authRef = auth;
     var form = $("loginForm"), errBox = $("loginError"), infoBox = $("loginInfo");
     var emailEl = $("loginEmail"), pwEl = $("loginPassword");
     var submitBtn = $("loginSubmit");

@@ -1,0 +1,12 @@
+{
+  "name": "bihinkanriapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "備品管理システム（静的ページ＋パスワード再設定API）",
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
