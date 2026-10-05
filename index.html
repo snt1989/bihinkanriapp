@@ -2162,11 +2162,18 @@
 
     // 持出 subform
     html += '<div class="subform" id="lendForm" hidden>';
-    html += '<div class="field"><label for="lendStaffSelect">登録済み借受者から呼び出す</label><select id="lendStaffSelect"><option value="">-- 新しく入力する --</option>' + allEmployees().slice().sort(function(a,b){ return empFullName(a).localeCompare(empFullName(b),"ja"); }).map(function(e){ return '<option value="' + esc(e.id) + '">' + esc(empFullName(e)) + (empCompanyDivision(e) ? '（' + esc(empCompanyDivision(e)) + '）' : '') + '</option>'; }).join("") + '</select></div>';
+    var me = currentBorrowerEmp();
+    if(me){
+      // ログイン中の本人の名前に統一する（他の人の名前では持出登録できない）
+      html += '<div class="field"><label>持出者（ログイン中のアカウント）</label><div style="padding:9px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); font-weight:700;">' + esc(empFullName(me)) + '<span style="font-weight:400; color:var(--text-faint);">（' + esc(me.loginId) + '）</span></div>';
+      html += '<input id="lendLastName" type="hidden" value="' + esc(me.lastName || "") + '"><input id="lendFirstName" type="hidden" value="' + esc(me.firstName || "") + '"></div>';
+    } else {
+        html += '<div class="field"><label for="lendStaffSelect">登録済み借受者から呼び出す</label><select id="lendStaffSelect"><option value="">-- 新しく入力する --</option>' + allEmployees().slice().sort(function(a,b){ return empFullName(a).localeCompare(empFullName(b),"ja"); }).map(function(e){ return '<option value="' + esc(e.id) + '">' + esc(empFullName(e)) + (empCompanyDivision(e) ? '（' + esc(empCompanyDivision(e)) + '）' : '') + '</option>'; }).join("") + '</select></div>';
     html += '<div class="field" style="flex-direction:row; gap:10px;">';
     html += '  <div class="field" style="flex:1;"><label for="lendLastName">姓</label><input id="lendLastName" type="text" placeholder="例）山田" autocomplete="off"></div>';
     html += '  <div class="field" style="flex:1;"><label for="lendFirstName">名</label><input id="lendFirstName" type="text" placeholder="例）太郎" autocomplete="off"></div>';
     html += '</div>';
+    }
     html += '<div class="field" id="lendNewStaffRow" hidden><label style="display:flex; align-items:center; gap:8px; font-weight:400;"><input type="checkbox" id="lendRegisterStaff" checked style="width:15px;height:15px;accent-color:var(--accent);">この名前は借受者マスターに未登録です。持出登録と同時に借受者として登録する</label></div>';
     if(isMulti(it)){
       var availNow = Math.max(0, qtyOf(it) - lentQty(it.id));
@@ -2237,6 +2244,11 @@
 
   // ---------- cross-collection actions (equipment <-> loans/maintenance) ----------
 
+  // ログイン中の人に対応する借受者台帳の登録（社員番号で照合）。ログインしていない／台帳に無い場合は null
+  function currentBorrowerEmp(){
+    if(!currentLoginId) return null;
+    return allEmployees().filter(function(x){ return x.loginId && normLoginId(x.loginId) === normLoginId(currentLoginId); })[0] || null;
+  }
   function isKnownStaff(fullName){
     return allEmployees().some(function(e){ return empFullName(e) === fullName; });
   }
