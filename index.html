@@ -1391,7 +1391,7 @@
       </div>
       <div class="field">
         <label for="empLoginId">社員番号（任意）</label>
-        <input id="empLoginId" type="text" inputmode="latin" autocomplete="off" placeholder="アカウント登録時に自動で割り振られます">
+        <input id="empLoginId" type="text" inputmode="latin" autocomplete="off" placeholder="空欄のまま保存すると、自動で割り振られます">
       </div>
       <div class="field" style="flex-direction:row; gap:10px;">
         <div class="field" style="flex:1;">
@@ -2887,6 +2887,28 @@
     });
   }
 
+  // 借受者を台帳から追加するとき、社員番号が空なら、管理画面の設定（接頭辞・範囲）に沿って自動で割り振る
+  var pendingEmpNos = {};
+  function allocateEmpNo(){
+    var cfg = currentEmpNo();
+    var used = {};
+    allEmployees().forEach(function(e){ if(e.loginId) used[normLoginId(e.loginId)] = true; });
+    Object.keys(pendingEmpNos).forEach(function(k){ used[k] = true; });
+    var cap = cfg.max - cfg.min + 1, n = "", i;
+    for(i = 0; i < 300; i++){
+      var c = randomEmpNo(cfg);
+      if(!used[normLoginId(c)]){ n = c; break; }
+    }
+    if(!n){
+      for(i = 0; i < cap; i++){
+        var c2 = formatEmpNo(cfg, cfg.min + i);
+        if(!used[normLoginId(c2)]){ n = c2; break; }
+      }
+    }
+    if(n) pendingEmpNos[normLoginId(n)] = true;
+    return n;
+  }
+
   function addEmployeeParts(lastName, firstName, company, division, qualifications, loginId){
     if(!db) return;
     lastName = (lastName || "").trim();
@@ -2895,6 +2917,7 @@
     var rec = {
       lastName: lastName, firstName: firstName, company: company || "", division: division || "", qualifications: qualifications || [], active: true, createdAt: Date.now(), updatedAt: Date.now()
     };
+    if(!loginId) loginId = allocateEmpNo();
     if(loginId) rec.loginId = loginId;
     db.collection("employees").add(rec).catch(function(e){ console.warn("borrower add failed", e); alertSaveFailed("借受者の登録", e); });
   }
