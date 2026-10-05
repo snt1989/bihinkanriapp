@@ -2703,6 +2703,14 @@
   // 社員番号の表記ゆれ（全角・空白・大文字）をそろえる
   function normLoginId(v){ return (v || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase(); }
 
+  // 借受者の会社・事業部・資格がマスタに無ければ、自動でマスタに追加する
+  function autoAddEmployeeMasters(companies, divisions, quals){
+    [["companies", companies], ["divisions", divisions], ["qualifications", quals]].forEach(function(p){
+      var n = findNewMasterNames(p[0], p[1]);
+      if(n.length) addNewMasterNames(p[0], n);
+    });
+  }
+
   function addEmployeeParts(lastName, firstName, company, division, qualifications, loginId){
     if(!db) return;
     lastName = (lastName || "").trim();
@@ -2882,6 +2890,7 @@
       }
     }
     if(!db){ closeEmpModal(); return; }
+    autoAddEmployeeMasters([company], [division], qualifications);
     if(state.empEditingId){
       db.collection("employees").doc(state.empEditingId).update({ lastName: lastName, firstName: firstName, loginId: loginId, company: company, division: division, qualifications: qualifications, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
     } else {
@@ -3732,11 +3741,31 @@
     return Promise.all(ops).then(function(){ return { cats: cats.length, locs: locs.length }; });
   }
 
+  function backfillMastersFromEmployees(){
+    var emps = allEmployees();
+    var quals = [];
+    emps.forEach(function(e){ quals = quals.concat(e.qualifications || []); });
+    var plan = [
+      ["companies", findNewMasterNames("companies", emps.map(function(e){ return e.company; }))],
+      ["divisions", findNewMasterNames("divisions", emps.map(function(e){ return e.division; }))],
+      ["qualifications", findNewMasterNames("qualifications", quals)]
+    ];
+    var ops = [], count = 0;
+    plan.forEach(function(p){
+      var order = nextMasterOrder(p[0]);
+      p[1].forEach(function(n, i){
+        count++;
+        ops.push(db.collection(p[0]).doc(autoMasterId(n)).set({ name: n, order: order + i, createdAt: Date.now() }));
+      });
+    });
+    return Promise.all(ops).then(function(){ return count; });
+  }
+
   var masterBackfillStarted = false;
   function maybeBackfillMasters(){
     if(masterBackfillStarted || !db) return;
     var l = state.loaded;
-    if(!(l.items && l.eqCategories && l.eqLocations)) return; // マスタを読み込む前に実行すると重複登録になるため待つ
+    if(!(l.items && l.eqCategories && l.eqLocations && l.employees && l.companies && l.divisions && l.qualifications)) return; // マスタを読み込む前に実行すると重複登録になるため待つ
     masterBackfillStarted = true;
     var flagRef;
     Promise.resolve().then(function(){
@@ -3747,6 +3776,14 @@
       return backfillMastersFromItems().then(function(r){
         console.info("マスタへ反映しました：カテゴリ" + r.cats + "件／保管場所" + r.locs + "件");
         return flagRef.set({ done: true, categories: r.cats, locations: r.locs, at: Date.now() });
+      });
+    }).then(function(){
+      var ref = db.collection("settings").doc("masterSyncEmployees");
+      return ref.get().then(function(d){
+        if(d.exists && d.data() && d.data().done) return;
+        return backfillMastersFromEmployees().then(function(c){
+          return ref.set({ done: true, count: c, at: Date.now() });
+        });
       });
     }).catch(function(e){ console.warn("master backfill failed", e); });
   }
@@ -4883,6 +4920,7 @@
         next[d.id] = Object.assign({ id: d.id }, data);
       });
       state.employees = next;
+      state.loaded.employees = true; maybeBackfillMasters();
       refreshUserBadge();
       if(state.page === "borrowers") renderBorrowers();
       if(state.page === "admin") renderAdmin();
@@ -4895,6 +4933,7 @@
         next[d.id] = Object.assign({ id: d.id }, data);
       });
       state.companies = next;
+      state.loaded.companies = true; maybeBackfillMasters();
       if(state.page === "admin") renderAdmin();
     }, function(err){ console.warn("companies subscribe error", err); });
 
@@ -4905,6 +4944,7 @@
         next[d.id] = Object.assign({ id: d.id }, data);
       });
       state.divisions = next;
+      state.loaded.divisions = true; maybeBackfillMasters();
       if(state.page === "admin") renderAdmin();
     }, function(err){ console.warn("divisions subscribe error", err); });
 
@@ -4915,6 +4955,7 @@
         next[d.id] = Object.assign({ id: d.id }, data);
       });
       state.qualifications = next;
+      state.loaded.qualifications = true; maybeBackfillMasters();
       if(state.page === "admin") renderAdmin();
     }, function(err){ console.warn("qualifications subscribe error", err); });
 
