@@ -785,7 +785,7 @@
             <th>作業内容</th>
             <th style="width:140px;">交換部品 / 費用</th>
             <th style="width:110px;">整備担当者</th>
-            <th style="width:80px;">状態</th>
+            <th style="width:130px;">状態</th>
           </tr>
         </thead>
         <tbody id="maintHistoryTableBody"></tbody>
@@ -2514,21 +2514,26 @@
         html += '  </div>';
         html += '</td></tr>';
       }
-      html += '<tr data-eid="' + esc(m.equipmentId) + '">';
+      html += '<tr data-eid="' + esc(m.equipmentId) + '" data-mid="' + esc(m.id) + '">';
       html += '  <td class="tnum">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
       html += '  <td class="mname"><span style="color:var(--accent-strong);">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span> <span style="font-weight:400; color:var(--text-muted);">(' + esc(m.equipmentName || "") + ')</span></td>';
       html += '  <td>' + esc(m.maintType || "") + '</td>';
       html += '  <td>' + esc(m.issue || "") + '</td>';
       html += '  <td>' + esc(m.partsCost || "-") + '</td>';
       html += '  <td>' + esc(m.staffName || "") + '</td>';
-      html += '  <td><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span></td>';
+      html += '  <td><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>' +
+        (m.status === "整備中" ? '<div style="display:flex; gap:6px; margin-block-start:6px;"><button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button></div>' : '') + '</td>';
       html += '</tr>';
     });
     body.innerHTML = html;
 
     Array.prototype.forEach.call(body.querySelectorAll("tr[data-eid]"), function(row){
       var eid = row.getAttribute("data-eid");
-      row.addEventListener("click", function(){ if(state.items[eid]) openDrawer(eid); });
+      row.addEventListener("click", function(e){ if(e.target.closest("[data-action]")) return; if(state.items[eid]) openDrawer(eid); });
+      var hd = row.querySelector('[data-action="hdone"]');
+      if(hd) hd.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(row.getAttribute("data-mid"), "完了"); });
+      var hr = row.querySelector('[data-action="hretire"]');
+      if(hr) hr.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(row.getAttribute("data-mid"), "廃棄"); });
     });
     Array.prototype.forEach.call(body.querySelectorAll(".daynote-input"), function(inp){
       inp.addEventListener("change", function(){ saveMaintDayNote(inp.getAttribute("data-day"), inp.value); });
