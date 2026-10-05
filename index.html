@@ -1634,6 +1634,7 @@
     page: "equipment",
     items: {},           // equipment id -> data
     maintenance: {},     // maintenance id -> data
+    maintDayNotes: {},   // 日付(YYYY-MM-DD) -> { date, comment }（整備台帳の日付ごとのコメント）
     loans: {},           // loan id -> data
     employees: {},        // employee id -> data
     ready: false,
@@ -2442,16 +2443,39 @@
     });
   }
 
+  function saveMaintDayNote(day, comment){
+    if(!db || !day) return;
+    comment = (comment || "").trim();
+    var ref = db.collection("maintDayNotes").doc(day);
+    var op = comment
+      ? ref.set({ date: day, comment: comment, updatedAt: Date.now(), updatedBy: (authRef && authRef.currentUser && authRef.currentUser.email) ? authRef.currentUser.email.replace("@bihinkanriapp.local", "") : "" })
+      : ref.delete();
+    if(comment) state.maintDayNotes[day] = { date: day, comment: comment }; else delete state.maintDayNotes[day];
+    Promise.resolve(op).catch(function(e){ console.warn("day note save failed", e); alertSaveFailed("日付コメントの保存", e); });
+  }
+
   function renderMaintHistoryTable(){
     var body = $("maintHistoryTableBody");
     if(!body) return;
     var rows = allMaint().slice();
-    rows.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+    function dayOf(m){ return m.endDate || m.startDate || ""; }
+    rows.sort(function(a,b){ return dayOf(b).localeCompare(dayOf(a)) || (b.createdAt||0) - (a.createdAt||0); });
     if(!state.ready){ body.innerHTML = '<tr><td colspan="7"><div class="empty">読み込み中…</div></td></tr>'; return; }
     if(rows.length === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">整備記録がありません</div></td></tr>'; return; }
 
-    var html = "";
+    var html = "", lastDay = null;
     rows.forEach(function(m){
+      var day = dayOf(m);
+      if(day !== lastDay){
+        lastDay = day;
+        var note = state.maintDayNotes[day];
+        html += '<tr class="daynote-row"><td colspan="7" style="background:var(--bg); padding:8px 12px;">';
+        html += '  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">';
+        html += '    <b class="tnum" style="white-space:nowrap;">' + (day ? esc(fmtDate(day)) : "日付なし") + '</b>';
+        if(day) html += '    <input type="text" class="daynote-input" data-day="' + esc(day) + '" value="' + esc(note && note.comment ? note.comment : "") + '" placeholder="この日のコメント（入力すると自動で保存されます）" autocomplete="off" style="flex:1; min-width:220px; font-size:12.5px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface, #fff); color:inherit;">';
+        html += '  </div>';
+        html += '</td></tr>';
+      }
       html += '<tr data-eid="' + esc(m.equipmentId) + '">';
       html += '  <td class="tnum">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
       html += '  <td class="mname"><span style="color:var(--accent-strong);">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span> <span style="font-weight:400; color:var(--text-muted);">(' + esc(m.equipmentName || "") + ')</span></td>';
@@ -2464,9 +2488,12 @@
     });
     body.innerHTML = html;
 
-    Array.prototype.forEach.call(body.querySelectorAll("tr"), function(row){
+    Array.prototype.forEach.call(body.querySelectorAll("tr[data-eid]"), function(row){
       var eid = row.getAttribute("data-eid");
       row.addEventListener("click", function(){ if(state.items[eid]) openDrawer(eid); });
+    });
+    Array.prototype.forEach.call(body.querySelectorAll(".daynote-input"), function(inp){
+      inp.addEventListener("change", function(){ saveMaintDayNote(inp.getAttribute("data-day"), inp.value); });
     });
   }
 
@@ -5130,6 +5157,14 @@
       if(state.page === "maintenance") renderMaintList();
       if(state.page === "admin") renderAdmin();
     }, function(err){ console.warn("maintenance subscribe error", err); });
+
+    db.collection("maintDayNotes").onSnapshot(function(snap){
+      var next = {};
+      snap.docs.forEach(function(d){ next[d.id] = Object.assign({ id: d.id }, d.data() || {}); });
+      state.maintDayNotes = next;
+      var ae = document.activeElement;
+      if(state.page === "maintenance" && !(ae && ae.classList && ae.classList.contains("daynote-input"))) renderMaintHistoryTable();
+    }, function(err){ console.warn("maintDayNotes subscribe error", err); });
 
     db.collection("loans").onSnapshot(function(snap){
       var next = {};
