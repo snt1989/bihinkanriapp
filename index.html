@@ -718,6 +718,17 @@
       <option value="修理中">修理中</option>
       <option value="廃棄">廃棄</option>
     </select>
+    <select class="selfilter" id="sortSelect" aria-label="並び替え">
+      <option value="default">並び順：カテゴリ別（標準）</option>
+      <option value="no-asc">管理番号：小さい順</option>
+      <option value="no-desc">管理番号：大きい順</option>
+      <option value="name-asc">品名：あいうえお順</option>
+      <option value="name-desc">品名：逆順</option>
+      <option value="location-asc">保管場所順</option>
+      <option value="status-asc">状態順</option>
+      <option value="new-desc">登録が新しい順</option>
+      <option value="new-asc">登録が古い順</option>
+    </select>
     <button class="addbtn" id="openAddBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
       新規登録
@@ -1625,6 +1636,7 @@
     statusFilter: "all",
     categoryFilter: "all",
     locationFilter: "all",
+    sortKey: "default",
     undoStack: [],
     maintFilter: "open",
     loanFilter: "open",
@@ -1900,6 +1912,31 @@
     return "";
   }
 
+  var STATUS_ORDER = { "利用可能": 0, "貸出中": 1, "修理中": 2, "廃棄": 3 };
+  function sortComparator(key){
+    function numOf(it){ return (typeof it.no === "number") ? it.no : 999999; }
+    function byNo(a,b){ return numOf(a) - numOf(b) || (a.name||"").localeCompare(b.name||"","ja"); }
+    function byName(a,b){ return (a.name||"").localeCompare(b.name||"","ja") || numOf(a) - numOf(b); }
+    switch(key){
+      case "no-asc": return byNo;
+      case "no-desc": return function(a,b){ return numOf(b) - numOf(a) || (a.name||"").localeCompare(b.name||"","ja"); };
+      case "name-asc": return byName;
+      case "name-desc": return function(a,b){ return (b.name||"").localeCompare(a.name||"","ja") || numOf(a) - numOf(b); };
+      case "location-asc": return function(a,b){ return (a.location||"").localeCompare(b.location||"","ja") || byNo(a,b); };
+      case "status-asc": return function(a,b){
+        var sa = STATUS_ORDER[a.status], sb = STATUS_ORDER[b.status];
+        return (sa == null ? 9 : sa) - (sb == null ? 9 : sb) || byNo(a,b);
+      };
+      case "new-desc": return function(a,b){ return (b.createdAt||0) - (a.createdAt||0) || byNo(a,b); };
+      case "new-asc": return function(a,b){ return (a.createdAt||0) - (b.createdAt||0) || byNo(a,b); };
+      default: return function(a,b){
+        var ca = a.category||"", cb = b.category||"";
+        if(ca !== cb) return minNoInCategory(ca) - minNoInCategory(cb);
+        return byNo(a,b);
+      };
+    }
+  }
+
   function renderList(){
     var root = $("listRoot");
     var items = filteredItems();
@@ -1911,13 +1948,7 @@
       root.innerHTML = '<div class="empty">該当する備品が見つかりません</div>';
       return;
     }
-    items.sort(function(a,b){
-      var ca = a.category||"", cb = b.category||"";
-      if(ca !== cb) return minNoInCategory(ca) - minNoInCategory(cb);
-      var na = (typeof a.no==="number") ? a.no : 999999;
-      var nb = (typeof b.no==="number") ? b.no : 999999;
-      return na - nb || (a.name||"").localeCompare(b.name||"","ja");
-    });
+    items.sort(sortComparator(state.sortKey));
 
     var html = "";
     items.forEach(function(it){
@@ -4608,6 +4639,13 @@
     $("statusSelect").addEventListener("change", function(e){
       state.statusFilter = e.target.value;
       renderAll();
+    });
+    var sortSel = $("sortSelect");
+    try{ var savedSort = localStorage.getItem("bihin.sortKey"); if(savedSort && sortSel.querySelector('option[value="' + savedSort + '"]')){ state.sortKey = savedSort; sortSel.value = savedSort; } }catch(e){}
+    sortSel.addEventListener("change", function(e){
+      state.sortKey = e.target.value;
+      try{ localStorage.setItem("bihin.sortKey", state.sortKey); }catch(err){}
+      renderList();
     });
     $("categorySelect").addEventListener("change", function(e){
       state.categoryFilter = e.target.value;
