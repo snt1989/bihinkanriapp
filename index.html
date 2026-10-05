@@ -2867,6 +2867,18 @@
   // 社員番号の表記ゆれ（全角・空白・大文字）をそろえる
   function normLoginId(v){ return (v || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase(); }
 
+  // 保存に失敗したとき、画面上でも原因が分かるようにする（権限エラーなど）
+  var saveFailAlerted = 0;
+  function alertSaveFailed(what, e){
+    if(Date.now() - saveFailAlerted < 5000) return;
+    saveFailAlerted = Date.now();
+    var code = (e && e.code) || "";
+    var hint = code === "permission-denied"
+      ? "データベースへの書き込み権限がありません。Firebase の Firestore ルールで、ログイン済みユーザーの書き込みが許可されているか確認してください。"
+      : (code === "unavailable" ? "通信できませんでした。ネットワークを確認して、もう一度お試しください。" : "");
+    alert(what + "に失敗しました。" + (hint ? "\n" + hint : "") + (code ? "\n（エラー: " + code + "）" : ""));
+  }
+
   // 借受者の会社・事業部・資格がマスタに無ければ、自動でマスタに追加する
   function autoAddEmployeeMasters(companies, divisions, quals){
     [["companies", companies], ["divisions", divisions], ["qualifications", quals]].forEach(function(p){
@@ -2884,7 +2896,7 @@
       lastName: lastName, firstName: firstName, company: company || "", division: division || "", qualifications: qualifications || [], active: true, createdAt: Date.now(), updatedAt: Date.now()
     };
     if(loginId) rec.loginId = loginId;
-    db.collection("employees").add(rec).catch(function(e){ console.warn("borrower add failed", e); });
+    db.collection("employees").add(rec).catch(function(e){ console.warn("borrower add failed", e); alertSaveFailed("借受者の登録", e); });
   }
 
   function addEmployeeFromFullName(fullName, company, division, qualifications){
@@ -3056,7 +3068,7 @@
     if(!db){ closeEmpModal(); return; }
     autoAddEmployeeMasters([company], [division], qualifications);
     if(state.empEditingId){
-      db.collection("employees").doc(state.empEditingId).update({ lastName: lastName, firstName: firstName, loginId: loginId, company: company, division: division, qualifications: qualifications, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
+      db.collection("employees").doc(state.empEditingId).update({ lastName: lastName, firstName: firstName, loginId: loginId, company: company, division: division, qualifications: qualifications, updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("借受者の更新", e); });
     } else {
       addEmployeeParts(lastName, firstName, company, division, qualifications, loginId);
     }
