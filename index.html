@@ -1316,6 +1316,7 @@
       </div>
     </div>
     <div class="foot">
+      <button class="btn btn-danger" id="meDeleteBtn" style="margin-inline-end:auto;">削除</button>
       <button class="btn btn-ghost" id="meCancelBtn">キャンセル</button>
       <button class="btn btn-primary" id="meSaveBtn">保存する</button>
     </div>
@@ -2556,6 +2557,32 @@
     $("meParts").value = m.parts || "";
     $("meCost").value = m.cost || "";
     $("maintEditOverlay").classList.add("show");
+  }
+  function deleteMaintEdit(){
+    var mid = maintEditingId, m = mid && state.maintenance[mid];
+    if(!m || !db){ closeMaintEdit(); return; }
+    var it = state.items[m.equipmentId];
+    var wasOpen = m.status === "整備中";
+    var msg = "この整備記録を削除します。よろしいですか？\n（画面上部の「元に戻す」で戻せます）";
+    if(wasOpen && it && it.status === "修理中") msg = "この整備記録（整備中）を削除します。\n備品「" + (it.name || "") + "」の状態は「利用可能（保管中）」に戻ります。よろしいですか？\n（画面上部の「元に戻す」で戻せます）";
+    if(!confirm(msg)) return;
+    var snap = snapshotDoc(m);
+    var undoLenBefore = state.undoStack.length;
+    db.collection("maintenance").doc(mid).delete().catch(function(e){ console.warn(e); alertSaveFailed("整備記録の削除", e); });
+    delete state.maintenance[mid];
+    if(wasOpen && it && it.status === "修理中") updateItem(it.id, { status: "利用可能" });
+    if(m.equipmentId) addLog(m.equipmentId, "整備記録を削除", [m.maintType, m.issue].filter(Boolean).join("／"));
+    var itemUndo = state.undoStack.length > undoLenBefore ? state.undoStack.pop() : null;
+    pushUndo("整備記録の削除", function(){
+      if(itemUndo) itemUndo.fn();
+      db.collection("maintenance").doc(mid).set(snap).catch(function(e){ console.warn(e); });
+      state.maintenance[mid] = Object.assign({ id: mid }, snap);
+      renderAll();
+      if(state.page === "maintenance") renderMaintList();
+    });
+    closeMaintEdit();
+    renderAll();
+    if(state.page === "maintenance") renderMaintList();
   }
   function closeMaintEdit(){ $("maintEditOverlay").classList.remove("show"); maintEditingId = null; }
   function saveMaintEdit(){
@@ -5314,6 +5341,7 @@
     // ---- 管理画面: 会社名／事業部／資格／カテゴリ／整備種目／整備士マスタ（共通モーダル） ----
     $("meCancelBtn").addEventListener("click", closeMaintEdit);
     $("meSaveBtn").addEventListener("click", saveMaintEdit);
+    $("meDeleteBtn").addEventListener("click", deleteMaintEdit);
     $("maintEditOverlay").addEventListener("click", function(e){ if(e.target === $("maintEditOverlay")) closeMaintEdit(); });
     $("mechAcctCancelBtn").addEventListener("click", closeMechAcctModal);
     $("mechAcctSaveBtn").addEventListener("click", submitMechAcct);
