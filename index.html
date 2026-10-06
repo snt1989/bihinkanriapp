@@ -1295,6 +1295,33 @@
   </div>
 </div>
 
+<!-- 整備記録の編集（点検・整備実施履歴） -->
+<div class="modal-overlay" id="maintEditOverlay">
+  <div class="modal">
+    <h3>整備記録を編集</h3>
+    <div class="fields">
+      <div class="field"><label>対象備品</label><div id="meEquip" style="font-weight:600; font-size:13.5px;"></div></div>
+      <div class="field" style="flex-direction:row; gap:10px;">
+        <div class="field" style="flex:1;"><label for="meStart">開始日</label><input id="meStart" type="date"></div>
+        <div class="field" style="flex:1;"><label for="meEnd">終了日（整備中は空欄）</label><input id="meEnd" type="date"></div>
+      </div>
+      <div class="field" style="flex-direction:row; gap:10px;">
+        <div class="field" style="flex:1;"><label for="meType">整備種目</label><select id="meType"></select></div>
+        <div class="field" style="flex:1;"><label for="meStaff">整備担当者</label><select id="meStaff"></select></div>
+      </div>
+      <div class="field"><label for="meIssue">作業内容・処置詳細</label><textarea id="meIssue"></textarea></div>
+      <div class="field" style="flex-direction:row; gap:10px;">
+        <div class="field" style="flex:1;"><label for="meParts">交換部品</label><input id="meParts" type="text"></div>
+        <div class="field" style="flex:1;"><label for="meCost">部品代・整備費用（円）</label><input id="meCost" type="number" inputmode="numeric" min="0"></div>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn btn-ghost" id="meCancelBtn">キャンセル</button>
+      <button class="btn btn-primary" id="meSaveBtn">保存する</button>
+    </div>
+  </div>
+</div>
+
 <!-- 整備士アカウント作成 -->
 <div class="modal-overlay" id="mechAcctOverlay">
   <div class="modal">
@@ -2508,6 +2535,57 @@
     if(state.page === "maintenance"){ renderMaintOpenGrid(); renderMaintHistoryTable(); }
   }
 
+  // ---- 点検・整備実施履歴の編集 ----
+  var maintEditingId = null;
+  function fillSelectWithCurrent(selId, names, current, emptyLabel){
+    var list = names.slice();
+    if(current && list.indexOf(current) === -1) list.push(current); // マスタに無い過去の値も、そのまま選べるように残す
+    $(selId).innerHTML = '<option value="">' + emptyLabel + '</option>' + list.map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join("");
+    $(selId).value = current || "";
+  }
+  function openMaintEdit(mid){
+    var m = state.maintenance[mid];
+    if(!m) return;
+    maintEditingId = mid;
+    $("meEquip").textContent = (typeof m.no === "number" ? "[" + fmtNo(m.no) + "] " : "") + (m.equipmentName || "") + "　（" + (m.status || "") + "）";
+    $("meStart").value = m.startDate || "";
+    $("meEnd").value = m.endDate || "";
+    fillSelectWithCurrent("meType", allMasterNames(state.maintTypes), m.maintType || "", "（未選択）");
+    fillSelectWithCurrent("meStaff", allMasterNames(state.mechanics), m.staffName || "", "（未選択）");
+    $("meIssue").value = m.issue || "";
+    $("meParts").value = m.parts || "";
+    $("meCost").value = m.cost || "";
+    $("maintEditOverlay").classList.add("show");
+  }
+  function closeMaintEdit(){ $("maintEditOverlay").classList.remove("show"); maintEditingId = null; }
+  function saveMaintEdit(){
+    var mid = maintEditingId, m = mid && state.maintenance[mid];
+    if(!m || !db){ closeMaintEdit(); return; }
+    var parts = $("meParts").value.trim(), cost = $("meCost").value.trim();
+    var patch = {
+      startDate: $("meStart").value || m.startDate || null,
+      endDate: $("meEnd").value || null,
+      maintType: $("meType").value, staffName: $("meStaff").value,
+      issue: $("meIssue").value.trim(), parts: parts, cost: cost,
+      partsCost: [parts, cost ? cost + "円" : ""].filter(Boolean).join("／"),
+      updatedAt: Date.now()
+    };
+    if(m.status === "整備中") patch.endDate = null; // 整備中の記録に終了日は付けない
+    var before = {};
+    Object.keys(patch).forEach(function(k){ before[k] = (k in m) ? m[k] : null; });
+    pushUndo("整備記録の編集", function(){
+      db.collection("maintenance").doc(mid).update(before).catch(function(e){ console.warn(e); });
+      Object.assign(state.maintenance[mid] || {}, before);
+      if(state.page === "maintenance") renderMaintList();
+    });
+    db.collection("maintenance").doc(mid).update(patch).catch(function(e){ console.warn(e); alertSaveFailed("整備記録の更新", e); });
+    Object.assign(m, patch);
+    if(m.equipmentId) addLog(m.equipmentId, "整備記録を編集", [patch.maintType, patch.issue].filter(Boolean).join("／"));
+    closeMaintEdit();
+    renderAll();
+    if(state.page === "maintenance") renderMaintList();
+  }
+
   function finishMaintQuick(mid, result){
     var m = state.maintenance[mid];
     if(!m || m.status !== "整備中" || !db) return;
@@ -2621,7 +2699,8 @@
       html += '  <td>' + esc(m.partsCost || "-") + '</td>';
       html += '  <td>' + esc(m.staffName || "") + '</td>';
       html += '  <td><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>' +
-        (m.status === "整備中" ? '<div style="display:flex; gap:6px; margin-block-start:6px;"><button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button></div>' : '<div style="margin-block-start:6px;"><button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button></div>') + '</td>';
+        (m.status === "整備中" ? '<div style="display:flex; gap:6px; margin-block-start:6px;"><button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button></div>' : '<div style="margin-block-start:6px;"><button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button></div>') +
+        '<div style="margin-block-start:6px;"><button class="btn btn-ghost btn-sm" data-action="hedit">編集</button></div></td>';
       html += '</tr>';
     });
     body.innerHTML = html;
@@ -2646,6 +2725,8 @@
       row.addEventListener("click", function(e){ if(e.target.closest("[data-action], input")) return; if(state.items[eid]) openDrawer(eid); });
       var hd = row.querySelector('[data-action="hdone"]');
       if(hd) hd.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(row.getAttribute("data-mid"), "完了"); });
+      var he = row.querySelector('[data-action="hedit"]');
+      if(he) he.addEventListener("click", function(e){ e.stopPropagation(); openMaintEdit(row.getAttribute("data-mid")); });
       var ho = row.querySelector('[data-action="hreopen"]');
       if(ho) ho.addEventListener("click", function(e){ e.stopPropagation(); reopenMaint(row.getAttribute("data-mid")); });
       var hr = row.querySelector('[data-action="hretire"]');
@@ -5231,6 +5312,9 @@
     });
 
     // ---- 管理画面: 会社名／事業部／資格／カテゴリ／整備種目／整備士マスタ（共通モーダル） ----
+    $("meCancelBtn").addEventListener("click", closeMaintEdit);
+    $("meSaveBtn").addEventListener("click", saveMaintEdit);
+    $("maintEditOverlay").addEventListener("click", function(e){ if(e.target === $("maintEditOverlay")) closeMaintEdit(); });
     $("mechAcctCancelBtn").addEventListener("click", closeMechAcctModal);
     $("mechAcctSaveBtn").addEventListener("click", submitMechAcct);
     $("genericMasterCancelBtn").addEventListener("click", closeGenericMasterModal);
