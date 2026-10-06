@@ -789,7 +789,7 @@
             <th>作業内容</th>
             <th style="width:140px;">交換部品 / 費用</th>
             <th style="width:110px;">整備担当者</th>
-            <th style="width:130px;">状態</th>
+            <th style="width:140px;">状態</th>
           </tr>
         </thead>
         <tbody id="maintHistoryTableBody"></tbody>
@@ -2065,11 +2065,7 @@
     }
     if(it.status === "貸出中"){ if(isMulti(it)) openDrawer(id); else openReturnModal(id); return; }
     if(it.status === "修理中"){ openMaintRecordModal(id); return; }
-    if(it.status === "廃棄"){
-      updateItem(id, { status: "利用可能" });
-      addLog(id, "廃棄取消", "利用可能へ戻しました");
-      return;
-    }
+    if(it.status === "廃棄"){ unretireItem(id); return; }
   }
 
   function renderAll(){
@@ -2248,10 +2244,7 @@
       b.addEventListener("click", function(){ openReturnModal(it.id, b.getAttribute("data-return-loan")); });
     });
     on("btnRepairDone", function(){ openMaintRecordModal(it.id); });
-    on("btnUnretire", function(){
-      updateItem(it.id, { status: "利用可能" });
-      addLog(it.id, "廃棄取消", "利用可能へ戻しました");
-    });
+    on("btnUnretire", function(){ unretireItem(it.id); });
   }
 
   // ---------- cross-collection actions (equipment <-> loans/maintenance) ----------
@@ -2472,6 +2465,49 @@
   }
 
   // 整備中の記録を、カードのボタンからそのまま「完了」または「廃棄」にする
+  // 廃棄の取り消し：整備記録から廃棄にした備品は、整備記録も「整備中」に戻す（備品は修理中）。記録が無ければ従来どおり利用可能へ
+  function unretireItem(id){
+    var it = state.items[id];
+    if(!it) return;
+    var rec = allMaint().filter(function(m){ return m.equipmentId === id && m.status === "廃棄"; })
+      .sort(function(a,b){ return (b.endDate || "").localeCompare(a.endDate || "") || (b.createdAt||0) - (a.createdAt||0); })[0];
+    if(rec){ reopenMaint(rec.id, true); return; }
+    updateItem(id, { status: "利用可能" });
+    addLog(id, "廃棄取消", "利用可能へ戻しました");
+  }
+
+  // 完了・廃棄・中止にした整備記録を「整備中」に戻す（備品が利用可能・廃棄のときは修理中に戻す）
+  function reopenMaint(mid, noConfirm){
+    var m = state.maintenance[mid];
+    if(!m || m.status === "整備中" || !db) return;
+    var it = state.items[m.equipmentId];
+    var name = (it && it.name) || m.equipmentName || "この備品";
+    if(!noConfirm && !confirm("「" + name + "」の整備記録を「整備中」に戻します。よろしいですか？\n（備品の状態も「点検・修理中」に戻ります）")) return;
+    var before = { status: m.status, endDate: (m.endDate === undefined ? null : m.endDate) };
+    db.collection("maintenance").doc(mid).update({ status: "整備中", endDate: null, updatedAt: Date.now() })
+      .catch(function(e){ console.warn(e); alertSaveFailed("整備記録の更新", e); });
+    m.status = "整備中"; m.endDate = null;
+    var undoLenBefore = state.undoStack.length;
+    if(it){
+      var lentSome = isMulti(it) && lentQty(it.id) > 0;
+      if((it.status === "利用可能" || it.status === "廃棄") && !lentSome){
+        updateItem(it.id, { status: "修理中" });
+      }
+      addLog(it.id, before.status === "廃棄" ? "廃棄取消（整備中に戻す）" : "整備再開", [m.maintType, m.issue].filter(Boolean).join("／"));
+    }
+    var itemUndo = state.undoStack.length > undoLenBefore ? state.undoStack.pop() : null;
+    pushUndo("「" + name + "」を整備中に戻す", function(){
+      if(itemUndo) itemUndo.fn();
+      db.collection("maintenance").doc(mid).update({ status: before.status, endDate: before.endDate, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
+      var mm = state.maintenance[mid];
+      if(mm){ mm.status = before.status; mm.endDate = before.endDate; }
+      renderAll();
+      if(state.page === "maintenance"){ renderMaintOpenGrid(); renderMaintHistoryTable(); }
+    });
+    renderAll();
+    if(state.page === "maintenance"){ renderMaintOpenGrid(); renderMaintHistoryTable(); }
+  }
+
   function finishMaintQuick(mid, result){
     var m = state.maintenance[mid];
     if(!m || m.status !== "整備中" || !db) return;
@@ -2585,7 +2621,7 @@
       html += '  <td>' + esc(m.partsCost || "-") + '</td>';
       html += '  <td>' + esc(m.staffName || "") + '</td>';
       html += '  <td><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>' +
-        (m.status === "整備中" ? '<div style="display:flex; gap:6px; margin-block-start:6px;"><button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button></div>' : '') + '</td>';
+        (m.status === "整備中" ? '<div style="display:flex; gap:6px; margin-block-start:6px;"><button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button></div>' : '<div style="margin-block-start:6px;"><button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button></div>') + '</td>';
       html += '</tr>';
     });
     body.innerHTML = html;
@@ -2610,6 +2646,8 @@
       row.addEventListener("click", function(e){ if(e.target.closest("[data-action], input")) return; if(state.items[eid]) openDrawer(eid); });
       var hd = row.querySelector('[data-action="hdone"]');
       if(hd) hd.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(row.getAttribute("data-mid"), "完了"); });
+      var ho = row.querySelector('[data-action="hreopen"]');
+      if(ho) ho.addEventListener("click", function(e){ e.stopPropagation(); reopenMaint(row.getAttribute("data-mid")); });
       var hr = row.querySelector('[data-action="hretire"]');
       if(hr) hr.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(row.getAttribute("data-mid"), "廃棄"); });
     });
