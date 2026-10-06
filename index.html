@@ -2482,9 +2482,11 @@
       : "「" + name + "」の整備を完了にし、利用可能（保管中）に戻します。よろしいですか？";
     if(!confirm(msg)) return;
     var today = todayISO();
+    var before = { status: m.status, endDate: (m.endDate === undefined ? null : m.endDate) };
     db.collection("maintenance").doc(mid).update({ status: result, endDate: today, updatedAt: Date.now() })
       .catch(function(e){ console.warn(e); alertSaveFailed("整備記録の更新", e); });
     m.status = result; m.endDate = today;
+    var undoLenBefore = state.undoStack.length;
     if(it){
       var detail = [m.maintType, m.issue].filter(Boolean).join("／");
       if(result === "廃棄"){
@@ -2495,6 +2497,16 @@
         addLog(it.id, "修理完了", detail);
       }
     }
+    // 「元に戻す」で、備品の状態だけでなく整備記録も「整備中」に戻す（一覧から消えたままになるのを防ぐ）
+    var itemUndo = state.undoStack.length > undoLenBefore ? state.undoStack.pop() : null;
+    pushUndo("「" + name + "」の整備" + result, function(){
+      if(itemUndo) itemUndo.fn();
+      db.collection("maintenance").doc(mid).update({ status: before.status, endDate: before.endDate, updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
+      var mm = state.maintenance[mid];
+      if(mm){ mm.status = before.status; mm.endDate = before.endDate; }
+      renderAll();
+      if(state.page === "maintenance"){ renderMaintOpenGrid(); renderMaintHistoryTable(); }
+    });
     renderAll();
     if(state.page === "maintenance"){ renderMaintOpenGrid(); renderMaintHistoryTable(); }
   }
