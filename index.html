@@ -191,6 +191,7 @@
   .cname{font-size:13.5px; font-weight:700; color:var(--text); line-height:1.4; margin-block-end:6px; overflow-wrap:break-word;}
   .cloc{display:flex; align-items:flex-start; gap:5px; font-size:11.5px; color:var(--text-muted); margin-block-end:4px;}
   .cloc svg{width:12px; height:12px; flex:0 0 auto; margin-top:2px; color:var(--text-faint);}
+  .cnote{font-size:11.5px; color:var(--text-muted); background:var(--line-soft); border-radius:6px; padding:4px 8px; margin-block-end:6px; white-space:pre-wrap; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
   .cmeta{font-size:11px; color:var(--text-faint); margin-block-end:8px;}
   .cmeta.overdue{color:var(--danger); font-weight:700;}
 
@@ -2137,6 +2138,9 @@
       html += '    <div class="card-top"><span class="no tnum">' + fmtNo(it.no) + '</span><span class="badge ' + sc + '">' + statusBadgeIcon(it.status) + '<span>' + esc(cardStatusLabel(it.status)) + '</span></span></div>';
       html += '    <div class="cname">' + esc(it.name) + (isMulti(it) ? ' <span class="tnum" style="font-weight:600; color:var(--text-muted); font-size:.85em;">×' + qtyOf(it) + '</span>' : '') + '</div>';
       html += '    <div class="cloc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.5 7-12.5A7 7 0 0 0 5 9.5C5 14.5 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.3"/></svg><span>' + (categoryIcon(it.category) ? esc(categoryIcon(it.category)) + ' ' : '') + esc(it.category) + (it.location ? '　／　' + esc(it.location) : '') + '</span></div>';
+      if(it.notes){
+        html += '    <div class="cnote">' + esc(it.notes) + '</div>';
+      }
       if(isMulti(it) && lentQty(it.id) > 0){
         var ols = openLoansOf(it.id), od0 = isOverdue(it);
         html += '    <div class="checkoutbox">';
