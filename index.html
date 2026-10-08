@@ -5982,8 +5982,21 @@
   // ホーム画面に追加できるように（スマートフォンのアプリのように開く）。https の公開サイトでのみ登録する
   // 候補つき入力欄をクリック／フォーカスしたとき、候補の一覧を自動で開く（PC向け）
   Array.prototype.forEach.call(document.querySelectorAll("input[list]"), function(inp){
-    function open(){ try{ if(inp.showPicker && !inp.readOnly) inp.showPicker(); }catch(e){} }
+    // 入力済みだと候補が絞り込まれてしまうので、開く間だけ空にして全候補を出す（選ばずに閉じたら元の値に戻す）
+    var prev = null;
+    function open(){
+      if(inp.readOnly) return;
+      if(prev === null && inp.value){ prev = inp.value; inp.value = ""; }
+      try{ if(inp.showPicker) inp.showPicker(); }catch(e){}
+    }
+    function restore(){
+      if(prev !== null){ if(inp.value === "") inp.value = prev; prev = null; }
+    }
     inp.addEventListener("click", open);
+    inp.addEventListener("input", function(){ prev = null; });
+    inp.addEventListener("change", function(){ prev = null; });
+    inp.addEventListener("blur", function(){ setTimeout(restore, 150); });
+    inp.addEventListener("keydown", function(e){ if(e.key === "Escape") restore(); });
   });
   if("serviceWorker" in navigator && location.protocol === "https:"){
     window.addEventListener("load", function(){ navigator.serviceWorker.register("/sw.js").catch(function(e){ console.warn("sw register failed", e); }); });
