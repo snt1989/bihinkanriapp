@@ -589,6 +589,72 @@
   .ustatus .utext{overflow:hidden; text-overflow:ellipsis;}
   .ustatus .uid:not(:empty)::before{content:"：";}
   @media (max-width:760px){ .ustatus .uid{display:none;} }
+
+  /* ===== mobile layout ===== */
+  @media (max-width:640px){
+    body{font-size:14px; padding-bottom:calc(66px + env(safe-area-inset-bottom,0px));}
+    header.top{padding:8px 12px; gap:8px; flex-wrap:nowrap;}
+    .brand{min-width:0;}
+    .brand-text h1{font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .brand-text .sub{display:none;}
+    .logo{width:30px; height:30px;}
+    header.top .userbox{margin-inline-start:auto; gap:6px;}
+    .ustatus{padding:6px 8px;} .ustatus .utext{display:none;}
+    #undoBtn, #logoutBtn{font-size:0; gap:0; padding:8px 10px; min-height:34px;}
+    body{overflow-x:hidden;}
+    .mcomments > div{flex-wrap:wrap;}
+    .mcomments .mcomment-input{min-width:0 !important; flex:1 1 100% !important;}
+    /* bottom tab bar */
+    .navtabs{
+      position:fixed; left:0; right:0; bottom:0; z-index:35; background:var(--surface);
+      border-top:1px solid var(--line); display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
+      gap:0; padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px)); flex-wrap:nowrap;
+    }
+    .navtab{
+      flex-direction:column; gap:2px; padding:6px 2px; font-size:10.5px; border-radius:8px;
+      position:relative; justify-content:center; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    }
+    .navtab svg{width:20px; height:20px;}
+    .navtab .cnt{position:absolute; top:1px; right:50%; margin-right:-26px; font-size:9.5px; padding:0 5px; line-height:15px;}
+    .page{padding:12px 12px 24px;}
+    .pagehead{margin-block-end:10px;}
+    .pagehead h2{font-size:16px;}
+    .stats{grid-template-columns:repeat(4,1fr); gap:6px;}
+    .statcard{flex-direction:column; align-items:center; text-align:center; padding:8px 4px; gap:0; border-radius:10px;}
+    .stat-icon{display:none;}
+    .stat-label{font-size:10.5px; margin:0; white-space:nowrap;}
+    .stat-value{font-size:18px;}
+    .toolbar{display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px; margin-block-end:12px;}
+    .toolbar .search{grid-column:1 / -1; flex:none;}
+    .toolbar .addbtn{grid-column:1 / -1; justify-content:center; margin:0; padding:12px 16px;}
+    .toolbar select.selfilter{width:100%; min-width:0;}
+    input, select, textarea, .search input, select.selfilter{font-size:16px !important;}
+    .search input{padding:11px 12px 11px 36px;}
+    select.selfilter{padding:11px 30px 11px 12px;}
+    .btn{min-height:38px;}
+    .grid{grid-template-columns:repeat(2,1fr); gap:10px;}
+    .card-body{padding:10px 10px 2px;}
+    .rec{padding:11px 12px; gap:4px 10px;}
+    .drawer{width:100%;}
+    .drawer-head{padding:16px 16px 12px;}
+    .modal{max-height:92vh; padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));}
+    /* maintenance history -> cards */
+    .histtable{min-width:0; display:block;}
+    .histtable thead{display:none;}
+    .histtable tbody{display:block;}
+    .histtable tr{display:block; background:var(--surface); border:1px solid var(--line); border-radius:12px; margin-block-end:10px; padding:6px 12px;}
+    .histtable tr.daynote-row{background:none; border:none; padding:0; margin:14px 0 6px;}
+    .histtable tr.daynote-row td{display:block; padding:8px 10px !important; border-radius:10px;}
+    .histtable tr.daynote-row .daynote-input{min-width:0 !important; width:100%; flex:1 1 100% !important;}
+    .histtable td{display:block; padding:7px 0; border-bottom:1px solid var(--line-soft); white-space:normal;}
+    .histtable td:last-child{border-bottom:none;}
+    .histtable td[data-label]::before{content:attr(data-label); display:block; font-size:10.5px; color:var(--text-faint); font-weight:700; margin-block-end:1px;}
+    .histtable td[data-label="状態"]{display:flex; flex-wrap:wrap; align-items:center; gap:6px;}
+    .histtable td[data-label="状態"]::before{flex:0 0 100%;}
+    .histtable td[data-label="状態"] > div{margin-block-start:0 !important; display:inline-flex; gap:6px;}
+    .histtable td.mname{white-space:normal;}
+    .mastertable td{padding:10px 8px;}
+  }
 </style>
 
 <!-- ログイン画面（Firebase Authentication：メールアドレス＋パスワード） -->
@@ -796,7 +862,7 @@
       </button>
     </div>
     <div style="overflow-x:auto;">
-      <table class="mastertable">
+      <table class="mastertable histtable">
         <thead>
           <tr>
             <th style="width:100px;">実施日</th>
@@ -2735,13 +2801,13 @@
         html += '</td></tr>';
       }
       html += '<tr data-eid="' + esc(m.equipmentId) + '" data-mid="' + esc(m.id) + '">';
-      html += '  <td class="tnum">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
-      html += '  <td class="mname"><span style="color:var(--accent-strong);">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span> <span style="font-weight:400; color:var(--text-muted);">(' + esc(m.equipmentName || "") + ')</span></td>';
-      html += '  <td>' + esc(m.maintType || "") + '</td>';
-      html += '  <td>' + esc(m.issue || "") + maintCommentsHtml(m) + '</td>';
-      html += '  <td>' + esc(m.partsCost || "-") + '</td>';
-      html += '  <td>' + esc(m.staffName || "") + '</td>';
-      html += '  <td><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>' +
+      html += '  <td class="tnum" data-label="実施日">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
+      html += '  <td class="mname" data-label="機材">' + '<span style="color:var(--accent-strong);">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span> <span style="font-weight:400; color:var(--text-muted);">(' + esc(m.equipmentName || "") + ')</span></td>';
+      html += '  <td data-label="整備種目">' + esc(m.maintType || "") + '</td>';
+      html += '  <td data-label="作業内容">' + esc(m.issue || "") + maintCommentsHtml(m) + '</td>';
+      html += '  <td data-label="部品/費用">' + esc(m.partsCost || "-") + '</td>';
+      html += '  <td data-label="担当者">' + esc(m.staffName || "") + '</td>';
+      html += '  <td data-label="状態"><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>' +
         (m.status === "整備中" ? '<div style="display:flex; gap:6px; margin-block-start:6px;"><button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button></div>' : '<div style="margin-block-start:6px;"><button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button></div>') +
         '<div style="margin-block-start:6px;"><button class="btn btn-ghost btn-sm" data-action="hedit">編集</button></div></td>';
       html += '</tr>';
