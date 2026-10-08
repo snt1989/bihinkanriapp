@@ -1338,7 +1338,7 @@
       <div class="adminblock">
         <div class="adminblock-head">社員番号の自動割り振り設定</div>
         <div class="empno-form">
-          <p class="empno-desc">アカウント登録のとき、ここで決めた範囲の番号がランダムに割り振られます。すでに割り振られた番号は変わりません。</p>
+          <p class="empno-desc">アカウント登録のとき、ここで決めた範囲の開始番号から、空いている番号が順番に割り振られます。すでに割り振られた番号は変わりません。</p>
           <div class="field">
             <label for="empNoPrefix">先頭に付ける文字（任意・半角英数字4文字まで）</label>
             <input id="empNoPrefix" type="text" maxlength="4" autocomplete="off" placeholder="例）s">
@@ -3182,7 +3182,7 @@
     var used = allEmployees().filter(function(e){ return e.loginId; }).length;
     var cap = cfg.max - cfg.min + 1;
     el.style.color = "";
-    el.textContent = "割り振り例：" + randomEmpNo(cfg) + "　／　割り振り可能：" + cap + " 件　／　台帳で使用中：" + used + " 件";
+    el.textContent = "割り振り例：" + formatEmpNo(cfg, cfg.min) + "〜（順番）" + "　／　割り振り可能：" + cap + " 件　／　台帳で使用中：" + used + " 件";
   }
   function readEmpNoForm(){
     var rawMin = $("empNoMin").value.trim(), rawMax = $("empNoMax").value.trim();
@@ -3253,11 +3253,7 @@
     Object.keys(state.mechanics || {}).forEach(function(k){ var l = state.mechanics[k].loginId; if(l) used[normLoginId(l)] = true; });
     Object.keys(pendingEmpNos).forEach(function(k){ used[k] = true; });
     var cap = cfg.max - cfg.min + 1, n = "", i;
-    for(i = 0; i < 300; i++){
-      var c = randomEmpNo(cfg);
-      if(!used[normLoginId(c)]){ n = c; break; }
-    }
-    if(!n){
+    {
       for(i = 0; i < cap; i++){
         var c2 = formatEmpNo(cfg, cfg.min + i);
         if(!used[normLoginId(c2)]){ n = c2; break; }
@@ -5802,13 +5798,14 @@
     function normName(v){ return (v || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase(); }
 
     // 4桁の社員番号を自動で割り振る。Authで重複した番号なら別の番号で再試行する
-    function createWithAutoId(password, tries, cfg){
-      var num = randomEmpNo(cfg);
+    function createWithAutoId(password, tries, cfg, offset){
+      offset = offset || 0;
+      var num = formatEmpNo(cfg, cfg.min + offset); // 開始番号から順番に、空いている番号を使う
       return auth.createUserWithEmailAndPassword(num + ID_DOMAIN, password).then(function(cred){
         return { id: num, user: cred.user };
       }, function(err){
         if(err && err.code === "auth/email-already-in-use"){
-          if(tries > 1) return createWithAutoId(password, tries - 1, cfg);
+          if(tries > 1) return createWithAutoId(password, tries - 1, cfg, offset + 1);
           throw { code: "app/no-number" }; // 範囲内の番号を使い切った
         }
         throw err;
@@ -5871,7 +5868,7 @@
         registering = true; submitBtn.disabled = true;
         loadEmpNoSettings().then(function(cfg){
           var cap = cfg.max - cfg.min + 1;
-          return createWithAutoId(toFirebasePassword(pwEl.value), Math.min(80, Math.max(5, cap * 3)), cfg);
+          return createWithAutoId(toFirebasePassword(pwEl.value), Math.min(cap, 500), cfg, 0);
         }).then(function(r){
           function rollback(code){
             return r.user.delete().catch(function(){}).then(function(){ return auth.signOut().catch(function(){}); })
