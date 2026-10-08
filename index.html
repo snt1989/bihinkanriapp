@@ -2802,10 +2802,7 @@
         '<span style="flex:1; white-space:pre-wrap;">' + esc(x.c.text || "") + '</span>' +
         '<button type="button" class="iconbtn" data-action="mc-del" data-idx="' + x.i + '" aria-label="コメントを削除" title="削除" style="width:22px;height:22px;">✕</button></div>';
     });
-    h += '<div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">' +
-      '<input type="date" class="mcomment-date" value="' + todayISO() + '" style="font-size:12px; padding:4px 6px; border:1px solid var(--line); border-radius:8px; background:var(--surface,#fff); color:inherit;">' +
-      '<input type="text" class="mcomment-input" placeholder="コメントを追加（Enterで保存）" autocomplete="off" style="flex:1; min-width:160px; font-size:12.5px; padding:5px 9px; border:1px solid var(--line); border-radius:8px; background:var(--surface,#fff); color:inherit;">' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-action="mc-add">追加</button></div></div>';
+    h += '</div>';
     return h;
   }
   function saveMaintComments(mid, next){
