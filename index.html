@@ -1976,6 +1976,16 @@
     openMaintRecords().forEach(function(m){ open[m.equipmentId] = true; });
     return allItems().filter(function(i){ return i.status === "修理中" && !open[i.id]; });
   }
+  // 整備中の記録がある備品は、備品台帳でも「修理中」として表示する（備品側の状態が未反映でもそろえる）
+  function reconcileItemStatus(){
+    var open = {};
+    openMaintRecords().forEach(function(m){ open[m.equipmentId] = true; });
+    Object.keys(state.items).forEach(function(k){
+      var it = state.items[k];
+      if(it._rawStatus !== undefined){ it.status = it._rawStatus; delete it._rawStatus; }
+      if(open[k] && it.status === "利用可能" && !isLentAny(it)){ it._rawStatus = it.status; it.status = "修理中"; }
+    });
+  }
   function repairCount(){ return openMaintRecords().length + repairOrphanItems().length; }
   function allLoans(){
     return Object.keys(state.loans).map(function(k){ return state.loans[k]; });
@@ -5537,6 +5547,7 @@
         next[d.id] = Object.assign({ id: d.id }, data);
       });
       state.items = next;
+      reconcileItemStatus();
       state.ready = true;
       state.loaded.items = true;
       renderAll();
@@ -5560,6 +5571,9 @@
         next[d.id] = Object.assign({ id: d.id }, data);
       });
       state.maintenance = next;
+      reconcileItemStatus();
+      renderStats();
+      if(state.page === "equipment") renderList();
       renderNavCounts();
       var ae2 = document.activeElement;
       if(state.page === "maintenance" && !(ae2 && ae2.classList && (ae2.classList.contains("mcomment-input") || ae2.classList.contains("mcomment-date")))) renderMaintList();
@@ -5581,6 +5595,7 @@
         next[d.id] = Object.assign({ id: d.id }, data);
       });
       state.loans = next;
+      reconcileItemStatus();
       if(state.ready) renderAll(); // 数量つき備品の在庫表示・持出中の一覧も更新する
       renderNavCounts();
       if(state.page === "loans") renderLoanList();
