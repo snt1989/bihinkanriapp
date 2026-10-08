@@ -1671,6 +1671,14 @@
           <input id="maintAddCost" type="number" inputmode="numeric" min="0" placeholder="例: 2500">
         </div>
       </div>
+      <div class="field">
+        <label for="maintAddComment">コメント（任意）</label>
+        <div id="maintAddCommentList" style="font-size:12px; color:var(--text-muted); display:flex; flex-direction:column; gap:3px; margin-block-end:4px;"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input id="maintAddCommentDate" type="date" style="flex:0 0 auto;">
+          <input id="maintAddComment" type="text" autocomplete="off" placeholder="日付ごとのコメントを追加" style="flex:1 1 180px; min-width:0;">
+        </div>
+      </div>
     </div>
     <div class="foot">
       <button class="btn btn-ghost" id="maintAddCancelBtn">キャンセル</button>
@@ -2909,6 +2917,11 @@
     $("maintAddIssue").value = om ? (om.issue || "") : "";
     $("maintAddParts").value = om ? (om.parts || "") : "";
     $("maintAddCost").value = om && om.cost ? om.cost : "";
+    $("maintAddComment").value = "";
+    $("maintAddCommentDate").value = todayISO();
+    $("maintAddCommentList").innerHTML = ((om && om.comments) || []).map(function(c){
+      return '<div><span class="tnum" style="color:var(--text-faint);">' + esc(fmtDate(c.date)) + '</span>　' + esc(c.text || "") + '</div>';
+    }).join("");
     if(isMechanicRole() && !$("maintAddStaff").value){
       // 整備士でログインしている人は、整備担当者に自分の名前を初期入力する
       var myKey = Object.keys(state.mechanics || {}).filter(function(k){ return state.mechanics[k].loginId === currentLoginId; })[0];
@@ -2955,6 +2968,9 @@
       endDate: null,
       updatedAt: Date.now()
     };
+    var cText = $("maintAddComment").value.trim();
+    var newC = cText ? { date: $("maintAddCommentDate").value || today, text: cText, by: ((authRef && authRef.currentUser && authRef.currentUser.email) ? authRef.currentUser.email.replace("@bihinkanriapp.local", "") : ""), createdAt: Date.now() } : null;
+    if(newC) payload.comments = ((om && om.comments) || []).concat([newC]);
     if(om){
       db.collection("maintenance").doc(om.id).update(payload).catch(function(e){ console.warn("maintenance update failed", e); });
     } else {
