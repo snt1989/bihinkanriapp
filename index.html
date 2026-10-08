@@ -624,10 +624,11 @@
     .stat-icon{display:none;}
     .stat-label{font-size:10.5px; margin:0; white-space:nowrap;}
     .stat-value{font-size:18px;}
-    .toolbar{display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px; margin-block-end:12px;}
+    .toolbar{display:grid; grid-template-columns:1fr; gap:8px; padding:10px; margin-block-end:12px;}
     .toolbar .search{grid-column:1 / -1; flex:none;}
     .toolbar .addbtn{grid-column:1 / -1; justify-content:center; margin:0; padding:12px 16px;}
-    .toolbar select.selfilter{width:100%; min-width:0;}
+    .toolbar select.selfilter{width:100%; min-width:0; text-overflow:ellipsis; padding-right:34px;}
+    select{max-width:100%; text-overflow:ellipsis;}
     input, select, textarea, .search input, select.selfilter{font-size:16px !important;}
     .search input{padding:11px 12px 11px 36px;}
     select.selfilter{padding:11px 30px 11px 12px;}
