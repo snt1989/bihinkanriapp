@@ -1673,11 +1673,13 @@
       </div>
       <div class="field">
         <label for="maintAddComment">コメント（任意）</label>
-        <div id="maintAddCommentList" style="font-size:12px; color:var(--text-muted); display:flex; flex-direction:column; gap:3px; margin-block-end:4px;"></div>
+        <div id="maintAddCommentList" style="font-size:12px; color:var(--text-muted); display:flex; flex-direction:column; gap:3px; margin-block-end:6px;"></div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <input id="maintAddCommentDate" type="date" style="flex:0 0 auto;">
-          <input id="maintAddComment" type="text" autocomplete="off" placeholder="日付ごとのコメントを追加" style="flex:1 1 180px; min-width:0;">
+          <input id="maintAddComment" type="text" autocomplete="off" placeholder="整備の経過をコメントに追加（Enterで追加）" style="flex:1 1 180px; min-width:0;">
+          <button type="button" class="btn btn-ghost btn-sm" id="maintAddCommentBtn">追加</button>
         </div>
+        <div id="maintAddHistory" style="font-size:12px; color:var(--text-muted); margin-block-start:10px;"></div>
       </div>
     </div>
     <div class="foot">
@@ -2906,6 +2908,39 @@
     rows.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
     return rows[0] || null;
   }
+  // 「点検・整備の記録」画面：整備中ならコメントを随時追加でき、過去の整備履歴も見られる
+  function renderMaintAddComments(equipmentId){
+    var om = findOpenMaintenance(equipmentId);
+    var list = ((om && om.comments) || []).map(function(c, i){ return { c: c, i: i }; })
+      .sort(function(a,b){ return (a.c.date || "").localeCompare(b.c.date || "") || a.i - b.i; });
+    $("maintAddCommentList").innerHTML = list.length ? list.map(function(x){
+      return '<div style="display:flex; gap:6px; align-items:baseline;"><span class="tnum" style="color:var(--text-faint); white-space:nowrap;">' + esc(fmtDate(x.c.date)) + '</span><span style="flex:1; white-space:pre-wrap;">' + esc(x.c.text || "") + '</span><button type="button" class="iconbtn" data-idx="' + x.i + '" aria-label="コメントを削除" title="削除" style="width:22px;height:22px;">✕</button></div>';
+    }).join("") : (om ? '<div style="color:var(--text-faint);">まだコメントはありません</div>' : '<div style="color:var(--text-faint);">記録すると整備中になり、以後は随時コメントを追加できます</div>');
+    Array.prototype.forEach.call($("maintAddCommentList").querySelectorAll("button[data-idx]"), function(b){
+      b.addEventListener("click", function(){
+        var cur = findOpenMaintenance(equipmentId);
+        if(!cur || !confirm("このコメントを削除します。よろしいですか？")) return;
+        var idx = parseInt(b.getAttribute("data-idx"), 10);
+        saveMaintComments(cur.id, (cur.comments || []).filter(function(_, i){ return i !== idx; }));
+        renderMaintAddComments(equipmentId);
+      });
+    });
+    $("maintAddCommentBtn").hidden = !om;
+    var past = allMaint().filter(function(m){ return m.equipmentId === equipmentId && (!om || m.id !== om.id); })
+      .sort(function(a,b){ return (b.endDate || b.startDate || "").localeCompare(a.endDate || a.startDate || ""); });
+    $("maintAddHistory").innerHTML = past.length ? '<div style="font-weight:700; margin-block-end:3px;">この備品の整備履歴</div>' + past.slice(0, 8).map(function(m){
+      return '<div><span class="tnum" style="color:var(--text-faint);">' + esc(fmtDate(m.endDate || m.startDate)) + '</span>　' + esc(m.maintType || "") + '　' + esc(m.issue || "") + '（' + esc(m.status || "") + '）</div>';
+    }).join("") : "";
+  }
+  function addMaintCommentFromModal(){
+    var eid = $("maintAddEquip").value;
+    var om = findOpenMaintenance(eid);
+    var text = $("maintAddComment").value.trim();
+    if(!om || !text) return;
+    addMaintComment(om.id, $("maintAddCommentDate").value || todayISO(), text);
+    $("maintAddComment").value = "";
+    renderMaintAddComments(eid);
+  }
   function fillMaintFormFor(equipmentId){
     var it = state.items[equipmentId];
     var om = findOpenMaintenance(equipmentId);
@@ -2916,9 +2951,7 @@
     $("maintAddCost").value = om && om.cost ? om.cost : "";
     $("maintAddComment").value = "";
     $("maintAddCommentDate").value = todayISO();
-    $("maintAddCommentList").innerHTML = ((om && om.comments) || []).map(function(c){
-      return '<div><span class="tnum" style="color:var(--text-faint);">' + esc(fmtDate(c.date)) + '</span>　' + esc(c.text || "") + '</div>';
-    }).join("");
+    renderMaintAddComments(equipmentId);
     if(isMechanicRole() && !$("maintAddStaff").value){
       // 整備士でログインしている人は、整備担当者に自分の名前を初期入力する
       var myKey = Object.keys(state.mechanics || {}).filter(function(k){ return state.mechanics[k].loginId === currentLoginId; })[0];
@@ -5354,6 +5387,8 @@
     $("maintAddCancelBtn").addEventListener("click", closeMaintAddModal);
     $("maintAddModalOverlay").addEventListener("click", function(e){ if(e.target === $("maintAddModalOverlay")) closeMaintAddModal(); });
     $("maintAddSaveBtn").addEventListener("click", saveMaintAdd);
+    $("maintAddCommentBtn").addEventListener("click", addMaintCommentFromModal);
+    $("maintAddComment").addEventListener("keydown", function(e){ if(e.key === "Enter" && !e.isComposing){ e.preventDefault(); if(findOpenMaintenance($("maintAddEquip").value)) addMaintCommentFromModal(); else saveMaintAdd(); } });
     $("maintAddEquip").addEventListener("change", function(e){ fillMaintFormFor(e.target.value); });
     $("maintCsvBtn").addEventListener("click", exportMaintenanceCsv);
     $("fImagePickBtn").addEventListener("click", function(){ $("fImageFile").click(); });
