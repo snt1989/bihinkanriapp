@@ -4914,7 +4914,15 @@
     cfg.fields.forEach(function(f, i){
       fieldsHtml += '<div class="field"><label for="gmField' + i + '">' + esc(f.label) + (f.required ? ' <span style="color:var(--danger);">*</span>' : '') + '</label><input id="gmField' + i + '" type="text" placeholder="' + esc(f.placeholder || "") + '"' + (f.maxlength ? ' maxlength="' + f.maxlength + '"' : '') + '></div>';
     });
+    if(collectionName === "mechanics"){
+      var hasId = !!(existing && existing.loginId);
+      fieldsHtml += '<div class="field" style="border-top:1px solid var(--line); padding-top:12px;"><label>ログイン用アカウント</label>' +
+        '<div style="font-size:12px; color:var(--text-muted); margin-block-end:6px;">' + (hasId ? 'アカウントは作成済みです。パスワードを変更するときだけ、下に新しいパスワードを入力してください。' : 'まだアカウントがありません。パスワードを入力すると、ログインできる整備士アカウントを作成します（空欄なら作成しません）。') + '</div>' +
+        '<input id="gmAcctId" type="text" autocomplete="off" placeholder="ログインID（空欄なら社員番号を自動で割り振り）"' + (hasId ? ' readonly style="background:var(--line-soft);"' : '') + '></div>' +
+        '<div class="field"><label for="gmAcctPw">' + (hasId ? '新しいパスワード（変更するときのみ）' : 'パスワード') + '</label><input id="gmAcctPw" type="text" autocomplete="off" placeholder="4文字以上"></div>';
+    }
     $("genericMasterFields").innerHTML = fieldsHtml;
+    if(collectionName === "mechanics"){ $("gmAcctId").value = (existing && existing.loginId) || ""; }
     var splitExisting = (collectionName === "mechanics" && existing && !existing.lastName && !existing.firstName && existing.name) ? splitFullName(existing.name) : null;
     cfg.fields.forEach(function(f, i){
       var v = existing ? (existing[f.key] || "") : "";
@@ -4956,11 +4964,48 @@
     if(collectionName === "mechanics"){ values.name = ((values.lastName || "") + " " + (values.firstName || "")).trim(); }
     if(collectionName === "eqCategories" && !values.icon){ values.icon = autoIconForCategory(values.name); }
     if(!db){ closeGenericMasterModal(); return; }
+    if(collectionName === "mechanics" && $("gmAcctPw") && $("gmAcctPw").value){
+      // パスワードが入力されたとき：整備士アカウントを作成／パスワードを変更してから保存する
+      var pw = $("gmAcctPw").value;
+      if(pw.length < 4){ alert("パスワードは4文字以上で入力してください。"); $("gmAcctPw").focus(); return; }
+      var selfId = genericMasterState.editingId;
+      var cur = selfId ? state.mechanics[selfId] : null;
+      var acctId = (cur && cur.loginId) ? normLoginId(cur.loginId) : normLoginId($("gmAcctId").value);
+      if(!(cur && cur.loginId)){
+        if(acctId){
+          var dupE = allEmployees().some(function(e){ return e.loginId && normLoginId(e.loginId) === acctId; });
+          var dupM = Object.keys(state.mechanics || {}).some(function(k){ return k !== selfId && state.mechanics[k].loginId && normLoginId(state.mechanics[k].loginId) === acctId; });
+          if(dupE || dupM){ alert("ログインID「" + acctId + "」は、すでに使われています。別のIDを入力するか、空欄にして自動で割り振ってください。"); $("gmAcctId").focus(); return; }
+        } else {
+          acctId = allocateEmpNo();
+          if(!acctId){ alert("割り振れる社員番号がありません。管理画面の「社員番号設定」の範囲を広げてください。"); return; }
+        }
+      }
+      var saveBtn = $("genericMasterSaveBtn");
+      saveBtn.disabled = true;
+      resetPasswordViaApi(acctId, pw, true, "mechanic").then(function(res){
+        var msg = resetPasswordMessage(res);
+        if(msg){ alert(msg); return; }
+        values.loginId = acctId; values.role = "mechanic";
+        var oldN = cur ? cur.name : null;
+        if(selfId){
+          db.collection("mechanics").doc(selfId).update(Object.assign({}, values, { updatedAt: Date.now() })).catch(function(e){ console.warn(e); alertSaveFailed("整備担当者の保存", e); });
+          if(oldN && values.name && oldN !== values.name) cascadeMasterUsage("mechanics", oldN, values.name);
+        } else {
+          addMasterItem("mechanics", values.name, values);
+        }
+        closeGenericMasterModal();
+        alert("整備士アカウントを保存しました。\n\nログインID：" + acctId + "\nパスワード：" + pw + "\n\n本人にお伝えください。");
+      }).catch(function(err){
+        alert((err && err.userMessage) || "通信に失敗しました。ネットワークをご確認ください。");
+      }).then(function(){ saveBtn.disabled = false; });
+      return;
+    }
     if(genericMasterState.editingId){
       var existing = state[collectionName][genericMasterState.editingId];
       var oldName = existing ? existing.name : null;
       var patch = Object.assign({}, values, { updatedAt: Date.now() });
-      db.collection(collectionName).doc(genericMasterState.editingId).update(patch).catch(function(e){ console.warn(e); });
+      db.collection(collectionName).doc(genericMasterState.editingId).update(patch).catch(function(e){ console.warn(e); alertSaveFailed("保存", e); });
       if(oldName && values.name && oldName !== values.name) cascadeMasterUsage(collectionName, oldName, values.name);
     } else {
       addMasterItem(collectionName, values.name, values);
