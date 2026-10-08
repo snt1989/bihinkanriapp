@@ -1968,6 +1968,14 @@
   function allMaint(){
     return Object.keys(state.maintenance).map(function(k){ return state.maintenance[k]; });
   }
+  // 点検・修理中の件数：整備中の記録 ＋ 「修理中」なのに整備中の記録がない備品（上のタブ・件数カード・一覧で同じ数にそろえる）
+  function openMaintRecords(){ return allMaint().filter(function(m){ return m.status === "整備中"; }); }
+  function repairOrphanItems(){
+    var open = {};
+    openMaintRecords().forEach(function(m){ open[m.equipmentId] = true; });
+    return allItems().filter(function(i){ return i.status === "修理中" && !open[i.id]; });
+  }
+  function repairCount(){ return openMaintRecords().length + repairOrphanItems().length; }
   function allLoans(){
     return Object.keys(state.loans).map(function(k){ return state.loans[k]; });
   }
@@ -1995,14 +2003,14 @@
     $("statTotal").textContent = items.length;
     $("statIn").textContent = items.filter(function(i){return i.status==="利用可能";}).length;
     $("statLent").textContent = items.filter(isLentAny).length;
-    $("statRepair").textContent = items.filter(function(i){return i.status==="修理中";}).length;
+    $("statRepair").textContent = repairCount();
     Array.prototype.forEach.call($("statsRow").querySelectorAll(".statcard"), function(el){
       el.classList.toggle("active", el.getAttribute("data-status") === state.statusFilter);
     });
   }
 
   function renderNavCounts(){
-    $("navCntMaint").textContent = allMaint().filter(function(m){return m.status==="整備中";}).length;
+    $("navCntMaint").textContent = repairCount();
     $("navCntLoan").textContent = allLoans().filter(function(l){return l.status==="貸出中";}).length;
     $("navCntBorrower").textContent = allEmployees().length;
   }
@@ -2535,10 +2543,11 @@
   function renderMaintOpenGrid(){
     var root = $("maintOpenGrid");
     if(!root) return;
-    var rows = allMaint().filter(function(m){ return m.status === "整備中"; });
+    var rows = openMaintRecords();
     rows.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+    var orphans = repairOrphanItems();
     if(!state.ready){ root.innerHTML = '<div class="empty">読み込み中…</div>'; return; }
-    if(rows.length === 0){ root.innerHTML = '<div class="empty">現在、点検・修理が必要な備品はありません</div>'; return; }
+    if(rows.length === 0 && orphans.length === 0){ root.innerHTML = '<div class="empty">現在、点検・修理が必要な備品はありません</div>'; return; }
 
     var html = "";
     rows.forEach(function(m){
@@ -2556,6 +2565,16 @@
       html += '    <button class="btn btn-primary btn-sm" data-action="mdone" style="flex:1;">完了</button>';
       html += '    <button class="btn btn-ghost btn-sm" data-action="mretire" style="flex:1;">廃棄</button>';
       html += '  </div>';
+      html += '</div>';
+    });
+    orphans.forEach(function(it){
+      html += '<div class="maintcard" data-eid="' + esc(it.id) + '">';
+      html += '  <div class="mc-top">';
+      html += '    <div><div class="mc-no tnum">' + (typeof it.no==="number" ? fmtNo(it.no) : "") + '</div><div class="mc-name">' + esc(it.name || "") + '</div></div>';
+      html += '    <span class="badge repair">修理中</span>';
+      html += '  </div>';
+      if(it.location) html += '  <div class="mc-loc">定位置: ' + esc(it.location) + '</div>';
+      html += '  <div class="mc-issue">整備記録がありません。タップして整備記録を入力してください。</div>';
       html += '</div>';
     });
     root.innerHTML = html;
