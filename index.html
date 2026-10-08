@@ -1,5 +1,21 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2E7D45">
+<meta name="application-name" content="備品管理">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="備品管理">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <title>備品管理システム</title>
 <style>
+  html{-webkit-text-size-adjust:100%;}
+  body{padding-bottom:env(safe-area-inset-bottom);}
   :root{
     --bg:#FFFFFF;
     --surface:#FFFFFF;
@@ -5860,5 +5876,10 @@
   }
 
   boot();
+
+  // ホーム画面に追加できるように（スマートフォンのアプリのように開く）。https の公開サイトでのみ登録する
+  if("serviceWorker" in navigator && location.protocol === "https:"){
+    window.addEventListener("load", function(){ navigator.serviceWorker.register("/sw.js").catch(function(e){ console.warn("sw register failed", e); }); });
+  }
 })();
 </script>
