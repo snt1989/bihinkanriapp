@@ -2041,12 +2041,24 @@
     return Object.keys(state.loans).map(function(k){ return state.loans[k]; });
   }
 
+  // カテゴリの並び順：カテゴリマスタの並び（管理画面で並べ替え可能）を優先し、マスタにないものは最小Noの順
+  function makeCategoryComparer(){
+    var names = masterSortedList(state.eqCategories || {}).map(function(c){ return c.name; });
+    var minNo = {};
+    allItems().forEach(function(it){
+      var c = it.category || "";
+      var n = (typeof it.no === "number") ? it.no : 9000000;
+      if(minNo[c] === undefined || n < minNo[c]) minNo[c] = n;
+    });
+    function rank(c){ var i = names.indexOf(c); return i >= 0 ? i : 10000 + (minNo[c] === undefined ? 9000000 : minNo[c]); }
+    return function(a, b){ return rank(a) - rank(b) || (a || "").localeCompare(b || "", "ja"); };
+  }
   function categoriesInOrder(){
     var seen = {}, order = [];
     allItems().forEach(function(it){
       if(!seen[it.category]){ seen[it.category] = true; order.push(it.category); }
     });
-    order.sort(function(a,b){ return minNoInCategory(a) - minNoInCategory(b); });
+    order.sort(makeCategoryComparer());
     return order;
   }
   function minNoInCategory(cat){
@@ -2146,9 +2158,9 @@
       };
       case "new-desc": return function(a,b){ return (b.createdAt||0) - (a.createdAt||0) || byNo(a,b); };
       case "new-asc": return function(a,b){ return (a.createdAt||0) - (b.createdAt||0) || byNo(a,b); };
-      default: return function(a,b){
+      default: var cmpCat = makeCategoryComparer(); return function(a,b){
         var ca = a.category||"", cb = b.category||"";
-        if(ca !== cb) return minNoInCategory(ca) - minNoInCategory(cb);
+        if(ca !== cb) return cmpCat(ca, cb);
         return byNo(a,b);
       };
     }
