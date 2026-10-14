@@ -6158,6 +6158,19 @@
       auth.signOut().then(function(){ location.reload(); });
     });
 
+    // 現場管理アプリから「?sso=チケット」付きで開かれたときは、借受者台帳で同じ氏名の人としてログインする
+    // （一致しない・失敗した場合は、通常のログイン画面になる）
+    function ssoLogin(){
+      var t = ""; try{ t = new URLSearchParams(location.search).get("sso") || ""; }catch(e){}
+      if(!t) return Promise.resolve();
+      try{ history.replaceState(null, "", location.pathname + location.hash); }catch(e){}   // チケットをURLから消す
+      return fetch("/api/sso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: t }) })
+        .then(function(r){ return r.json(); })
+        .then(function(j){ if(j && j.ok && j.token) return auth.signInWithCustomToken(j.token); })
+        .catch(function(e){ console.warn("sso failed", e); });
+    }
+    ssoLogin().then(function(){ startAuthListener(); });
+    function startAuthListener(){
     auth.onAuthStateChanged(function(user){
       $("loginChecking").hidden = true;
       if(registering) return; // 登録処理中は画面を切り替えない（完了後に「アプリを開く」で進む）
@@ -6174,6 +6187,7 @@
         if(started){ location.reload(); } // 購読中のリスナーを確実に破棄する
       }
     });
+    }
   }
 
   boot();
