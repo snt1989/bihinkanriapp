@@ -976,7 +976,7 @@
 <section class="help-group"><h3>持出・返却</h3>
 <details class="qa"><summary>備品を持ち出すには？</summary><div class="qa-a">備品台帳で対象の備品を押して詳細を開き、「持出」を押します。借受者の姓・名、現場名／用途（任意）、返却予定日を入力し、「持出を確定」を押してください。状態が「現場持出中」に変わり、貸出台帳にも記録されます。</div></details>
 <details class="qa"><summary>借受者に未登録の人が持ち出すときは？</summary><div class="qa-a">姓と名を入力すれば持出できます。借受者として登録されていない名前を入力した場合は、借受者として登録するかどうかを選べます。あらかじめ「借受者台帳」に登録しておくこともできます。</div></details>
-<details class="qa"><summary>備品を返却するには？</summary><div class="qa-a">持出中の備品の詳細を開き、「返却する」を押します。返却前チェックリストを確認し、返却時の状態を「異常なし（保管庫へ）」か「要点検・修理（整備台帳へ）」から選んで、「返却を完了する」を押してください。</div></details>
+<details class="qa"><summary>備品を返却するには？</summary><div class="qa-a">持出中の備品の詳細を開き、「返却する」を押します（返却受付は、持ち出した本人のみ行えます）。返却前チェックリストを確認し、返却時の状態を「異常なし（保管庫へ）」か「要点検・修理（整備台帳へ）」から選んで、「返却を完了する」を押してください。</div></details>
 <details class="qa"><summary>同じ備品が2個以上あるときは？</summary><div class="qa-a">備品の登録・編集画面の「数量」に個数を入れてください（初期値は1）。数量が2個以上の備品は、持出のときに「持出数量」を入力します。一部だけ持ち出した間は「利用可能」のまま、備品カードに在庫数と持出者が表示されます。全部持ち出されると「貸出中」になります。返却は、備品の詳細画面（または貸出台帳）で、持出の記録ごとに行います。</div></details>
 <details class="qa"><summary>返却時に不具合があったときは？</summary><div class="qa-a">返却の画面で「要点検・修理（整備台帳へ）」を選んでください。備品の状態が「点検・修理中」になり、整備台帳に「整備中」の記録が自動で作られます。不具合の内容は「返却チェック・不具合メモ」に書いておくと、整備台帳の作業内容に残ります。返却前チェックリストも、あわせて確認してください。</div></details>
 <details class="qa"><summary>返却予定日を過ぎたらどうなりますか？</summary><div class="qa-a">備品の詳細で、返却予定日が赤字で「（期限超過）」と表示されます。持出中の一覧は「貸出台帳」画面でも確認できます。</div></details>
@@ -2303,7 +2303,7 @@
       html += '<div class="field"><label>持出中の記録（返却は行ごと）</label>';
       openLoansOf(it.id).forEach(function(l){
         var odl = l.dueDate && l.dueDate < todayISO();
-        html += '<div class="kv-row" style="align-items:center; gap:8px;"><span class="k" style="flex:1;">' + esc(l.borrower || "") + '　' + loanQty(l) + '個' + (l.siteName ? '・' + esc(l.siteName) : '') + '<br><span class="tnum ' + (odl ? "overdue" : "") + '" style="font-size:11.5px;">返却予定 ' + esc(fmtDate(l.dueDate)) + (odl ? '（期限超過）' : '') + '</span></span><button class="btn btn-info btn-sm" data-return-loan="' + esc(l.id) + '">返却する</button></div>';
+        html += '<div class="kv-row" style="align-items:center; gap:8px;"><span class="k" style="flex:1;">' + esc(l.borrower || "") + '　' + loanQty(l) + '個' + (l.siteName ? '・' + esc(l.siteName) : '') + '<br><span class="tnum ' + (odl ? "overdue" : "") + '" style="font-size:11.5px;">返却予定 ' + esc(fmtDate(l.dueDate)) + (odl ? '（期限超過）' : '') + '</span></span><button class="btn btn-info btn-sm" data-return-loan="' + esc(l.id) + '"' + (canReturnAs(l.borrower) ? '' : ' disabled title="持ち出した本人のみ返却できます"') + '>返却する</button></div>';
       });
       html += '</div>';
     }
@@ -2311,7 +2311,8 @@
     // actions
     html += '<div class="actionrow">';
     if(it.status === "貸出中" && !isMulti(it)){
-      html += '<button class="btn btn-info" id="btnReturn">返却する</button>';
+      html += '<button class="btn btn-info" id="btnReturn"' + (canReturnAs(it.borrower) ? '' : ' disabled title="持ち出した本人のみ返却できます"') + '>返却する</button>';
+      if(!canReturnAs(it.borrower)) html += '<div class="hint" style="font-size:12px; color:var(--text-muted); flex-basis:100%;">返却受付は、持ち出した本人（' + esc(it.borrower || "不明") + '）のみ行えます。</div>';
     } else if(it.status === "修理中"){
       html += '<button class="btn btn-primary" id="btnRepairDone">修理完了（利用可能へ）</button>';
     } else if(it.status === "廃棄"){
@@ -2401,6 +2402,19 @@
     if(!currentLoginId) return null;
     return allEmployees().filter(function(x){ return x.loginId && normLoginId(x.loginId) === normLoginId(currentLoginId); })[0] || null;
   }
+  // 返却受付は、持ち出した本人（ログイン中の人の借受者台帳の氏名＝持出者）だけが行える
+  function sameName(a, b){
+    function n(v){ return (v || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase(); }
+    return !!n(a) && n(a) === n(b);
+  }
+  function canReturnAs(borrowerName){
+    var emp = currentBorrowerEmp();
+    return !!emp && sameName(empFullName(emp), borrowerName);
+  }
+  function returnBlockedMessage(borrowerName){
+    var emp = currentBorrowerEmp();
+    return "この備品は「" + (borrowerName || "不明") + "」さんが持ち出しています。\n返却受付は、持ち出した本人のみ行えます。" + (emp ? "" : "\n（ログイン中のアカウントが借受者台帳に登録されていません）");
+  }
   function isKnownStaff(fullName){
     return allEmployees().some(function(e){ return empFullName(e) === fullName; });
   }
@@ -2448,6 +2462,8 @@
       var ols = openLoansOf(id);
       loan = (loanId && state.loans[loanId]) || ols[0] || null;
     }
+    var whoBorrowed = loan ? loan.borrower : it.borrower;
+    if(!canReturnAs(whoBorrowed)){ alert(returnBlockedMessage(whoBorrowed)); return; }
     state.returningId = id;
     state.returningLoanId = loan ? loan.id : null;
     $("returnModalItemName").textContent = "[" + fmtNo(it.no) + "] " + it.name + (loan ? "　" + loanQty(loan) + "個" : "");
@@ -3043,7 +3059,7 @@
       html += '  <div class="rdates">貸出 ' + fmtDate(l.checkoutDate) + '<br>' + (open ? ('返却予定 <span class="' + (overdue?"overdue":"") + '">' + fmtDate(l.dueDate) + (overdue?'（超過）':'') + '</span>') : ('返却 ' + fmtDate(l.returnDate))) + '</div>';
       html += '  <span class="badge ' + (open ? "lent" : "in") + '">' + esc(l.status) + '</span>';
       if(open){
-        html += '  <div class="ract"><button class="btn btn-info btn-sm" data-action="return">返却する</button></div>';
+        html += '  <div class="ract"><button class="btn btn-info btn-sm" data-action="return"' + (canReturnAs(l.borrower) ? '' : ' disabled title="持ち出した本人のみ返却できます"') + '>返却する</button></div>';
       }
       html += '</div>';
     });
