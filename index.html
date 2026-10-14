@@ -1728,6 +1728,20 @@
         </div>
       </div>
       <div class="field">
+        <label for="returnFuel">燃料の使用量（任意）</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input id="returnFuel" type="number" inputmode="decimal" min="0" step="0.1" placeholder="例）1.5" style="flex:0 0 120px;">
+          <span style="font-size:13px;">L</span>
+          <select id="returnFuelType" style="flex:1 1 140px; min-width:0;">
+            <option value="">燃料の種類（任意）</option>
+            <option value="混合油">混合油</option>
+            <option value="ガソリン">ガソリン</option>
+            <option value="軽油">軽油</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
         <label for="returnMemo">返却チェック・不具合メモ</label>
         <textarea id="returnMemo" placeholder="刃の摩耗、異音、清掃実施状況など..."></textarea>
       </div>
@@ -2294,6 +2308,9 @@
       html += '<div class="kv-row"><span class="k">貸出日</span><span class="v tnum">' + fmtDate(it.checkoutDate) + '</span></div>';
       html += '<div class="kv-row"><span class="k">返却予定日</span><span class="v tnum ' + (isOverdue(it)?"overdue":"") + '">' + fmtDate(it.dueDate) + (isOverdue(it)?"（期限超過）":"") + '</span></div>';
     }
+    if(fuelTotal(it.id) > 0){
+      html += '<div class="kv-row"><span class="k">燃料使用量（累計）</span><span class="v tnum">' + Math.round(fuelTotal(it.id) * 100) / 100 + ' L</span></div>';
+    }
     if(it.notes){
       html += '<div class="kv-row"><span class="k">備考</span><span class="v" style="text-align:left; max-width:65%;">' + esc(it.notes) + '</span></div>';
     }
@@ -2472,6 +2489,7 @@
       : "借受担当者: " + (it.borrower || "—") + (it.siteName ? " ／ 現場: " + it.siteName : "");
     $("returnCondOk").checked = true;
     $("returnMemo").value = "";
+    $("returnFuel").value = ""; $("returnFuelType").value = "";
     Array.prototype.forEach.call(document.querySelectorAll(".returnChk"), function(c){ c.checked = false; });
     $("returnModalOverlay").classList.add("show");
   }
@@ -2488,11 +2506,18 @@
     state.returningId = null;
     state.returningLoanId = null;
   }
+  // 返却時に入力された燃料使用量（L）。無入力なら null
+  var returnFuel = null;
+  function fuelText(f){ return f ? "／燃料 " + f.amount + "L" + (f.type ? "（" + f.type + "）" : "") : ""; }
+  function fuelPatch(f){ return f ? { fuelUsed: f.amount, fuelType: f.type || "" } : {}; }
+  function fuelTotal(itemId){
+    return allLoans().reduce(function(sum, l){ return l.equipmentId === itemId && typeof l.fuelUsed === "number" ? sum + l.fuelUsed : sum; }, 0);
+  }
   function doReturnConfirmMulti(it, loan, condition, memo){
     var id = it.id;
     var note = (memo || "").trim();
     var qtyN = loan ? loanQty(loan) : 1;
-    var base = (loan && loan.borrower ? loan.borrower + " から" : "") + qtyN + "個返却";
+    var base = (loan && loan.borrower ? loan.borrower + " から" : "") + qtyN + "個返却" + fuelText(returnFuel);
     if(it.status === "貸出中") updateItem(id, { status: "利用可能" });
     if(condition === "repair"){
       addLog(id, "返却（要点検・修理）", base + (note ? "／" + note : ""));
@@ -2508,8 +2533,9 @@
       addLog(id, "返却", base + (note ? "／" + note : ""));
     }
     if(db && loan && loan.id && loan.id.indexOf("tmp_") !== 0){
-      db.collection("loans").doc(loan.id).update({ status: "返却済み", returnDate: todayISO(), updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
+      db.collection("loans").doc(loan.id).update(Object.assign({ status: "返却済み", returnDate: todayISO(), updatedAt: Date.now() }, fuelPatch(returnFuel))).catch(function(e){ console.warn(e); });
     }
+    if(loan && returnFuel) Object.assign(loan, fuelPatch(returnFuel));
     if(loan) loan.status = "返却済み"; // 反映待ちの間も在庫が正しく見えるように
   }
   function doReturnConfirm(id, condition, memo, loanId){
@@ -2520,8 +2546,9 @@
       return;
     }
     var who = it.borrower;
+    var fuelSnapshot = returnFuel;
     var note = (memo || "").trim();
-    var base = who ? who + " から返却" : "返却";
+    var base = (who ? who + " から返却" : "返却") + fuelText(returnFuel);
     if(condition === "repair"){
       updateItem(id, { status: "修理中", borrower: null, checkoutDate: null, dueDate: null, siteName: "" });
       addLog(id, "返却（要点検・修理）", base + (note ? "／" + note : ""));
@@ -2541,7 +2568,7 @@
       db.collection("loans").where("equipmentId","==",id).where("status","==","貸出中").limit(1).get().then(function(snap){
         if(snap.docs.length){
           var doc = snap.docs[0];
-          db.collection("loans").doc(doc.id).update({ status: "返却済み", returnDate: todayISO(), updatedAt: Date.now() }).catch(function(e){ console.warn(e); });
+          db.collection("loans").doc(doc.id).update(Object.assign({ status: "返却済み", returnDate: todayISO(), updatedAt: Date.now() }, fuelPatch(fuelSnapshot))).catch(function(e){ console.warn(e); });
         }
       }).catch(function(e){ console.warn("loan lookup failed", e); });
     }
@@ -3057,6 +3084,7 @@
       html += '  <span class="rno tnum">' + (typeof l.no==="number" ? fmtNo(l.no) : "") + '</span>';
       html += '  <div class="rmain"><div class="rname">' + esc(l.equipmentName) + '</div><div class="rsub">借用: ' + esc(l.borrower) + (loanQty(l) > 1 ? '（' + loanQty(l) + '個）' : '') + (l.siteName ? '・' + esc(l.siteName) : '') + '</div></div>';
       html += '  <div class="rdates">貸出 ' + fmtDate(l.checkoutDate) + '<br>' + (open ? ('返却予定 <span class="' + (overdue?"overdue":"") + '">' + fmtDate(l.dueDate) + (overdue?'（超過）':'') + '</span>') : ('返却 ' + fmtDate(l.returnDate))) + '</div>';
+      if(!open && typeof l.fuelUsed === "number") html += '  <span class="rsub" style="flex-basis:100%;">燃料 ' + l.fuelUsed + 'L' + (l.fuelType ? '（' + esc(l.fuelType) + '）' : '') + '</span>';
       html += '  <span class="badge ' + (open ? "lent" : "in") + '">' + esc(l.status) + '</span>';
       if(open){
         html += '  <div class="ract"><button class="btn btn-info btn-sm" data-action="return"' + (canReturnAs(l.borrower) ? '' : ' disabled title="持ち出した本人のみ返却できます"') + '>返却する</button></div>';
@@ -5395,7 +5423,11 @@
       var memo = $("returnMemo").value.trim();
       var checklist = returnChecklistSummary();
       var combined = [checklist, memo].filter(function(s){ return s; }).join("／");
+      var fAmt = parseFloat($("returnFuel").value);
+      if($("returnFuel").value !== "" && (isNaN(fAmt) || fAmt < 0)){ alert("燃料の使用量は、0以上の数字で入力してください。"); $("returnFuel").focus(); return; }
+      returnFuel = (!isNaN(fAmt) && fAmt > 0) ? { amount: Math.round(fAmt * 100) / 100, type: $("returnFuelType").value } : null;
       doReturnConfirm(state.returningId, cond, combined, state.returningLoanId);
+      returnFuel = null;
       closeReturnModal();
     });
     $("maintAddBtn").addEventListener("click", function(){ openMaintRecordModal(null); });
