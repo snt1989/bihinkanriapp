@@ -165,11 +165,12 @@
 
   /* grid of cards (equipment) */
   .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px;}
-  .card{
+  .card{--cc:hsl(var(--ch,140) 50% 38%); --ccbg:hsl(var(--ch,140) 55% 93%); border-top:4px solid var(--cc);
     background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden;
     box-shadow:var(--shadow); display:flex; flex-direction:column; transition:box-shadow .12s, border-color .12s;
   }
   .card:hover{border-color:var(--accent); box-shadow:var(--shadow-md);}
+  .card, .card:hover{border-top:4px solid var(--cc);}
   .thumb{
     aspect-ratio:4/3; background:var(--line-soft); display:flex; flex-direction:column; align-items:center; justify-content:center;
     gap:6px; color:var(--text-faint); cursor:pointer; border-bottom:1px solid var(--line); overflow:hidden;
@@ -192,6 +193,9 @@
   .cloc{display:flex; align-items:flex-start; gap:5px; font-size:11.5px; color:var(--text-muted); margin-block-end:4px;}
   .cloc svg{width:12px; height:12px; flex:0 0 auto; margin-top:2px; color:var(--text-faint);}
   .cnote{font-size:11.5px; color:var(--text-muted); background:var(--line-soft); border-radius:6px; padding:4px 8px; margin-block-end:6px; white-space:pre-wrap; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+  :root[data-theme="dark"] .card{--cc:hsl(var(--ch,140) 55% 62%); --ccbg:hsl(var(--ch,140) 30% 22%);}
+  .thumb.noimg{background:var(--ccbg); color:var(--cc);}
+  .catchip{display:inline-block; background:var(--ccbg); color:var(--cc); font-weight:700; padding:1px 8px; border-radius:999px; margin-inline-end:2px;}
   .cmeta{font-size:11px; color:var(--text-faint); margin-block-end:8px;}
   .cmeta.overdue{color:var(--danger); font-weight:700;}
 
@@ -2053,6 +2057,15 @@
     function rank(c){ var i = names.indexOf(c); return i >= 0 ? i : 10000 + (minNo[c] === undefined ? 9000000 : minNo[c]); }
     return function(a, b){ return rank(a) - rank(b) || (a || "").localeCompare(b || "", "ja"); };
   }
+  // カテゴリごとの色（色相）。カテゴリマスタの並び順で、離れた色を順番に割り当てる
+  var CAT_HUES = [145, 212, 28, 280, 350, 178, 48, 320, 100, 245];
+  function buildCatHues(){
+    var names = masterSortedList(state.eqCategories || {}).map(function(c){ return c.name; });
+    allItems().forEach(function(it){ if(it.category && names.indexOf(it.category) === -1) names.push(it.category); });
+    var map = {};
+    names.forEach(function(n, i){ map[n] = CAT_HUES[i % CAT_HUES.length] + Math.floor(i / CAT_HUES.length) * 12; });
+    return map;
+  }
   function categoriesInOrder(){
     var seen = {}, order = [];
     allItems().forEach(function(it){
@@ -2180,10 +2193,11 @@
     items.sort(sortComparator(state.sortKey));
 
     var html = "";
+    var catHues = buildCatHues();
     items.forEach(function(it){
       var sc = statusClass(it.status);
-      html += '<div class="card" data-id="' + esc(it.id) + '">';
-      html += '  <div class="thumb" data-open="1">';
+      html += '<div class="card" data-id="' + esc(it.id) + '" style="--ch:' + (catHues[it.category] != null ? catHues[it.category] : 140) + ';">';
+      html += '  <div class="thumb' + (it.imageData ? '' : ' noimg') + '" data-open="1">';
       if(it.imageData){
         html += '    <img src="' + esc(it.imageData) + '" alt="" style="width:100%;height:100%;object-fit:cover;">';
       } else {
@@ -2194,7 +2208,7 @@
       html += '  <div class="card-body" data-open="1">';
       html += '    <div class="card-top"><span class="no tnum">' + fmtNo(it.no) + '</span><span class="badge ' + sc + '">' + statusBadgeIcon(it.status) + '<span>' + esc(cardStatusLabel(it.status)) + '</span></span></div>';
       html += '    <div class="cname">' + esc(it.name) + (isMulti(it) ? ' <span class="tnum" style="font-weight:600; color:var(--text-muted); font-size:.85em;">×' + qtyOf(it) + '</span>' : '') + '</div>';
-      html += '    <div class="cloc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.5 7-12.5A7 7 0 0 0 5 9.5C5 14.5 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.3"/></svg><span>' + (categoryIcon(it.category) ? esc(categoryIcon(it.category)) + ' ' : '') + esc(it.category) + (it.location ? '　／　' + esc(it.location) : '') + '</span></div>';
+      html += '    <div class="cloc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.5 7-12.5A7 7 0 0 0 5 9.5C5 14.5 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.3"/></svg><span><span class="catchip">' + (categoryIcon(it.category) ? esc(categoryIcon(it.category)) + ' ' : '') + esc(it.category) + '</span>' + (it.location ? '　／　' + esc(it.location) : '') + '</span></div>';
       if(it.notes){
         html += '    <div class="cnote">' + esc(it.notes) + '</div>';
       }
