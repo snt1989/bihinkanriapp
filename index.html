@@ -595,6 +595,27 @@
   input[list]::-webkit-calendar-picker-indicator{opacity:0; width:28px; height:100%; position:absolute; right:0; top:0; cursor:pointer;}
   input[list]{position:relative;}
 
+  /* ===== プルダウン（閉じた状態は▼、開くと▲と一覧を下に表示） ===== */
+  select:not([multiple]){
+    -webkit-appearance:none; appearance:none; cursor:pointer;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%236C7062" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    background-repeat:no-repeat; background-position:right 10px center; background-size:18px;
+    padding-right:36px !important; text-overflow:ellipsis;
+  }
+  select.cs-open{
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%236C7062" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>');
+    border-color:var(--text-muted) !important;
+  }
+  .cs-panel{
+    position:fixed; z-index:300; box-sizing:border-box; overflow-y:auto; overscroll-behavior:contain;
+    background:var(--surface); border:1px solid var(--text-muted); border-radius:10px; box-shadow:var(--shadow-md);
+    padding:4px 0; font-size:14px; color:var(--text);
+  }
+  .cs-opt{padding:10px 14px; cursor:pointer; line-height:1.4; overflow-wrap:anywhere;}
+  .cs-opt:hover, .cs-opt.cs-active{background:var(--line-soft);}
+  .cs-opt.cs-sel{font-weight:700; color:var(--accent-strong); background:var(--accent-soft);}
+  .cs-opt.cs-dis{opacity:.4; cursor:not-allowed;}
+
   /* ===== mobile layout ===== */
   @media (max-width:640px){
     body{font-size:14px; padding-bottom:calc(66px + env(safe-area-inset-bottom,0px));}
@@ -2232,14 +2253,8 @@
   // プルダウンを開いている間は、画面の再描画（データ更新による作り直し）を後回しにする。
   // 再描画すると、開いている一覧が閉じたり消えたりするため。
   var deferredRender = false;
-  function selectBusy(){
-    var ae = document.activeElement;
-    return !!(ae && ae.tagName === "SELECT");
-  }
-  document.addEventListener("focusout", function(e){
-    if(!deferredRender || !e.target || e.target.tagName !== "SELECT") return;
-    setTimeout(function(){ if(deferredRender && !selectBusy()){ deferredRender = false; renderAll(); } }, 150);
-  });
+  var csOpenSel = null; // いま一覧を開いているプルダウン
+  function selectBusy(){ return !!csOpenSel; }
   function renderAll(force){
     if(!force && selectBusy()){ deferredRender = true; renderStats(); renderNavCounts(); return; }
     renderStats();
@@ -6159,6 +6174,111 @@
     inp.addEventListener("blur", restore);
     inp.addEventListener("change", function(){ if(inp.value !== "") { prev = null; } });
   });
+  // ---- 見た目を統一したプルダウン（ブラウザ標準の一覧の代わりに、自前の一覧を下に表示） ----
+  (function(){
+    var panel = null, activeIdx = -1, optsCache = [];
+    function optList(sel){
+      var arr = [];
+      Array.prototype.forEach.call(sel.options, function(o, i){ if(!o.hidden) arr.push({ i: i, text: o.textContent, disabled: o.disabled }); });
+      return arr;
+    }
+    function place(sel){
+      if(!panel) return;
+      var r = sel.getBoundingClientRect();
+      var vh = window.innerHeight, below = vh - r.bottom - 8, above = r.top - 8;
+      var h = Math.min(panel.scrollHeight + 2, 300);
+      var down = below >= Math.min(h, 160) || below >= above;
+      var maxH = Math.max(120, Math.min(300, down ? below : above));
+      panel.style.maxHeight = maxH + "px";
+      panel.style.width = Math.max(r.width, 140) + "px";
+      var left = Math.min(Math.max(8, r.left), window.innerWidth - Math.max(r.width, 140) - 8);
+      panel.style.left = left + "px";
+      if(down){ panel.style.top = (r.bottom + 4) + "px"; panel.style.bottom = "auto"; }
+      else { panel.style.bottom = (vh - r.top + 4) + "px"; panel.style.top = "auto"; }
+    }
+    function setActive(i, scroll){
+      activeIdx = i;
+      Array.prototype.forEach.call(panel.children, function(el, k){ el.classList.toggle("cs-active", k === i); });
+      if(scroll && panel.children[i]) panel.children[i].scrollIntoView({ block: "nearest" });
+    }
+    function choose(sel, optIndex){
+      var o = sel.options[optIndex];
+      if(!o || o.disabled) return;
+      var changed = sel.selectedIndex !== optIndex;
+      sel.selectedIndex = optIndex;
+      close();
+      if(changed){
+        sel.dispatchEvent(new Event("input", { bubbles: true }));
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+    function open(sel){
+      if(csOpenSel === sel) return;
+      close();
+      optsCache = optList(sel);
+      if(!optsCache.length) return;
+      panel = document.createElement("div");
+      panel.className = "cs-panel"; panel.setAttribute("role", "listbox");
+      optsCache.forEach(function(o, k){
+        var el = document.createElement("div");
+        el.className = "cs-opt" + (o.i === sel.selectedIndex ? " cs-sel" : "") + (o.disabled ? " cs-dis" : "");
+        el.setAttribute("role", "option");
+        el.textContent = o.text || "\u00a0";
+        el.addEventListener("mousedown", function(e){ e.preventDefault(); });
+        el.addEventListener("mouseenter", function(){ setActive(k, false); });
+        el.addEventListener("click", function(){ choose(sel, o.i); });
+        panel.appendChild(el);
+      });
+      document.body.appendChild(panel);
+      csOpenSel = sel; sel.classList.add("cs-open");
+      place(sel);
+      var cur = 0; optsCache.forEach(function(o, k){ if(o.i === sel.selectedIndex) cur = k; });
+      setActive(cur, true);
+    }
+    function close(){
+      if(!csOpenSel) return;
+      var sel = csOpenSel;
+      csOpenSel = null; sel.classList.remove("cs-open");
+      if(panel && panel.parentNode) panel.parentNode.removeChild(panel);
+      panel = null;
+      if(deferredRender){ deferredRender = false; renderAll(); }
+    }
+    function enhance(sel){
+      if(sel._cs || sel.multiple || sel.size > 1) return;
+      sel._cs = true;
+      sel.addEventListener("mousedown", function(e){
+        if(e.button !== 0 || sel.disabled) return;
+        e.preventDefault(); sel.focus();
+        if(csOpenSel === sel) close(); else open(sel);
+      });
+      sel.addEventListener("keydown", function(e){
+        if(sel.disabled) return;
+        if(csOpenSel !== sel){
+          if(e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " "){ e.preventDefault(); open(sel); }
+          return;
+        }
+        if(e.key === "ArrowDown"){ e.preventDefault(); var n = activeIdx + 1; while(n < optsCache.length && optsCache[n].disabled) n++; if(n < optsCache.length) setActive(n, true); }
+        else if(e.key === "ArrowUp"){ e.preventDefault(); var m = activeIdx - 1; while(m >= 0 && optsCache[m].disabled) m--; if(m >= 0) setActive(m, true); }
+        else if(e.key === "Enter" || e.key === " "){ e.preventDefault(); if(optsCache[activeIdx]) choose(sel, optsCache[activeIdx].i); }
+        else if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); close(); }
+        else if(e.key === "Tab"){ close(); }
+      });
+      sel.addEventListener("blur", function(){ setTimeout(function(){ if(csOpenSel === sel && document.activeElement !== sel) close(); }, 0); });
+    }
+    function scan(root){
+      if(root.tagName === "SELECT") enhance(root);
+      if(root.querySelectorAll) Array.prototype.forEach.call(root.querySelectorAll("select"), enhance);
+    }
+    document.addEventListener("mousedown", function(e){
+      if(csOpenSel && panel && !panel.contains(e.target) && e.target !== csOpenSel) close();
+    }, true);
+    window.addEventListener("scroll", function(e){ if(csOpenSel && panel && !panel.contains(e.target)) close(); }, true);
+    window.addEventListener("resize", close);
+    scan(document.body);
+    new MutationObserver(function(muts){
+      muts.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, function(n){ if(n.nodeType === 1 && !(n.classList && n.classList.contains("cs-panel"))) scan(n); }); });
+    }).observe(document.body, { childList: true, subtree: true });
+  })();
   if("serviceWorker" in navigator && location.protocol === "https:"){
     window.addEventListener("load", function(){ navigator.serviceWorker.register("/sw.js").catch(function(e){ console.warn("sw register failed", e); }); });
   }
