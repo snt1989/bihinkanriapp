@@ -2061,7 +2061,7 @@
     var cats = categoriesInOrder();
     var html = '<option value="all">すべてのカテゴリー</option>';
     cats.forEach(function(c){ html += '<option value="' + esc(c) + '">' + esc(c) + '</option>'; });
-    sel.innerHTML = html;
+    if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
     sel.value = cats.indexOf(cur) >= 0 ? cur : "all";
   }
 
@@ -2081,7 +2081,7 @@
     var locs = locationsInOrder();
     var html = '<option value="all">すべての保管場所</option>';
     locs.forEach(function(l){ html += '<option value="' + esc(l) + '">' + esc(l) + '</option>'; });
-    sel.innerHTML = html;
+    if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
     sel.value = locs.indexOf(cur) >= 0 ? cur : "all";
   }
 
@@ -2229,7 +2229,19 @@
     if(it.status === "廃棄"){ unretireItem(id); return; }
   }
 
-  function renderAll(){
+  // プルダウンを開いている間は、画面の再描画（データ更新による作り直し）を後回しにする。
+  // 再描画すると、開いている一覧が閉じたり消えたりするため。
+  var deferredRender = false;
+  function selectBusy(){
+    var ae = document.activeElement;
+    return !!(ae && ae.tagName === "SELECT");
+  }
+  document.addEventListener("focusout", function(e){
+    if(!deferredRender || !e.target || e.target.tagName !== "SELECT") return;
+    setTimeout(function(){ if(deferredRender && !selectBusy()){ deferredRender = false; renderAll(); } }, 150);
+  });
+  function renderAll(force){
+    if(!force && selectBusy()){ deferredRender = true; renderStats(); renderNavCounts(); return; }
     renderStats();
     renderNavCounts();
     renderCategorySelect();
@@ -3632,6 +3644,7 @@
   }
 
   function renderAdmin(){
+    if(selectBusy()){ deferredRender = true; return; }
     Array.prototype.forEach.call($("adminTabs").querySelectorAll(".subtab"), function(el){
       el.classList.toggle("active", el.getAttribute("data-admintab") === state.adminTab);
     });
@@ -5392,7 +5405,7 @@
     });
     $("statusSelect").addEventListener("change", function(e){
       state.statusFilter = e.target.value;
-      renderAll();
+      renderAll(true);
     });
     var sortSel = $("sortSelect");
     try{ var savedSort = localStorage.getItem("bihin.sortKey"); if(savedSort && sortSel.querySelector('option[value="' + savedSort + '"]')){ state.sortKey = savedSort; sortSel.value = savedSort; } }catch(e){}
