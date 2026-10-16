@@ -6069,13 +6069,10 @@
   }
 
   async function boot(){
-    wireStatic();
-    wireHelp();
-    wireEmpNo();
-    wireIconPicker();
-    wireEmpPwReset();
-    switchPage("equipment");
-    renderAll();
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset].forEach(function(f){
+      try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
+    });
+    try{ switchPage("equipment"); renderAll(); }catch(e){ console.error("initial render failed", e); }
     try{
       if(window.claude && typeof window.claude.use === "function"){
         db = await window.claude.use("db");
@@ -6339,7 +6336,12 @@
         // 権限（整備士など）を確認してから画面を開く。確認できなかった場合は通常の権限
         var roleP = (user.getIdTokenResult ? user.getIdTokenResult() : Promise.resolve(null))
           .then(function(r){ return (r && r.claims && r.claims.role) || ""; }, function(){ return ""; });
-        roleP.then(function(role){ applyRole(role); startApp(); applyRole(role); if(isMechanicRole()) switchPage("maintenance"); refreshUserBadge(); });
+        // 権限の確認が長引いても画面が止まらないよう、5秒で通常権限として先へ進む
+        var roleTimeout = new Promise(function(res){ setTimeout(function(){ res(""); }, 5000); });
+        Promise.race([roleP, roleTimeout]).then(function(role){
+          try{ applyRole(role); startApp(); applyRole(role); if(isMechanicRole()) switchPage("maintenance"); refreshUserBadge(); }
+          catch(e){ console.error("startApp failed", e); }
+        });
       }
     }
     // 登録直後は、割り振られた社員番号を確認してもらってからアプリを開く
@@ -6358,13 +6360,27 @@
       var t = ""; try{ t = new URLSearchParams(location.search).get("sso") || ""; }catch(e){}
       if(!t) return Promise.resolve();
       try{ history.replaceState(null, "", location.pathname + location.hash); }catch(e){}   // チケットをURLから消す
-      return fetch("/api/sso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: t }) })
+      var ctl = (window.AbortController ? new AbortController() : null);
+      var timer = setTimeout(function(){ if(ctl) ctl.abort(); }, 8000);   // 応答がなくても止まらないよう8秒で打ち切る
+      var req = fetch("/api/sso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: t }), signal: ctl ? ctl.signal : undefined })
         .then(function(r){ return r.json(); })
         .then(function(j){ if(j && j.ok && j.token) return auth.signInWithCustomToken(j.token); })
-        .catch(function(e){ console.warn("sso failed", e); });
+        .catch(function(e){ console.warn("sso failed", e); })
+        .then(function(){ clearTimeout(timer); });
+      return Promise.race([req, new Promise(function(res){ setTimeout(res, 10000); })]);
     }
-    ssoLogin().then(function(){ startAuthListener(); });
+    var listenerStarted = false;
+    ssoLogin().catch(function(){}).then(function(){ startAuthListener(); });
+    // 念のため：ログイン状態の確認が12秒以上終わらないときは、ログイン画面を出して先へ進めるようにする
+    setTimeout(function(){
+      if(!$("loginChecking").hidden){
+        console.warn("auth state check timed out");
+        $("loginChecking").hidden = true;
+        if(!auth.currentUser && !started){ $("loginOverlay").hidden = false; $("loginWelcome").hidden = true; form.hidden = false; setMode(false); }
+      }
+    }, 12000);
     function startAuthListener(){
+    if(listenerStarted) return; listenerStarted = true;
     auth.onAuthStateChanged(function(user){
       $("loginChecking").hidden = true;
       if(registering) return; // 登録処理中は画面を切り替えない（完了後に「アプリを開く」で進む）
