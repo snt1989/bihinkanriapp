@@ -1046,6 +1046,35 @@
     <button class="subtab" data-admintab="equipment">備品台帳マスタ</button>
     <button class="subtab" data-admintab="maintenance">整備台帳マスタ</button>
     <button class="subtab" data-admintab="borrower">借受者台帳マスタ</button>
+    <button class="subtab" data-admintab="fuel">燃料使用一覧</button>
+  </div>
+
+  <!-- 燃料使用一覧 -->
+  <div class="adminpane" id="adminPaneFuel" hidden>
+    <div class="adminblock">
+      <div class="adminblock-head" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>燃料の使用量一覧<div style="font-size:12px; color:var(--text-muted); font-weight:400;">返却受付で入力した燃料の使用量です</div></div>
+        <button class="btn btn-ghost btn-sm" id="fuelCsvBtn">燃料使用量CSV</button>
+      </div>
+      <div class="toolbar" style="margin:12px 0;">
+        <select class="selfilter" id="fuelMonthSel"></select>
+        <select class="selfilter" id="fuelTypeSel"></select>
+      </div>
+      <div id="fuelSummary" style="display:flex; gap:10px; flex-wrap:wrap; margin-block-end:12px;"></div>
+      <div style="overflow-x:auto;">
+        <table class="mastertable" style="min-width:640px;">
+          <thead><tr><th>返却日</th><th>機材番号・品名</th><th>借受者</th><th>現場</th><th>燃料の種類</th><th style="text-align:right;">使用量(L)</th></tr></thead>
+          <tbody id="fuelTableBody"></tbody>
+        </table>
+      </div>
+      <h4 style="margin:16px 0 6px; font-size:13px;">備品ごとの合計</h4>
+      <div style="overflow-x:auto;">
+        <table class="mastertable" style="min-width:420px;">
+          <thead><tr><th>機材番号・品名</th><th style="text-align:right;">回数</th><th style="text-align:right;">合計(L)</th></tr></thead>
+          <tbody id="fuelTotalBody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- 稼働ダッシュボード -->
@@ -3784,12 +3813,71 @@
     imgCountEl.textContent = imageCount;
   }
 
+  // ---------- 燃料使用一覧 ----------
+  state.fuelMonth = "all"; state.fuelType = "all";
+  function fuelRows(){
+    return allLoans().filter(function(l){ return typeof l.fuelUsed === "number" && l.fuelUsed > 0; })
+      .sort(function(a,b){ return (b.returnDate || "").localeCompare(a.returnDate || "") || (b.updatedAt || 0) - (a.updatedAt || 0); });
+  }
+  function setSelHtml(sel, html, val){
+    if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
+    sel.value = val;
+  }
+  function filteredFuelRows(){
+    return fuelRows().filter(function(l){
+      if(state.fuelMonth !== "all" && (l.returnDate || "").slice(0, 7) !== state.fuelMonth) return false;
+      if(state.fuelType !== "all" && (l.fuelType || "（未指定）") !== state.fuelType) return false;
+      return true;
+    });
+  }
+  function renderFuelPane(){
+    if(!$("fuelTableBody")) return;
+    var all = fuelRows();
+    var months = [], types = [];
+    all.forEach(function(l){
+      var m = (l.returnDate || "").slice(0, 7); if(m && months.indexOf(m) === -1) months.push(m);
+      var t = l.fuelType || "（未指定）"; if(types.indexOf(t) === -1) types.push(t);
+    });
+    months.sort().reverse();
+    if(state.fuelMonth !== "all" && months.indexOf(state.fuelMonth) === -1) state.fuelMonth = "all";
+    if(state.fuelType !== "all" && types.indexOf(state.fuelType) === -1) state.fuelType = "all";
+    setSelHtml($("fuelMonthSel"), '<option value="all">すべての期間</option>' + months.map(function(m){ return '<option value="' + m + '">' + m.replace("-", "年") + '月</option>'; }).join(""), state.fuelMonth);
+    setSelHtml($("fuelTypeSel"), '<option value="all">すべての燃料</option>' + types.map(function(t){ return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join(""), state.fuelType);
+    var rows = filteredFuelRows();
+    var total = rows.reduce(function(sum, l){ return sum + l.fuelUsed; }, 0);
+    var byType = {};
+    rows.forEach(function(l){ var t = l.fuelType || "（未指定）"; byType[t] = (byType[t] || 0) + l.fuelUsed; });
+    function chip(label, val){ return '<div class="kv" style="padding:8px 14px;"><div style="font-size:11px; color:var(--text-muted);">' + esc(label) + '</div><div class="tnum" style="font-size:18px; font-weight:700;">' + (Math.round(val * 100) / 100) + ' L</div></div>'; }
+    $("fuelSummary").innerHTML = chip("合計（" + rows.length + "件）", total) + Object.keys(byType).map(function(t){ return chip(t, byType[t]); }).join("");
+    $("fuelTableBody").innerHTML = rows.length ? rows.map(function(l){
+      return '<tr><td class="tnum">' + esc(fmtDate(l.returnDate)) + '</td><td>' + (typeof l.no === "number" ? esc(fmtNo(l.no)) + ' ' : '') + esc(l.equipmentName || "") + '</td><td>' + esc(l.borrower || "") + '</td><td>' + esc(l.siteName || "-") + '</td><td>' + esc(l.fuelType || "-") + '</td><td class="tnum" style="text-align:right;">' + (Math.round(l.fuelUsed * 100) / 100) + '</td></tr>';
+    }).join("") : '<tr><td colspan="6"><div class="empty">燃料の使用記録はまだありません（返却受付で入力できます）</div></td></tr>';
+    var per = {};
+    rows.forEach(function(l){
+      var k = l.equipmentId || l.equipmentName;
+      var o = per[k] || (per[k] = { name: (typeof l.no === "number" ? fmtNo(l.no) + " " : "") + (l.equipmentName || ""), n: 0, sum: 0 });
+      o.n++; o.sum += l.fuelUsed;
+    });
+    var plist = Object.keys(per).map(function(k){ return per[k]; }).sort(function(a, b){ return b.sum - a.sum; });
+    $("fuelTotalBody").innerHTML = plist.length ? plist.map(function(o){ return '<tr><td>' + esc(o.name) + '</td><td class="tnum" style="text-align:right;">' + o.n + '</td><td class="tnum" style="text-align:right;">' + (Math.round(o.sum * 100) / 100) + '</td></tr>'; }).join("") : '<tr><td colspan="3"><div class="empty">-</div></td></tr>';
+  }
+  async function exportFuelCsv(){
+    var rows = [["返却日","管理番号","品名","借受者","現場","燃料の種類","使用量(L)"]];
+    filteredFuelRows().forEach(function(l){
+      rows.push([fmtDate(l.returnDate), typeof l.no === "number" ? fmtNo(l.no) : "", l.equipmentName || "", l.borrower || "", l.siteName || "", l.fuelType || "", l.fuelUsed]);
+    });
+    var csv = rows.map(function(r){
+      return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
+    }).join("\r\n");
+    await saveBlobFile("燃料使用量.csv", new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }));
+  }
+
   function renderAdmin(){
     if(selectBusy()){ deferredRender = true; return; }
     Array.prototype.forEach.call($("adminTabs").querySelectorAll(".subtab"), function(el){
       el.classList.toggle("active", el.getAttribute("data-admintab") === state.adminTab);
     });
-    ["dashboard","equipment","maintenance","borrower"].forEach(function(name){
+    ["dashboard","equipment","maintenance","borrower","fuel"].forEach(function(name){
       var el = $("adminPane" + name.charAt(0).toUpperCase() + name.slice(1));
       if(el) el.hidden = (name !== state.adminTab);
     });
@@ -3829,6 +3917,7 @@
     renderStorageUsage();
 
     renderAdminEquipTable();
+    renderFuelPane();
 
     renderAdminMaintPane();
     renderAdminBorrowerTable();
@@ -5584,6 +5673,9 @@
       returnFuel = null;
       closeReturnModal();
     });
+    $("fuelMonthSel").addEventListener("change", function(e){ state.fuelMonth = e.target.value; renderFuelPane(); });
+    $("fuelTypeSel").addEventListener("change", function(e){ state.fuelType = e.target.value; renderFuelPane(); });
+    $("fuelCsvBtn").addEventListener("click", exportFuelCsv);
     $("maintAddBtn").addEventListener("click", function(){ openMaintRecordModal(null); });
     $("maintAddCloseBtn").addEventListener("click", closeMaintAddModal);
     $("maintAddCancelBtn").addEventListener("click", closeMaintAddModal);
