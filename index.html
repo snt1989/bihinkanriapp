@@ -2017,6 +2017,7 @@
     if(p === "loans") renderLoanList();
     if(p === "borrowers") renderBorrowers();
     if(p === "admin") renderAdmin();
+    if(p === "maintenance" || p === "loans") checkNotifications(); // 確認したので、バッジを更新
   }
 
   // ---------- equipment: shared helpers ----------
@@ -2123,9 +2124,28 @@
       } else { new Notification(title, opt); }
     }catch(e){}
   }
+  // バッジは「まだ確認していない件数」。整備台帳・貸出台帳の画面を開いて確認すると消える（この端末に記憶）
+  function ackLoad(){ try{ return JSON.parse(localStorage.getItem("bihin.ack") || "{}") || {}; }catch(e){ return {}; } }
+  function ackSave(a){ try{ localStorage.setItem("bihin.ack", JSON.stringify(a)); }catch(e){} }
+  function badgeSync(ids){
+    var ack = ackLoad(), changed = false, unseen = 0;
+    // 画面を見ている間は、その画面の分を確認済みにする
+    if(!document.hidden){
+      var pre = state.page === "maintenance" ? "m:" : (state.page === "loans" ? "l:" : null);
+      if(pre) Object.keys(ids).forEach(function(k){ if(k.indexOf(pre) === 0 && !ack[k]){ ack[k] = 1; changed = true; } });
+    }
+    // 無くなった記録の確認済みは忘れる
+    Object.keys(ack).forEach(function(k){ if(!ids[k]){ delete ack[k]; changed = true; } });
+    Object.keys(ids).forEach(function(k){ if(!ack[k]) unseen++; });
+    if(changed) ackSave(ack);
+    updateBadge(unseen);
+  }
   function checkNotifications(){
     var om = openMaintRecords(), od = overdueLoans();
-    updateBadge(om.length + od.length);
+    var ids0 = {};
+    om.forEach(function(m){ ids0["m:" + m.id] = 1; });
+    od.forEach(function(l){ ids0["l:" + l.id] = 1; });
+    if(state.loaded.maintenance && state.loaded.loans && state.ready) badgeSync(ids0);
     var btn = $("notifyBtn");
     if(btn){ var on = notifyEnabled(); btn.classList.toggle("on", on); btn.title = on ? "通知（オン）" : "通知（オフ）"; }
     if(!state.loaded.maintenance || !state.loaded.loans || !state.ready) return;
