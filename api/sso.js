@@ -42,7 +42,7 @@ function readTicket(ticket, secret){
   if(x.length !== y.length || !crypto.timingSafeEqual(x, y)) return null;
   var p; try{ p = JSON.parse(Buffer.from(parts[0].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")); }catch(e){ return null; }
   if(!p || !p.n || typeof p.exp !== "number" || Date.now() > p.exp || p.exp - Date.now() > 5 * 60000) return null;
-  return String(p.n);
+  return { n: String(p.n), p: p.p ? String(p.p) : "", pn: p.pn ? String(p.pn).slice(0, 80) : "" };   // p/pn: 現場管理アプリの案件ID・現場名（案件から開いたとき）
 }
 
 module.exports = async function handler(req, res){
@@ -52,8 +52,9 @@ module.exports = async function handler(req, res){
     var secret = String(process.env.SSO_SECRET || "").trim();
     if(secret.length < 16) return res.status(200).json({ ok: false, error: "not-configured" });
     var body = req.body && typeof req.body === "object" ? req.body : (function(){ try{ return JSON.parse(req.body || "{}"); }catch(e){ return {}; } })();
-    var name = readTicket(body.ticket, secret);
-    if(!name) return res.status(200).json({ ok: false, error: "bad-ticket" });
+    var tk = readTicket(body.ticket, secret);
+    if(!tk) return res.status(200).json({ ok: false, error: "bad-ticket" });
+    var name = tk.n, site = tk.p ? { id: tk.p, name: tk.pn } : null;
     initAdmin();
     var key = norm(name);
     var snap = await admin.firestore().collection("employees").get();
@@ -63,12 +64,12 @@ module.exports = async function handler(req, res){
       var full = (e.lastName || e.firstName) ? (e.lastName || "") + (e.firstName || "") : (e.name || "");
       if(norm(full) === key && e.loginId && e.active !== false) hits.push(e);
     });
-    if(hits.length !== 1) return res.status(200).json({ ok: false, error: hits.length ? "ambiguous" : "no-match" });
+    if(hits.length !== 1) return res.status(200).json({ ok: false, site: site, error: hits.length ? "ambiguous" : "no-match" });
     var user;
     try{ user = await admin.auth().getUserByEmail(norm(hits[0].loginId) + ID_DOMAIN); }
-    catch(e){ return res.status(200).json({ ok: false, error: "no-account" }); }
+    catch(e){ return res.status(200).json({ ok: false, site: site, error: "no-account" }); }
     var token = await admin.auth().createCustomToken(user.uid);
-    return res.status(200).json({ ok: true, token: token });
+    return res.status(200).json({ ok: true, token: token, site: site });
   }catch(e){
     var msg = String(e && e.message || e);
     return res.status(200).json({ ok: false, error: msg === "not-configured" ? "not-configured" : "server" });

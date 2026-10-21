@@ -259,6 +259,12 @@
     background:var(--surface); border:1px solid var(--line); border-radius:10px;
     padding:11px 16px; margin-block-end:16px; font-size:12.5px; color:var(--text-muted);
   }
+  .sitebar{max-width:1180px; margin:10px auto 0; padding:10px 14px; border:1.5px solid var(--accent); background:var(--accent-soft); border-radius:12px; font-size:13px; line-height:1.6;}
+  .sitebar .sb-h{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .sitebar .sb-h b{font-size:14px; word-break:break-all;}
+  .sitebar button{border:1px solid var(--line); background:var(--surface,#fff); border-radius:8px; padding:4px 10px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit;}
+  .sitebar .sb-list{margin-top:6px; font-size:12.5px;}
+  .sitebar .sb-list div{padding:3px 0; border-top:1px solid var(--line);}
   .topbar{max-width:1180px; margin:0 auto; padding:16px 16px 0;}
 
   /* record rows: maintenance / loans / admin table */
@@ -792,6 +798,7 @@
   </div>
 </header>
 
+<div id="siteBar" class="sitebar" hidden></div>
 <div class="topbar">
 <div id="connBanner" class="banner" hidden>Claudeのアーティファクトとして開くと、変更が全員に共有・保存されます。</div>
 
@@ -2538,7 +2545,7 @@
       var availNow = Math.max(0, qtyOf(it) - lentQty(it.id));
       html += '<div class="field"><label for="lendQty">持出数量（在庫 ' + availNow + '個まで）</label><input id="lendQty" type="number" inputmode="numeric" min="1" max="' + availNow + '" value="1"></div>';
     }
-    html += '<div class="field"><label for="lendSite">現場名／用途（任意）</label><input id="lendSite" type="text" placeholder="例）〇〇邸 庭木剪定" autocomplete="off"></div>';
+    html += '<div class="field"><label for="lendSite">現場名／用途（任意）</label><input id="lendSite" type="text" placeholder="例）〇〇邸 庭木剪定" autocomplete="off" value="' + esc((window.__getSite && window.__getSite() || {}).name || "") + '"></div>';
     html += '<div class="field"><label for="lendDue">返却予定日</label><input id="lendDue" type="date" value="' + todayISO() + '"></div>';
     html += '<div class="actionrow"><button class="btn btn-primary" id="btnLendSubmit">持出を確定</button></div>';
     html += '</div>';
@@ -2627,6 +2634,8 @@
     row.hidden = !full || isKnownStaff(full);
   }
 
+  // 現場管理アプリの案件に紐づけ中で、現場名が同じなら案件IDも記録する（現場ごとの使用中一覧に出る）
+  function siteProjectId(siteName){ var s = window.__getSite && window.__getSite(); return (s && s.id && siteName && siteName === s.name) ? s.id : ""; }
   function doLend(id, lastName, firstName, due, registerStaff, siteName, qty){
     var it = state.items[id];
     if(!it) return;
@@ -2636,7 +2645,7 @@
     var remain = qtyOf(it) - lentQty(id) - qty;
     var qtyText = multi ? "（" + qty + "個）" : "";
     if(!multi || remain <= 0){
-      updateItem(id, { status: "貸出中", borrower: borrower, checkoutDate: todayISO(), dueDate: due || null, siteName: siteName || "" });
+      updateItem(id, { status: "貸出中", borrower: borrower, checkoutDate: todayISO(), dueDate: due || null, siteName: siteName || "", projectId: siteProjectId(siteName) });
     }
     addLog(id, "持出登録", borrower + qtyText + (siteName ? "・" + siteName : "") + (due ? "（返却予定 " + fmtDate(due) + "）" : ""));
     if(registerStaff && !isKnownStaff(borrower)){
@@ -2647,7 +2656,7 @@
       state.loans[tempId] = { id: tempId, equipmentId: id, status: "貸出中", qty: qty, borrower: borrower, dueDate: due || null, createdAt: Date.now() }; // 直後の連続持出でも在庫を正しく数えるための仮データ
       db.collection("loans").add({
         equipmentId: id, equipmentName: it.name, no: (typeof it.no==="number"?it.no:null), category: it.category,
-        qty: qty, borrower: borrower, siteName: siteName || "", checkoutDate: todayISO(), dueDate: due || null, returnDate: null,
+        qty: qty, borrower: borrower, siteName: siteName || "", projectId: siteProjectId(siteName), checkoutDate: todayISO(), dueDate: due || null, returnDate: null,
         status: "貸出中", createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn("loan add failed", e); });
     }
@@ -6354,6 +6363,30 @@
       auth.signOut().then(function(){ location.reload(); });
     });
 
+    // ---- 現場管理アプリの案件から開いたとき：その現場名を持出に紐づける ----
+    var SITE = null;
+    function loadSite(){ try{ var v = sessionStorage.getItem("bihinSite"); SITE = v ? JSON.parse(v) : null; }catch(e){ SITE = null; } }
+    function setSite(s){ SITE = (s && s.name) ? { id: String(s.id || ""), name: String(s.name) } : null; try{ if(SITE) sessionStorage.setItem("bihinSite", JSON.stringify(SITE)); else sessionStorage.removeItem("bihinSite"); }catch(e){} renderSiteBar(); }
+    window.__getSite = function(){ return SITE; };
+    function siteLoans(){
+      if(!SITE) return [];
+      return Object.keys(state.loans || {}).map(function(k){ return state.loans[k]; }).filter(function(l){
+        return l && l.status === "貸出中" && ((SITE.id && l.projectId === SITE.id) || (!l.projectId && l.siteName && l.siteName === SITE.name));
+      });
+    }
+    function renderSiteBar(){
+      var el = $("siteBar"); if(!el) return;
+      if(!SITE){ el.hidden = true; el.innerHTML = ""; return; }
+      var ls = siteLoans(), n = ls.reduce(function(a, l){ return a + (loanQty(l) || 1); }, 0);
+      var html = '<div class="sb-h"><span>この現場に紐づけ中：</span><b>' + esc(SITE.name) + '</b><span style="color:var(--text-faint,#666)">持出の現場名に自動で入ります</span><button type="button" id="siteBarClear">解除</button></div>';
+      html += '<div class="sb-list">' + (ls.length ? ('<b>この現場で使用中の備品（' + n + '点）</b>' + ls.map(function(l){ return '<div>' + esc(l.equipmentName || "") + (loanQty(l) > 1 ? '（' + loanQty(l) + '個）' : '') + '　<span style="color:var(--text-faint,#666)">' + esc(l.borrower || "") + '</span></div>'; }).join("")) : '<span style="color:var(--text-faint,#666)">この現場で使用中の備品はありません。備品台帳から「持出」を押してください。</span>') + '</div>';
+      el.innerHTML = html; el.hidden = false;
+      var c = $("siteBarClear"); if(c) c.addEventListener("click", function(){ setSite(null); });
+    }
+    loadSite();
+    try{ var q = new URLSearchParams(location.search).get("site"); if(q){ setSite({ id: "", name: q.slice(0, 80) }); history.replaceState(null, "", location.pathname + location.hash); } }catch(e){}   // チケットなしで開かれたとき（現場名だけ）
+    setInterval(function(){ if(SITE) renderSiteBar(); }, 2500);
+    renderSiteBar();
     // 現場管理アプリから「?sso=チケット」付きで開かれたときは、借受者台帳で同じ氏名の人としてログインする
     // （一致しない・失敗した場合は、通常のログイン画面になる）
     function ssoLogin(){
@@ -6364,7 +6397,7 @@
       var timer = setTimeout(function(){ if(ctl) ctl.abort(); }, 8000);   // 応答がなくても止まらないよう8秒で打ち切る
       var req = fetch("/api/sso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: t }), signal: ctl ? ctl.signal : undefined })
         .then(function(r){ return r.json(); })
-        .then(function(j){ if(j && j.ok && j.token) return auth.signInWithCustomToken(j.token); })
+        .then(function(j){ if(j && j.site) setSite(j.site); if(j && j.ok && j.token) return auth.signInWithCustomToken(j.token); })
         .catch(function(e){ console.warn("sso failed", e); })
         .then(function(){ clearTimeout(timer); });
       return Promise.race([req, new Promise(function(res){ setTimeout(res, 10000); })]);
