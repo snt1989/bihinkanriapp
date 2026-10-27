@@ -94,6 +94,8 @@
   }
   .logo svg{width:18px; height:18px;}
   .logo img{width:100%; height:100%; object-fit:cover;}
+  .logo-preview{width:96px; height:96px; border-radius:20px; border:1px solid var(--line); overflow:hidden; background:var(--surface-2,#f4f4f4);}
+  .logo-preview img{width:100%; height:100%; object-fit:cover; display:block;}
   .brand-text h1{font-size:15.5px; color:var(--text); line-height:1.3;}
   .brand-text .sub{display:block; font-size:10.5px; color:var(--text-faint); margin-block-start:1px;}
 
@@ -1054,6 +1056,25 @@
     <button class="subtab" data-admintab="maintenance">整備台帳マスタ</button>
     <button class="subtab" data-admintab="borrower">借受者台帳マスタ</button>
     <button class="subtab" data-admintab="fuel">燃料使用一覧</button>
+    <button class="subtab" data-admintab="logo">ロゴ設定</button>
+  </div>
+
+  <!-- ロゴ設定 -->
+  <div class="adminpane" id="adminPaneLogo" hidden>
+    <div class="adminblock">
+      <div class="adminblock-head">ロゴの登録<div style="font-size:12px; color:var(--text-muted); font-weight:400;">登録したロゴは、画面左上とログイン画面に表示されます（画像は自動で小さく調整されます）</div></div>
+      <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap; padding:14px 0;">
+        <div class="logo-preview" id="logoPreview"></div>
+        <div style="display:flex; flex-direction:column; gap:10px; min-width:240px;">
+          <input type="file" id="logoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary" id="logoSave" type="button" disabled>このロゴを登録</button>
+            <button class="btn" id="logoReset" type="button">初期のロゴに戻す</button>
+          </div>
+          <div id="logoMsg" style="font-size:12px; color:var(--text-muted);">PNG・JPEG・SVG・WebP・GIF が使えます。正方形に近い画像がきれいに表示されます。</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 燃料使用一覧 -->
@@ -3886,7 +3907,7 @@
     Array.prototype.forEach.call($("adminTabs").querySelectorAll(".subtab"), function(el){
       el.classList.toggle("active", el.getAttribute("data-admintab") === state.adminTab);
     });
-    ["dashboard","equipment","maintenance","borrower","fuel"].forEach(function(name){
+    ["dashboard","equipment","maintenance","borrower","fuel","logo"].forEach(function(name){
       var el = $("adminPane" + name.charAt(0).toUpperCase() + name.slice(1));
       if(el) el.hidden = (name !== state.adminTab);
     });
@@ -6009,6 +6030,7 @@
       if(state.page === "admin") renderAdmin();
     }, function(err){ console.warn("loans subscribe error", err); });
 
+    subscribeLogo();
     try{
       db.collection("settings").doc("employeeNumber").onSnapshot(function(d){
         state.empNoSettings = d.exists ? sanitizeEmpNo(d.data()) : null;
@@ -6078,7 +6100,7 @@
   }
 
   async function boot(){
-    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset].forEach(function(f){
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
     try{ switchPage("equipment"); renderAll(); }catch(e){ console.error("initial render failed", e); }
@@ -6199,6 +6221,7 @@
       var img = document.createElement("img");
       img.src = headImg.src; img.alt = "";
       $("loginLogo").appendChild(img);
+      applyLogo(cachedLogo());
     }
 
     function showError(msg){ infoBox.hidden = true; errBox.textContent = msg; errBox.hidden = false; }
@@ -6431,6 +6454,85 @@
       }
     });
     }
+  }
+
+  // ---------- ロゴ設定（管理画面から登録。Firestore の settings/logo に保存） ----------
+  var defaultLogoSrc = "", pendingLogo = "";
+  function logoImgs(){
+    var a = []; var h = document.querySelector("header.top .logo img"); if(h) a.push(h);
+    var l = document.querySelector("#loginLogo img"); if(l) a.push(l);
+    return a;
+  }
+  function applyLogo(dataUrl){
+    var imgs = logoImgs();
+    if(!defaultLogoSrc && imgs[0]) defaultLogoSrc = imgs[0].getAttribute("data-default") || imgs[0].src;
+    imgs.forEach(function(im){ if(!im.getAttribute("data-default")) im.setAttribute("data-default", defaultLogoSrc || im.src); im.src = dataUrl || im.getAttribute("data-default"); });
+    var pv = $("logoPreview");
+    if(pv){ pv.innerHTML = ""; var pi = document.createElement("img"); pi.alt = ""; pi.src = dataUrl || defaultLogoSrc; pv.appendChild(pi); }
+  }
+  function cacheLogo(dataUrl){ try{ if(dataUrl) localStorage.setItem("bihin.logo", dataUrl); else localStorage.removeItem("bihin.logo"); }catch(e){} }
+  function cachedLogo(){ try{ return localStorage.getItem("bihin.logo") || ""; }catch(e){ return ""; } }
+  function logoMsg(t, bad){ var m = $("logoMsg"); if(m){ m.textContent = t; m.style.color = bad ? "var(--danger,#c0392b)" : "var(--text-muted)"; } }
+  function resizeLogo(file){
+    return new Promise(function(resolve, reject){
+      if(!/^image\//.test(file.type)){ reject(new Error("画像ファイルを選んでください。")); return; }
+      if(file.size > 8 * 1024 * 1024){ reject(new Error("ファイルが大きすぎます（8MBまで）。")); return; }
+      var fr = new FileReader();
+      fr.onerror = function(){ reject(new Error("ファイルを読み込めませんでした。")); };
+      fr.onload = function(){
+        var im = new Image();
+        im.onerror = function(){ reject(new Error("画像として開けませんでした。")); };
+        im.onload = function(){
+          var MAX = 256, w = im.naturalWidth || MAX, h = im.naturalHeight || MAX;
+          var sc = Math.min(1, MAX / Math.max(w, h)); if(w < MAX && h < MAX && file.type !== "image/svg+xml") sc = 1;
+          if(file.type === "image/svg+xml"){ sc = MAX / Math.max(w, h); }
+          var cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(h * sc));
+          var c = document.createElement("canvas"); c.width = cw; c.height = ch;
+          c.getContext("2d").drawImage(im, 0, 0, cw, ch);
+          resolve(c.toDataURL("image/png"));
+        };
+        im.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+  function wireLogo(){
+    var fileEl = $("logoFile"), saveBtn = $("logoSave"), resetBtn = $("logoReset");
+    if(!fileEl) return;
+    applyLogo(cachedLogo());
+    fileEl.addEventListener("change", function(){
+      pendingLogo = ""; saveBtn.disabled = true;
+      var f = fileEl.files && fileEl.files[0]; if(!f) return;
+      resizeLogo(f).then(function(d){
+        pendingLogo = d; saveBtn.disabled = false;
+        var pv = $("logoPreview"); pv.innerHTML = ""; var pi = document.createElement("img"); pi.alt = ""; pi.src = d; pv.appendChild(pi);
+        logoMsg("プレビューを確認して「このロゴを登録」を押してください。");
+      }, function(e){ logoMsg(e.message, true); });
+    });
+    saveBtn.addEventListener("click", function(){
+      if(!pendingLogo || !db) return;
+      saveBtn.disabled = true;
+      db.collection("settings").doc("logo").set({ dataUrl: pendingLogo, updatedAt: Date.now() }).then(function(){
+        applyLogo(pendingLogo); cacheLogo(pendingLogo); pendingLogo = ""; fileEl.value = "";
+        logoMsg("ロゴを登録しました。");
+      }, function(e){ console.warn("logo save failed", e); logoMsg("登録できませんでした。権限またはFirestoreのルール（settings/logo）を確認してください。", true); saveBtn.disabled = false; });
+    });
+    resetBtn.addEventListener("click", function(){
+      if(!db) return;
+      if(!confirm("ロゴを初期のものに戻しますか？")) return;
+      db.collection("settings").doc("logo").delete().then(function(){
+        applyLogo(""); cacheLogo(""); pendingLogo = ""; fileEl.value = ""; saveBtn.disabled = true;
+        logoMsg("初期のロゴに戻しました。");
+      }, function(e){ console.warn("logo reset failed", e); logoMsg("戻せませんでした。権限を確認してください。", true); });
+    });
+  }
+  function subscribeLogo(){
+    try{
+      db.collection("settings").doc("logo").onSnapshot(function(d){
+        var u = (d.exists && d.data() && d.data().dataUrl) || "";
+        applyLogo(u); cacheLogo(u);
+      }, function(err){ console.warn("logo subscribe error", err); });
+    }catch(e){ console.warn("logo subscribe failed", e); }
   }
 
   boot();
