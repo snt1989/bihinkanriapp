@@ -1,7 +1,7 @@
 /* 備品管理システム：ホーム画面に追加できるようにするための最小のサービスワーカー。
    データ（Firestore）やAPIはキャッシュせず、画面（HTML・アイコン）だけを、
    通信できないときの代わりに表示する。通常は常に最新を取得する（ネットワーク優先）。 */
-const CACHE = "bihin-shell-v2";
+const CACHE = "bihin-shell-v3";
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 
 self.addEventListener("install", function(e){
