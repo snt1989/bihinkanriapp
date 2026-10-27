@@ -614,6 +614,30 @@
     background-repeat:no-repeat; background-position:right 10px center; background-size:18px;
     padding-right:36px !important; text-overflow:ellipsis;
   }
+  .bellwrap{position:relative; display:inline-flex;}
+  .belldot{position:absolute; top:2px; right:2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:#D93025; color:#fff; font-size:10px; font-weight:700; line-height:16px; text-align:center; pointer-events:none;}
+  .belldot[hidden]{display:none;}
+  .bellpanel{position:absolute; top:calc(100% + 8px); right:0; width:360px; max-width:calc(100vw - 24px); max-height:min(70vh,560px); display:flex; flex-direction:column; background:var(--surface,#fff); color:var(--text,#222); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.18); z-index:300; overflow:hidden;}
+  .bellpanel[hidden]{display:none;}
+  .bp-tabs{display:flex; border-bottom:1px solid var(--line);}
+  .bp-tab{flex:1; padding:11px 8px; font-size:13px; font-weight:600; background:none; border:0; border-bottom:2px solid transparent; color:var(--text-muted); cursor:pointer; font-family:inherit;}
+  .bp-tab.active{color:var(--accent-strong); border-bottom-color:var(--accent);}
+  .bp-tab .n{display:inline-block; margin-left:4px; min-width:16px; padding:0 5px; border-radius:8px; background:#D93025; color:#fff; font-size:10px; line-height:16px;}
+  .bp-body{overflow:auto; padding:6px 0; flex:1;}
+  .bp-item{display:block; width:100%; text-align:left; padding:10px 14px; border:0; background:none; border-bottom:1px solid var(--line); font-family:inherit; color:inherit; font-size:13px; cursor:default;}
+  .bp-item.link{cursor:pointer;} .bp-item.link:hover{background:var(--accent-soft);}
+  .bp-item.unread{background:var(--accent-soft);}
+  .bp-item .t{font-weight:700; margin-bottom:2px; display:flex; gap:6px; align-items:center;}
+  .bp-item .b{white-space:pre-wrap; color:var(--text-muted); word-break:break-word;}
+  .bp-item .m{font-size:11px; color:var(--text-muted); margin-top:3px;}
+  .bp-tag{font-size:10px; padding:1px 6px; border-radius:4px; background:var(--accent); color:var(--on-accent); font-weight:600;}
+  .bp-tag.warn{background:#D93025;}
+  .bp-empty{padding:24px 14px; text-align:center; color:var(--text-muted); font-size:13px;}
+  .bp-foot{border-top:1px solid var(--line); padding:8px 12px; display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; font-size:12px;}
+  .bp-post{border-bottom:1px solid var(--line); padding:10px 14px; display:flex; flex-direction:column; gap:6px;}
+  .bp-post input,.bp-post textarea{width:100%; font-size:16px; font-family:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; box-sizing:border-box; background:var(--surface,#fff); color:inherit;}
+  .bp-del{background:none; border:0; color:var(--text-muted); cursor:pointer; font-size:11px; text-decoration:underline; padding:0; margin-left:8px;}
+  @media (max-width:640px){ .bellpanel{position:fixed; top:56px; left:8px; right:8px; width:auto; max-width:none;} }
   #notifyBtn.on{background:var(--accent-soft); color:var(--accent-strong); border-color:var(--accent);}
   select.cs-open{
     background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%236C7062" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>');
@@ -790,9 +814,13 @@
       <span class="udot" aria-hidden="true"></span>
       <span class="utext">ログイン中<span class="uid" id="userEmail"></span></span>
     </span>
-    <button class="btn btn-ghost btn-sm" id="notifyBtn" title="通知（オフ）" aria-label="通知の設定">
+    <div class="bellwrap" id="bellWrap">
+    <button class="btn btn-ghost btn-sm" id="notifyBtn" title="お知らせ" aria-label="お知らせ" aria-haspopup="true" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
     </button>
+    <span class="belldot" id="bellDot" hidden></span>
+    <div class="bellpanel" id="bellPanel" hidden role="dialog" aria-label="お知らせ"></div>
+    </div>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" title="ログアウト">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
       ログアウト
@@ -2219,7 +2247,8 @@
     od.forEach(function(l){ ids0["l:" + l.id] = 1; });
     if(state.loaded.maintenance && state.loaded.loans && state.ready) badgeSync(ids0);
     var btn = $("notifyBtn");
-    if(btn){ var on = notifyEnabled(); btn.classList.toggle("on", on); btn.title = on ? "通知（オン）" : "通知（オフ）"; }
+    try{ updateBellDot(); if(bellOpen()) renderBell(false); }catch(e){}
+    if(btn){ var on = notifyEnabled(); btn.classList.toggle("on", on); btn.title = "お知らせ"; }
     if(!state.loaded.maintenance || !state.loaded.loans || !state.ready) return;
     var ids = {};
     om.forEach(function(m){ ids["m:" + m.id] = m; });
@@ -2263,7 +2292,6 @@
       showNotice("通知をオンにしました", "新しい整備依頼や返却期限超過をお知らせします。", "notify-on");
     });
   }
-  document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("#notifyBtn")) toggleNotify(); });
   document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkNotifications(); });
 
   function renderNavCounts(){
@@ -6046,6 +6074,7 @@
     }, function(err){ console.warn("loans subscribe error", err); });
 
     subscribeLogo();
+    subscribeAnnouncements();
     subscribeIcon();
     try{
       db.collection("settings").doc("employeeNumber").onSnapshot(function(d){
@@ -6648,6 +6677,121 @@
         applyIcons(ic); cacheIcons(ic);
       }, function(err){ console.warn("icon subscribe error", err); });
     }catch(e){ console.warn("icon subscribe failed", e); }
+  }
+
+  // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
+  var APP_UPDATES = [
+    { v: "2026.10.27", date: "2026-10-27", title: "ロゴ・アイコンを管理画面から変更できます", body: "管理画面の「ロゴ・アイコン設定」で、画面のロゴとホーム画面などのアイコンを登録できます。" },
+    { v: "2026.10.27", date: "2026-10-27", title: "ベルにお知らせを表示", body: "ベルのマークから、お知らせ・要対応の件数・アプリの更新情報を確認できます。" },
+    { v: "2026.10.16", date: "2026-10-16", title: "ログインの不具合を修正", body: "ログイン確認で止まることがないように改善しました。" },
+    { v: "2026.10.16", date: "2026-10-16", title: "燃料使用一覧・通知とバッジ", body: "返却時に燃料の使用量を入力でき、管理画面で一覧・CSV出力ができます。要対応の件数がアプリのアイコンにバッジで出ます。" },
+    { v: "2026.10.10", date: "2026-10-10", title: "返却受付と整備コメントの改善", body: "返却は持ち出した本人のみ受付できます。整備記録にコメントをいつでも追加できます。" }
+  ];
+  var APP_VERSION = APP_UPDATES[0].v;
+  var announcements = [], annLoaded = false, updateReady = false, bellTab = "notice";
+  function lsGet(k){ try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } }
+  function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+  function annSeenAt(){ return Number(lsGet("bihin.annSeen")) || 0; }
+  function unreadAnnouncements(){ var t = annSeenAt(); return announcements.filter(function(a){ return (a.createdAt || 0) > t; }); }
+  function newUpdateCount(){
+    var seen = lsGet("bihin.seenVer");
+    if(!seen) return 0; // 初めての端末では「新着」にしない
+    return APP_UPDATES.filter(function(u){ return u.v > seen; }).length + (updateReady ? 1 : 0);
+  }
+  function todoCounts(){ return { maint: openMaintRecords().length, overdue: overdueLoans().length }; }
+  function updateBellDot(){
+    var dot = $("bellDot"); if(!dot) return;
+    var n = unreadAnnouncements().length + newUpdateCount();
+    dot.hidden = n <= 0; dot.textContent = n > 9 ? "9+" : String(n);
+  }
+  function bellOpen(){ var p = $("bellPanel"); return p && !p.hidden; }
+  function closeBell(){ var p = $("bellPanel"); if(p) p.hidden = true; var b = $("notifyBtn"); if(b) b.setAttribute("aria-expanded", "false"); }
+  function openBell(){
+    var p = $("bellPanel"); if(!p) return;
+    if(!lsGet("bihin.seenVer")) lsSet("bihin.seenVer", APP_VERSION);
+    renderBell(true);
+    p.hidden = false; $("notifyBtn").setAttribute("aria-expanded", "true");
+  }
+  function bellItem(o){
+    var tag = o.tag ? '<span class="bp-tag' + (o.warn ? " warn" : "") + '">' + esc(o.tag) + '</span>' : "";
+    var del = o.del ? '<button class="bp-del" data-del="' + esc(o.del) + '" type="button">削除</button>' : "";
+    return '<' + (o.go ? "button" : "div") + ' class="bp-item' + (o.go ? " link" : "") + (o.unread ? " unread" : "") + '"' + (o.go ? ' data-go="' + o.go + '" type="button"' : "") + '>'
+      + '<div class="t">' + tag + '<span>' + esc(o.title) + '</span></div>' + (o.body ? '<div class="b">' + esc(o.body) + '</div>' : "")
+      + (o.meta ? '<div class="m">' + esc(o.meta) + del + '</div>' : "") + '</' + (o.go ? "button" : "div") + '>';
+  }
+  function renderBell(markSeen){
+    var p = $("bellPanel"); if(!p) return;
+    var unreadAnn = unreadAnnouncements(), nu = newUpdateCount(), seenAnn = annSeenAt(), seenVer = lsGet("bihin.seenVer");
+    var h = '<div class="bp-tabs"><button class="bp-tab' + (bellTab === "notice" ? " active" : "") + '" data-bt="notice" type="button">お知らせ' + (unreadAnn.length ? '<span class="n">' + unreadAnn.length + '</span>' : "") + '</button>'
+      + '<button class="bp-tab' + (bellTab === "update" ? " active" : "") + '" data-bt="update" type="button">アプリの更新' + (nu ? '<span class="n">' + nu + '</span>' : "") + '</button></div>';
+    h += '<div class="bp-body">';
+    if(bellTab === "notice"){
+      if(!isMechanicRole()){
+        h += '<div class="bp-post"><input id="annTitle" maxlength="60" placeholder="お知らせのタイトル"><textarea id="annBody" rows="2" maxlength="500" placeholder="内容（任意）"></textarea><button class="btn btn-primary btn-sm" id="annPost" type="button" style="align-self:flex-end;">お知らせを投稿</button></div>';
+      }
+      var tc = todoCounts(), any = false;
+      if(tc.overdue){ any = true; h += bellItem({ tag: "要対応", warn: true, title: "返却期限を過ぎた備品が " + tc.overdue + " 件あります", body: "貸出台帳で確認する", go: "loans" }); }
+      if(tc.maint){ any = true; h += bellItem({ tag: "要対応", warn: true, title: "整備が必要な備品が " + tc.maint + " 件あります", body: "整備台帳で確認する", go: "maintenance" }); }
+      announcements.forEach(function(a){
+        any = true;
+        var mine = !isMechanicRole();
+        h += bellItem({ tag: "お知らせ", title: a.title, body: a.body, unread: (a.createdAt || 0) > seenAnn, meta: fmtDateTime(a.createdAt || 0) + (a.author ? "　" + a.author : ""), del: mine ? a.id : "" });
+      });
+      if(!any) h += '<div class="bp-empty">新しいお知らせはありません</div>';
+    }else{
+      if(updateReady) h += '<button class="bp-item link unread" data-go="reload" type="button"><div class="t"><span class="bp-tag warn">新しい版</span><span>アプリが更新されました</span></div><div class="b">ここを押すと再読み込みして、最新の状態になります。</div></button>';
+      h += '<div class="bp-item"><div class="m" style="margin:0;">現在のバージョン ' + esc(APP_VERSION) + '</div></div>';
+      APP_UPDATES.forEach(function(u){ h += bellItem({ tag: "更新", title: u.title, body: u.body, meta: u.date, unread: !!seenVer && u.v > seenVer }); });
+    }
+    h += '</div><div class="bp-foot"><span>端末への通知：<b>' + (notifyEnabled() ? "オン" : "オフ") + '</b></span><button class="btn btn-sm" id="bellNotifyToggle" type="button">' + (notifyEnabled() ? "オフにする" : "オンにする") + '</button></div>';
+    p.innerHTML = h;
+    if(markSeen){
+      if(bellTab === "notice"){ var mx = announcements.reduce(function(m, a){ return Math.max(m, a.createdAt || 0); }, annSeenAt()); lsSet("bihin.annSeen", String(mx)); }
+      else { lsSet("bihin.seenVer", APP_VERSION); }
+      updateBellDot();
+    }
+  }
+  function postAnnouncement(){
+    var t = ($("annTitle").value || "").trim(), b = ($("annBody").value || "").trim();
+    if(!t){ $("annTitle").focus(); return; }
+    if(!db) return;
+    var btn = $("annPost"); btn.disabled = true;
+    db.collection("announcements").add({ title: t, body: b, createdAt: Date.now(), author: currentLoginId || "" }).then(function(){
+      lsSet("bihin.annSeen", String(Date.now() + 1000));
+      renderBell(false);
+    }, function(e){ console.warn("announce failed", e); alert("投稿できませんでした。権限またはFirestoreのルール（announcements）を確認してください。"); btn.disabled = false; });
+  }
+  function subscribeAnnouncements(){
+    try{
+      db.collection("announcements").orderBy("createdAt", "desc").limit(30).onSnapshot(function(snap){
+        announcements = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data() || {}); });
+        annLoaded = true; updateBellDot(); if(bellOpen()) renderBell(false);
+      }, function(err){ console.warn("announcements subscribe error", err); });
+    }catch(e){ console.warn("announcements subscribe failed", e); }
+  }
+  document.addEventListener("click", function(e){
+    var t = e.target; if(!t.closest) return;
+    if(t.closest("#notifyBtn")){ if(bellOpen()) closeBell(); else openBell(); return; }
+    var panel = t.closest("#bellPanel");
+    if(!panel){ if(bellOpen()) closeBell(); return; }
+    var bt = t.closest("[data-bt]");
+    if(bt){ bellTab = bt.getAttribute("data-bt"); renderBell(true); return; }
+    if(t.closest("#annPost")){ postAnnouncement(); return; }
+    if(t.closest("#bellNotifyToggle")){ toggleNotify(); setTimeout(function(){ if(bellOpen()) renderBell(false); }, 400); return; }
+    var del = t.closest("[data-del]");
+    if(del){ if(confirm("このお知らせを削除しますか？")) db.collection("announcements").doc(del.getAttribute("data-del")).delete().catch(function(){ alert("削除できませんでした。"); }); return; }
+    var go = t.closest("[data-go]");
+    if(go){
+      var g = go.getAttribute("data-go"); closeBell();
+      if(g === "reload") location.reload(); else switchPage(g);
+    }
+  });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && bellOpen()) closeBell(); });
+  // アプリの更新：新しい版が配信されたら、ベルでお知らせする
+  if("serviceWorker" in navigator){
+    var hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", function(){ if(hadController){ updateReady = true; updateBellDot(); if(bellOpen()) renderBell(false); } hadController = true; });
+    document.addEventListener("visibilitychange", function(){ if(!document.hidden) navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update().catch(function(){}); }).catch(function(){}); });
   }
 
   boot();

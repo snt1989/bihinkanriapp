@@ -12,6 +12,11 @@ service cloud.firestore {
     function isMechanic(){ return signedIn() && request.auth.token.role == 'mechanic'; }
 
     // アカウント登録画面（ログイン前）が読む、社員番号の設定
+    match /announcements/{id} {
+      allow read: if signedIn();
+      allow write: if signedIn() && !isMechanic();
+    }
+
     match /settings/icon {
       allow read: if true;
       allow write: if signedIn() && !isMechanic();
