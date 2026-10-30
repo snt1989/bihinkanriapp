@@ -349,7 +349,7 @@
   .masteraddform input:focus{outline:none; border-color:var(--accent);}
   .masteraddform input.micon-input{flex:0 0 56px; text-align:center; font-size:16px;}
   /* 整備士アカウント：整備に関する画面だけ使える */
-  body.role-mechanic .navtab[data-page="loans"], body.role-mechanic .navtab[data-page="borrowers"], body.role-mechanic .navtab[data-page="admin"],
+  body.role-mechanic .navtab[data-page="home"], body.role-mechanic .navtab[data-page="loans"], body.role-mechanic .navtab[data-page="borrowers"], body.role-mechanic .navtab[data-page="admin"],
   body.role-mechanic #openAddBtn, body.role-mechanic .card [data-action="edit"],
   body.role-mechanic #btnLendOpen, body.role-mechanic #btnReturn, body.role-mechanic #btnUnretire, body.role-mechanic #lendForm{display:none !important;}
   .masterlistrow{display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid var(--line-soft);}
@@ -638,6 +638,27 @@
   .bp-post input,.bp-post textarea{width:100%; font-size:16px; font-family:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; box-sizing:border-box; background:var(--surface,#fff); color:inherit;}
   .bp-del{background:none; border:0; color:var(--text-muted); cursor:pointer; font-size:11px; text-decoration:underline; padding:0; margin-left:8px;}
   @media (max-width:640px){ .bellpanel{position:fixed; top:56px; left:8px; right:8px; width:auto; max-width:none;} }
+  .dash{display:flex; flex-direction:column; gap:14px;}
+  .dash-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .dash-date{font-size:12px; color:var(--text-muted);}
+  .dash-tiles{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px;}
+  .dash-tile{text-align:left; font:inherit; color:inherit; background:var(--surface,#fff); border:1px solid var(--line); border-radius:12px; padding:10px 14px; cursor:pointer;}
+  .dash-tile:hover{border-color:var(--accent);}
+  .dash-tile small{display:block; font-size:12px; color:var(--text-muted);}
+  .dash-tile b{font-size:26px; font-variant-numeric:tabular-nums;}
+  .dash-tile.alert b{color:#D93025;}
+  .dash-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px;}
+  .dash-card{background:var(--surface,#fff); border:1px solid var(--line); border-radius:12px; padding:12px 14px; min-width:0;}
+  .dash-card.warn.has{border-color:#D93025;}
+  .dash-card h3{margin:0 0 6px; font-size:14px; display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .dash-card h3 .n{font-size:12px; font-weight:700; color:#fff; background:#D93025; border-radius:10px; padding:0 8px; line-height:18px;}
+  .dash-card h3 a{font-size:12px; font-weight:400; color:var(--accent-strong); cursor:pointer; text-decoration:underline;}
+  .dash-row{display:block; width:100%; text-align:left; font:inherit; font-size:13px; color:inherit; background:none; border:0; border-top:1px solid var(--line); padding:7px 0; cursor:pointer;}
+  .dash-row:first-of-type{border-top:0;}
+  .dash-row:hover{background:var(--accent-soft);}
+  .dash-row .s{display:block; font-size:12px; color:var(--text-muted);}
+  .dash-empty{font-size:13px; color:var(--text-muted); padding:8px 0;}
+  @media (max-width:640px){ .dash-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .dash-grid{grid-template-columns:minmax(0,1fr);} }
   #notifyBtn.on{background:var(--accent-soft); color:var(--accent-strong); border-color:var(--accent);}
   select.cs-open{
     background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%236C7062" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>');
@@ -780,6 +801,10 @@
     </div>
   </div>
   <nav class="navtabs" id="navTabs">
+    <button class="navtab" data-page="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+      ダッシュボード <span class="cnt tnum" id="navCntHome" hidden>0</span>
+    </button>
     <button class="navtab" data-page="equipment">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/></svg>
       備品台帳
@@ -861,7 +886,22 @@
 </div>
 
 <!-- 備品台帳 -->
-<div class="page" id="pageEquipment">
+<div class="page" id="pageHome">
+  <div class="dash">
+    <div class="dash-head"><h2 style="margin:0; font-size:18px;">ダッシュボード</h2><span class="dash-date" id="dashDate"></span></div>
+    <div class="dash-tiles" id="dashTiles"></div>
+    <div class="dash-grid">
+      <section class="dash-card warn" id="dashOverdue"></section>
+      <section class="dash-card warn" id="dashRepair"></section>
+      <section class="dash-card" id="dashSoon"></section>
+      <section class="dash-card" id="dashNotice"></section>
+      <section class="dash-card" id="dashFuel"></section>
+      <section class="dash-card" id="dashRecent"></section>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="pageEquipment" hidden>
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -2106,13 +2146,14 @@
   function switchPage(p){
     if(isMechanicRole() && ["equipment","maintenance","help"].indexOf(p) === -1) p = "maintenance";
     state.page = p;
-    ["equipment","maintenance","loans","borrowers","admin","help"].forEach(function(name){
+    ["home","equipment","maintenance","loans","borrowers","admin","help"].forEach(function(name){
       var el = $("page" + name.charAt(0).toUpperCase() + name.slice(1));
       if(el) el.hidden = (name !== p);
     });
     Array.prototype.forEach.call($("navTabs").querySelectorAll(".navtab"), function(el){
       el.classList.toggle("active", el.getAttribute("data-page") === p);
     });
+    if(p === "home") renderDashboard();
     if(p === "maintenance") renderMaintList();
     if(p === "loans") renderLoanList();
     if(p === "borrowers") renderBorrowers();
@@ -2489,6 +2530,7 @@
     renderLocationSelect();
     renderList();
     if(state.activeId && state.items[state.activeId]) renderDrawerContent(state.items[state.activeId]);
+    if(state.page === "home") renderDashboard();
     if(state.page === "maintenance") renderMaintList();
     if(state.page === "loans") renderLoanList();
     if(state.page === "borrowers") renderBorrowers();
@@ -6148,7 +6190,7 @@
     [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
-    try{ switchPage("equipment"); renderAll(); }catch(e){ console.error("initial render failed", e); }
+    try{ switchPage("home"); renderAll(); }catch(e){ console.error("initial render failed", e); }
     try{
       if(window.claude && typeof window.claude.use === "function"){
         db = await window.claude.use("db");
@@ -6716,6 +6758,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.10.30", date: "2026-10-30", title: "ダッシュボードを追加", body: "最初の画面に、返却期限超過・整備が必要な備品・お知らせ・今月の燃料・最近の貸出返却をまとめました。" },
     { v: "2026.10.27", date: "2026-10-27", title: "ロゴ・アイコンを管理画面から変更できます", body: "管理画面の「ロゴ・アイコン設定」で、画面のロゴとホーム画面などのアイコンを登録できます。" },
     { v: "2026.10.27", date: "2026-10-27", title: "ベルにお知らせを表示", body: "ベルのマークから、お知らせ・要対応の件数・アプリの更新情報を確認できます。" },
     { v: "2026.10.16", date: "2026-10-16", title: "ログインの不具合を修正", body: "ログイン確認で止まることがないように改善しました。" },
@@ -6800,7 +6843,7 @@
     try{
       db.collection("announcements").orderBy("createdAt", "desc").limit(30).onSnapshot(function(snap){
         announcements = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data() || {}); });
-        annLoaded = true; updateBellDot(); if(bellOpen()) renderBell(false);
+        annLoaded = true; updateBellDot(); if(bellOpen()) renderBell(false); if(state.page === "home") renderDashboard();
       }, function(err){ console.warn("announcements subscribe error", err); });
     }catch(e){ console.warn("announcements subscribe failed", e); }
   }
@@ -6828,6 +6871,67 @@
     navigator.serviceWorker.addEventListener("controllerchange", function(){ if(hadController){ updateReady = true; updateBellDot(); if(bellOpen()) renderBell(false); } hadController = true; });
     document.addEventListener("visibilitychange", function(){ if(!document.hidden) navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update().catch(function(){}); }).catch(function(){}); });
   }
+
+  // ---------- ダッシュボード（トップ画面：要対応・お知らせ・燃料・最近の動き） ----------
+  function daysBetween(a, b){ return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000); }
+  function dashRows(list, fn, empty){
+    return list.length ? list.map(fn).join("") : '<div class="dash-empty">' + empty + '</div>';
+  }
+  function renderDashboard(){
+    if(!$("dashTiles")) return;
+    var items = allItems(), t = todayISO();
+    var od = overdueLoans().sort(function(a, b){ return (a.dueDate || "").localeCompare(b.dueDate || ""); });
+    var soon = allLoans().filter(function(l){ return l.status === "貸出中" && l.dueDate && l.dueDate >= t && daysBetween(t, l.dueDate) <= 2 && String(l.id).indexOf("tmp_") !== 0; })
+      .sort(function(a, b){ return a.dueDate.localeCompare(b.dueDate); });
+    var om = openMaintRecords();
+    $("dashDate").textContent = fmtDate(t) + " 現在";
+    var lent = items.filter(isLentAny).length, avail = items.filter(function(i){ return i.status === "利用可能"; }).length, rep = repairCount();
+    $("dashTiles").innerHTML = [
+      ["", "登録備品", items.length, "all"], ["", "利用可能", avail, "利用可能"], ["", "貸出中", lent, "貸出中"], [rep ? "alert" : "", "修理中", rep, "修理中"]
+    ].map(function(d){ return '<button class="dash-tile ' + d[0] + '" type="button" data-dst="' + d[3] + '"><small>' + d[1] + '</small><b>' + d[2] + '</b></button>'; }).join("");
+
+    function head(title, n, link){ return '<h3><span>' + title + '</span>' + (n ? '<span class="n">' + n + '</span>' : (link ? "" : "")) + (link ? '<a data-dgo="' + link + '">一覧へ</a>' : "") + '</h3>'; }
+    var a = $("dashOverdue"); a.classList.toggle("has", od.length > 0);
+    a.innerHTML = head("返却期限を過ぎた備品", od.length, "loans") + dashRows(od.slice(0, 6), function(l){
+      return '<button class="dash-row" type="button" data-dgo="loans">' + esc(l.equipmentName || "") + '<span class="s">' + esc(l.borrower || "") + '　期限 ' + fmtDate(l.dueDate) + '（' + daysBetween(l.dueDate, t) + '日超過）</span></button>';
+    }, "期限を過ぎた備品はありません") + (od.length > 6 ? '<div class="dash-empty">ほか ' + (od.length - 6) + ' 件</div>' : "");
+
+    var r = $("dashRepair"); r.classList.toggle("has", om.length > 0);
+    r.innerHTML = head("整備が必要な備品", om.length, "maintenance") + dashRows(om.slice(0, 6), function(m){
+      return '<button class="dash-row" type="button" data-dgo="maintenance">' + (typeof m.no === "number" ? fmtNo(m.no) + " " : "") + esc(m.equipmentName || "") + '<span class="s">' + esc(m.issue || "内容の記載なし") + '</span></button>';
+    }, "整備中の備品はありません") + (om.length > 6 ? '<div class="dash-empty">ほか ' + (om.length - 6) + ' 件</div>' : "");
+
+    $("dashSoon").innerHTML = head("まもなく返却期限（2日以内）", soon.length, "") + dashRows(soon.slice(0, 6), function(l){
+      var d = daysBetween(t, l.dueDate);
+      return '<button class="dash-row" type="button" data-dgo="loans">' + esc(l.equipmentName || "") + '<span class="s">' + esc(l.borrower || "") + '　期限 ' + fmtDate(l.dueDate) + (d === 0 ? "（今日）" : "（あと" + d + "日）") + '</span></button>';
+    }, "該当する貸出はありません");
+
+    var ann = announcements.slice(0, 3);
+    $("dashNotice").innerHTML = head("お知らせ", 0, "") + dashRows(ann, function(x){
+      return '<div class="dash-row" style="cursor:default;">' + esc(x.title || "") + (x.body ? '<span class="s">' + esc(x.body) + '</span>' : "") + '<span class="s">' + fmtDateTime(x.createdAt || 0) + '</span></div>';
+    }, "新しいお知らせはありません");
+
+    var mon = t.slice(0, 7), fr = allLoans().filter(function(l){ return typeof l.fuelUsed === "number" && l.fuelUsed > 0 && (l.returnDate || "").slice(0, 7) === mon; });
+    var byType = {}, tot = 0; fr.forEach(function(l){ var k = l.fuelType || "（未指定）"; byType[k] = (byType[k] || 0) + l.fuelUsed; tot += l.fuelUsed; });
+    var fuelBtn = isMechanicRole() ? "" : '<a data-dgo="admin" data-dtab="fuel">燃料一覧へ</a>';
+    $("dashFuel").innerHTML = '<h3><span>今月の燃料使用量</span>' + fuelBtn + '</h3>' + (fr.length
+      ? '<div style="font-size:24px; font-weight:700; font-variant-numeric:tabular-nums;">' + (Math.round(tot * 10) / 10) + ' <span style="font-size:13px; font-weight:400;">L（' + fr.length + '件）</span></div>' + Object.keys(byType).map(function(k){ return '<div class="dash-row" style="cursor:default;">' + esc(k) + '<span class="s">' + (Math.round(byType[k] * 10) / 10) + ' L</span></div>'; }).join("")
+      : '<div class="dash-empty">今月の燃料の入力はまだありません</div>');
+
+    var rc = allLoans().filter(function(l){ return String(l.id).indexOf("tmp_") !== 0; })
+      .sort(function(a, b){ return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0); }).slice(0, 5);
+    $("dashRecent").innerHTML = head("最近の貸出・返却", 0, "loans") + dashRows(rc, function(l){
+      return '<button class="dash-row" type="button" data-dgo="loans">' + esc(l.equipmentName || "") + '<span class="s">' + esc(l.borrower || "") + '　' + (l.status === "貸出中" ? "貸出中" : "返却済み") + '</span></button>';
+    }, "記録はまだありません");
+    var nh = $("navCntHome"); if(nh){ var n = od.length + om.length; nh.textContent = n; nh.hidden = n === 0; }
+  }
+  document.addEventListener("click", function(e){
+    var t = e.target; if(!t.closest) return;
+    var tile = t.closest("[data-dst]");
+    if(tile){ state.statusFilter = tile.getAttribute("data-dst"); switchPage("equipment"); renderAll(true); return; }
+    var go = t.closest("#pageHome [data-dgo]");
+    if(go){ var g = go.getAttribute("data-dgo"); if(g === "admin" && go.getAttribute("data-dtab")) state.adminTab = go.getAttribute("data-dtab"); switchPage(g); }
+  });
 
   boot();
 
