@@ -894,7 +894,15 @@
       <section class="dash-card warn" id="dashOverdue"></section>
       <section class="dash-card warn" id="dashRepair"></section>
       <section class="dash-card" id="dashSoon"></section>
-      <section class="dash-card" id="dashNotice"></section>
+      <section class="dash-card" id="dashNotice">
+        <h3><span>お知らせ</span></h3>
+        <div class="bp-post" style="padding:0 0 8px; border-bottom:1px solid var(--line);">
+          <input id="dashAnnTitle" maxlength="60" placeholder="お知らせのタイトル">
+          <textarea id="dashAnnBody" rows="2" maxlength="500" placeholder="内容（任意）"></textarea>
+          <button class="btn btn-primary btn-sm" id="dashAnnPost" type="button" style="align-self:flex-end;">お知らせを投稿</button>
+        </div>
+        <div id="dashNoticeList"></div>
+      </section>
       <section class="dash-card" id="dashFuel"></section>
       <section class="dash-card" id="dashRecent"></section>
     </div>
@@ -6804,7 +6812,7 @@
       + '<button class="bp-tab' + (bellTab === "update" ? " active" : "") + '" data-bt="update" type="button">アプリの更新' + (nu ? '<span class="n">' + nu + '</span>' : "") + '</button></div>';
     h += '<div class="bp-body">';
     if(bellTab === "notice"){
-      if(!isMechanicRole()){
+      {
         h += '<div class="bp-post"><input id="annTitle" maxlength="60" placeholder="お知らせのタイトル"><textarea id="annBody" rows="2" maxlength="500" placeholder="内容（任意）"></textarea><button class="btn btn-primary btn-sm" id="annPost" type="button" style="align-self:flex-end;">お知らせを投稿</button></div>';
       }
       var tc = todoCounts(), any = false;
@@ -6812,7 +6820,7 @@
       if(tc.maint){ any = true; h += bellItem({ tag: "要対応", warn: true, title: "整備が必要な備品が " + tc.maint + " 件あります", body: "整備台帳で確認する", go: "maintenance" }); }
       announcements.forEach(function(a){
         any = true;
-        var mine = !isMechanicRole();
+        var mine = canDeleteAnn(a);
         h += bellItem({ tag: "お知らせ", title: a.title, body: a.body, unread: (a.createdAt || 0) > seenAnn, meta: fmtDateTime(a.createdAt || 0) + (a.author ? "　" + a.author : ""), del: mine ? a.id : "" });
       });
       if(!any) h += '<div class="bp-empty">新しいお知らせはありません</div>';
@@ -6829,14 +6837,17 @@
       updateBellDot();
     }
   }
-  function postAnnouncement(){
-    var t = ($("annTitle").value || "").trim(), b = ($("annBody").value || "").trim();
-    if(!t){ $("annTitle").focus(); return; }
+  // お知らせは誰でも投稿できる。削除は、投稿した本人か、管理者側（整備担当以外）のアカウント
+  function canDeleteAnn(a){ return !isMechanicRole() || (a.author && a.author === currentLoginId); }
+  function postAnnouncement(tEl, bEl, btn){
+    var t = (tEl.value || "").trim(), b = (bEl.value || "").trim();
+    if(!t){ tEl.focus(); return; }
     if(!db) return;
-    var btn = $("annPost"); btn.disabled = true;
+    btn.disabled = true;
     db.collection("announcements").add({ title: t, body: b, createdAt: Date.now(), author: currentLoginId || "" }).then(function(){
       lsSet("bihin.annSeen", String(Date.now() + 1000));
-      renderBell(false);
+      tEl.value = ""; bEl.value = ""; btn.disabled = false;
+      if(bellOpen()) renderBell(false);
     }, function(e){ console.warn("announce failed", e); alert("投稿できませんでした。権限またはFirestoreのルール（announcements）を確認してください。"); btn.disabled = false; });
   }
   function subscribeAnnouncements(){
@@ -6854,7 +6865,7 @@
     if(!panel){ if(bellOpen()) closeBell(); return; }
     var bt = t.closest("[data-bt]");
     if(bt){ bellTab = bt.getAttribute("data-bt"); renderBell(true); return; }
-    if(t.closest("#annPost")){ postAnnouncement(); return; }
+    if(t.closest("#annPost")){ postAnnouncement($("annTitle"), $("annBody"), $("annPost")); return; }
     if(t.closest("#bellNotifyToggle")){ toggleNotify(); setTimeout(function(){ if(bellOpen()) renderBell(false); }, 400); return; }
     var del = t.closest("[data-del]");
     if(del){ if(confirm("このお知らせを削除しますか？")) db.collection("announcements").doc(del.getAttribute("data-del")).delete().catch(function(){ alert("削除できませんでした。"); }); return; }
@@ -6906,9 +6917,9 @@
       return '<button class="dash-row" type="button" data-dgo="loans">' + esc(l.equipmentName || "") + '<span class="s">' + esc(l.borrower || "") + '　期限 ' + fmtDate(l.dueDate) + (d === 0 ? "（今日）" : "（あと" + d + "日）") + '</span></button>';
     }, "該当する貸出はありません");
 
-    var ann = announcements.slice(0, 3);
-    $("dashNotice").innerHTML = head("お知らせ", 0, "") + dashRows(ann, function(x){
-      return '<div class="dash-row" style="cursor:default;">' + esc(x.title || "") + (x.body ? '<span class="s">' + esc(x.body) + '</span>' : "") + '<span class="s">' + fmtDateTime(x.createdAt || 0) + '</span></div>';
+    var ann = announcements.slice(0, 5);
+    $("dashNoticeList").innerHTML = dashRows(ann, function(x){
+      return '<div class="dash-row" style="cursor:default;">' + esc(x.title || "") + (x.body ? '<span class="s" style="white-space:pre-wrap;">' + esc(x.body) + '</span>' : "") + '<span class="s">' + fmtDateTime(x.createdAt || 0) + (x.author ? "　" + esc(x.author) : "") + (canDeleteAnn(x) ? ' <button class="bp-del" data-del="' + esc(x.id) + '" type="button">削除</button>' : "") + '</span></div>';
     }, "新しいお知らせはありません");
 
     var mon = t.slice(0, 7), fr = allLoans().filter(function(l){ return typeof l.fuelUsed === "number" && l.fuelUsed > 0 && (l.returnDate || "").slice(0, 7) === mon; });
@@ -6927,6 +6938,9 @@
   }
   document.addEventListener("click", function(e){
     var t = e.target; if(!t.closest) return;
+    if(t.closest("#dashAnnPost")){ postAnnouncement($("dashAnnTitle"), $("dashAnnBody"), $("dashAnnPost")); return; }
+    var dd = t.closest("#pageHome [data-del]");
+    if(dd){ if(confirm("このお知らせを削除しますか？")) db.collection("announcements").doc(dd.getAttribute("data-del")).delete().catch(function(){ alert("削除できませんでした。"); }); return; }
     var tile = t.closest("[data-dst]");
     if(tile){ state.statusFilter = tile.getAttribute("data-dst"); switchPage("equipment"); renderAll(true); return; }
     var go = t.closest("#pageHome [data-dgo]");

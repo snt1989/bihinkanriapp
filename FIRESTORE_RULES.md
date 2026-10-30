@@ -11,10 +11,12 @@ service cloud.firestore {
     function signedIn(){ return request.auth != null; }
     function isMechanic(){ return signedIn() && request.auth.token.role == 'mechanic'; }
 
-    // アカウント登録画面（ログイン前）が読む、社員番号の設定
+    // お知らせ：ログイン済みなら誰でも読める・投稿できる。削除は、整備士以外か、投稿した本人
     match /announcements/{id} {
       allow read: if signedIn();
-      allow write: if signedIn() && !isMechanic();
+      allow create: if signedIn();
+      allow update: if signedIn() && !isMechanic();
+      allow delete: if signedIn() && (!isMechanic() || resource.data.author == request.auth.token.email.split('@')[0]);
     }
 
     match /settings/icon {
@@ -27,6 +29,7 @@ service cloud.firestore {
       allow write: if signedIn() && !isMechanic();
     }
 
+    // アカウント登録画面（ログイン前）が読む、社員番号の設定
     match /settings/employeeNumber {
       allow read: if true;
       allow write: if signedIn() && !isMechanic();
