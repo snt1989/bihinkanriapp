@@ -165,6 +165,7 @@
   }
   .addbtn:hover{background:var(--accent-strong);}
   .addbtn svg{width:15px; height:15px;}
+  input.combo{padding-right:34px !important; background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%236C7062" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>'); background-repeat:no-repeat; background-position:right 10px center; background-size:16px;}
   .mtypes{display:flex; flex-wrap:wrap; gap:6px;}
   .mtype{display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:0 12px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:13px; font-weight:600; color:var(--text-muted); cursor:pointer; user-select:none;}
   .mtype input[type=checkbox]{flex:0 0 16px; width:16px !important; min-width:16px; height:16px !important; min-height:0 !important; padding:0 !important; margin:0; accent-color:var(--accent);}
@@ -1884,13 +1885,11 @@
       </div>
       <div class="field">
         <label for="fCategory">カテゴリ（マスタから選択可）</label>
-        <input id="fCategory" list="categoryOptions" placeholder="例）刈払機">
-        <datalist id="categoryOptions"></datalist>
+        <input id="fCategory" class="combo" autocomplete="off" placeholder="例）刈払機">
       </div>
       <div class="field">
         <label for="fLocation">保管場所（任意・マスタから選択可）</label>
-        <input id="fLocation" list="locationOptions" placeholder="例）本社ヤード ／ 第1機械庫 ／ 棚A-01">
-        <datalist id="locationOptions"></datalist>
+        <input id="fLocation" class="combo" autocomplete="off" placeholder="例）本社ヤード ／ 第1機械庫 ／ 棚A-01">
       </div>
       <div class="field">
         <label for="fNo">No.（任意）</label>
@@ -1934,15 +1933,13 @@
       <div class="field" style="flex-direction:row; gap:10px;">
         <div class="field" style="flex:1;">
           <label for="empCompany">会社名（任意・マスタから選択可）</label>
-          <input id="empCompany" type="text" list="companyOptions" placeholder="例）緑化産業株式会社">
+          <input id="empCompany" type="text" class="combo" autocomplete="off" placeholder="例）緑化産業株式会社">
         </div>
         <div class="field" style="flex:1;">
           <label for="empDivision">事業部（任意・マスタから選択可）</label>
-          <input id="empDivision" type="text" list="divisionOptions" placeholder="例）緑化事業部">
+          <input id="empDivision" type="text" class="combo" autocomplete="off" placeholder="例）緑化事業部">
         </div>
       </div>
-      <datalist id="companyOptions"></datalist>
-      <datalist id="divisionOptions"></datalist>
       <div class="field">
         <label>保有資格（任意・マスタから複数選択）</label>
         <div class="qualcheck" id="empQualCheckList"></div>
@@ -4350,10 +4347,10 @@
   }
 
   function fillCompanyOptions(){
-    $("companyOptions").innerHTML = allMasterNames(state.companies).map(function(n){ return '<option value="' + esc(n) + '">'; }).join("");
+
   }
   function fillDivisionOptions(){
-    $("divisionOptions").innerHTML = allMasterNames(state.divisions).map(function(n){ return '<option value="' + esc(n) + '">'; }).join("");
+
   }
   function renderEmpQualCheckList(selected){
     var names = allMasterNames(state.qualifications);
@@ -6173,16 +6170,57 @@
 
   // ---------- add/edit modal ----------
 
-  function fillCategoryOptions(){
-    var dl = $("categoryOptions");
+  function categoryNames(){
     var names = categoriesInOrder().slice();
     allMasterNames(state.eqCategories).forEach(function(n){ if(names.indexOf(n) === -1) names.push(n); });
-    dl.innerHTML = names.map(function(c){ return '<option value="' + esc(c) + '">'; }).join("");
+    return names;
   }
-  function fillLocationOptions(){
-    var dl = $("locationOptions");
-    dl.innerHTML = allMasterNames(state.eqLocations).map(function(n){ return '<option value="' + esc(n) + '">'; }).join("");
+  function locationNames(){ return allMasterNames(state.eqLocations).slice(); }
+  function fillCategoryOptions(){}   // 候補は入力欄をタップしたときに表示する（attachCombo）
+  function fillLocationOptions(){}
+
+  // 入力欄＋候補の一覧（プルダウン）。ブラウザ標準の候補表示は環境によって出ないため、自前で表示する
+  function attachCombo(inputId, getNames){
+    var inp = $(inputId); if(!inp || inp._combo) return; inp._combo = true;
+    var panel = null, skip = false;
+    function close(){ if(panel && panel.parentNode) panel.parentNode.removeChild(panel); panel = null; }
+    function place(){
+      if(!panel) return;
+      var r = inp.getBoundingClientRect();
+      var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      var below = vh - r.bottom - 8, above = r.top - 8;
+      var down = below >= 160 || below >= above;
+      panel.style.width = r.width + "px"; panel.style.left = r.left + "px";
+      panel.style.maxHeight = Math.max(120, Math.min(260, down ? below : above)) + "px";
+      if(down){ panel.style.top = (r.bottom + 4) + "px"; panel.style.bottom = "auto"; }
+      else { panel.style.bottom = (window.innerHeight - r.top + 4) + "px"; panel.style.top = "auto"; }
+    }
+    function show(all){
+      var names = getNames(), q = (inp.value || "").trim().toLowerCase();
+      var list = (all || !q) ? names : names.filter(function(n){ return n.toLowerCase().indexOf(q) >= 0; });
+      if(!list.length){ close(); return; }
+      close();
+      panel = document.createElement("div"); panel.className = "cs-panel"; panel.setAttribute("role", "listbox");
+      list.forEach(function(n){
+        var el = document.createElement("div");
+        el.className = "cs-opt" + (n === inp.value ? " cs-sel" : ""); el.setAttribute("role", "option"); el.textContent = n;
+        el.addEventListener("mousedown", function(e){ e.preventDefault(); });
+        el.addEventListener("click", function(){ inp.value = n; close(); skip = true; inp.dispatchEvent(new Event("input", { bubbles: true })); skip = false; inp.dispatchEvent(new Event("change", { bubbles: true })); });
+        panel.appendChild(el);
+      });
+      document.body.appendChild(panel); place();
+    }
+    inp.addEventListener("focus", function(){ show(true); });
+    inp.addEventListener("click", function(){ if(!panel) show(true); });
+    inp.addEventListener("input", function(){ if(!skip) show(false); });
+    inp.addEventListener("keydown", function(e){ if(e.key === "Escape" && panel){ e.stopPropagation(); close(); } });
+    inp.addEventListener("blur", function(){ setTimeout(close, 120); });
+    document.addEventListener("mousedown", function(e){ if(panel && !panel.contains(e.target) && e.target !== inp) close(); }, true);
+    window.addEventListener("resize", place);
+    if(window.visualViewport) window.visualViewport.addEventListener("resize", place);
+    window.addEventListener("scroll", function(e){ if(panel && !panel.contains(e.target)) place(); }, true);
   }
+  function wireCombos(){ attachCombo("fCategory", categoryNames); attachCombo("fLocation", locationNames); attachCombo("empCompany", function(){ return allMasterNames(state.companies).slice(); }); attachCombo("empDivision", function(){ return allMasterNames(state.divisions).slice(); }); }
 
   function setModalImagePreview(dataUrl){
     var img = $("fImagePreview");
@@ -6772,7 +6810,7 @@
   }
 
   async function boot(){
-    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wirePrefs, wireMenu, wireUpdate, wireRequest].forEach(function(f){
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wirePrefs, wireMenu, wireCombos, wireUpdate, wireRequest].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
     try{ switchPage("home"); renderAll(); }catch(e){ console.error("initial render failed", e); }
@@ -7371,6 +7409,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.21", date: "2026-11-21", title: "プルダウンを表示されやすく修正", body: "備品の編集（カテゴリ・保管場所）や借受者の登録（会社名・事業部）で、候補の一覧が出ない・すぐ消える問題を直しました。スマホのキーボードが出ていても閉じません。" },
     { v: "2026.11.20", date: "2026-11-20", title: "整備項目を複数選べます", body: "点検・整備の記録（直接入力・編集）と整備依頼で、整備項目を複数選べるようになりました。" },
     { v: "2026.11.19", date: "2026-11-19", title: "一覧の表示数を少なく", body: "備品台帳と整備台帳の一覧は、最初は少なめ（スマホは備品5件・整備3件）だけ表示し、「もっと見る」で続きを表示します。" },
     { v: "2026.11.18", date: "2026-11-18", title: "ボタンの大きさを整えました", body: "上部のボタン・検索バー・カードのボタンの高さをそろえました。スマホの下部メニューは4つ（ホーム・備品台帳・整備台帳・貸出台帳）にし、管理画面と使い方は左上の「≡」から開けます。" },
@@ -7741,7 +7780,7 @@
     function place(sel){
       if(!panel) return;
       var r = sel.getBoundingClientRect();
-      var vh = window.innerHeight, below = vh - r.bottom - 8, above = r.top - 8;
+      var vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight), below = vh - r.bottom - 8, above = r.top - 8;
       var h = Math.min(panel.scrollHeight + 2, 300);
       var down = below >= Math.min(h, 160) || below >= above;
       var maxH = Math.max(120, Math.min(300, down ? below : above));
@@ -7787,7 +7826,7 @@
       });
       document.body.appendChild(panel);
       csOpenSel = sel; sel.classList.add("cs-open");
-      place(sel);
+      place(sel); requestAnimationFrame(function(){ reposition(); }); setTimeout(reposition, 250);
       var cur = 0; optsCache.forEach(function(o, k){ if(o.i === sel.selectedIndex) cur = k; });
       setActive(cur, true);
     }
@@ -7828,8 +7867,16 @@
     document.addEventListener("mousedown", function(e){
       if(csOpenSel && panel && !panel.contains(e.target) && e.target !== csOpenSel) close();
     }, true);
-    window.addEventListener("scroll", function(e){ if(csOpenSel && panel && !panel.contains(e.target)) close(); }, true);
-    window.addEventListener("resize", close);
+    // 画面のスクロールや大きさの変化（スマホのキーボードの出入りなど）で一覧が消えないよう、閉じずに位置を合わせ直す
+    function reposition(){
+      if(!csOpenSel || !panel) return;
+      var r = csOpenSel.getBoundingClientRect();
+      if(r.bottom < 0 || r.top > window.innerHeight){ close(); return; } // 項目が画面の外に出たときだけ閉じる
+      place(csOpenSel);
+    }
+    window.addEventListener("scroll", function(e){ if(csOpenSel && panel && !panel.contains(e.target)) reposition(); }, true);
+    window.addEventListener("resize", reposition);
+    if(window.visualViewport){ window.visualViewport.addEventListener("resize", reposition); }
     scan(document.body);
     new MutationObserver(function(muts){
       muts.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, function(n){ if(n.nodeType === 1 && !(n.classList && n.classList.contains("cs-panel"))) scan(n); }); });
