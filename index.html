@@ -165,6 +165,21 @@
   }
   .addbtn:hover{background:var(--accent-strong);}
   .addbtn svg{width:15px; height:15px;}
+  /* ===== 画面上部・検索バーの大きさをそろえる（PC） ===== */
+  @media (min-width:641px){
+    header.top{flex-wrap:nowrap; gap:10px;}
+    header.top .navtabs{flex-wrap:nowrap; gap:0; margin-inline:auto;}
+    header.top .navtab{padding:8px 9px; gap:5px;}
+    header.top .brand-text .sub{display:none;}
+    #undoBtn, #logoutBtn, #notifyBtn{font-size:0; gap:0; padding-left:0; padding-right:0; width:36px; min-width:36px; flex:0 0 36px; min-height:36px; justify-content:center;}
+    #undoBtn svg, #logoutBtn svg, #notifyBtn svg{width:16px !important; height:16px !important;}
+    .ustatus{max-width:170px;}
+    .toolbar{flex-wrap:nowrap;}
+    .toolbar .search{flex:1 1 140px; min-width:140px;}
+    .toolbar select.selfilter{max-width:178px; min-width:0; text-overflow:ellipsis;}
+    .toolbar .addbtn{margin-inline-start:0;}
+  }
+  .search input, select.selfilter{height:var(--btn-h,38px); padding-top:0; padding-bottom:0;}
   .addbtn{min-height:var(--btn-h,38px); font-size:13px; border-radius:9px;}
 
   /* grid of cards (equipment) */
@@ -813,7 +828,7 @@
     .logo{width:30px; height:30px;}
     header.top .userbox{margin-inline-start:auto; gap:6px;}
     .ustatus{padding:6px 8px;} .ustatus .utext{display:none;}
-    #undoBtn, #logoutBtn, #notifyBtn{font-size:0; gap:0; padding:8px 10px; min-height:34px;}
+    #undoBtn, #logoutBtn, #notifyBtn{font-size:0; gap:0; padding:0; width:36px; min-width:36px; flex:0 0 36px; min-height:36px; justify-content:center;}
     body{overflow-x:hidden;}
     .mcomments > div{flex-wrap:wrap;}
     .mcomments .mcomment-input{min-width:0 !important; flex:1 1 100% !important;}
@@ -847,6 +862,8 @@
     select.selfilter{padding:11px 30px 11px 12px;}
     /* ===== スマホ：カードを1列・横並びで読みやすく ===== */
     .navtab .nl-full{display:none;} .navtab .nl-short{display:inline;}
+    .navtab[data-page="admin"], .navtab[data-page="help"]{display:none;} /* 下部は4つまで。管理画面・使い方は左上の「≡」メニューから */
+    body.role-mechanic .navtab[data-page="help"]{display:flex;}
     .navtab{white-space:nowrap; font-size:10.5px;}
     .grid{grid-template-columns:minmax(0,1fr); gap:10px;}
     .card{display:grid; grid-template-columns:104px minmax(0,1fr); grid-template-areas:"thumb body" "act act"; border-radius:14px;}
@@ -7297,6 +7314,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.18", date: "2026-11-18", title: "ボタンの大きさを整えました", body: "上部のボタン・検索バー・カードのボタンの高さをそろえました。スマホの下部メニューは4つ（ホーム・備品台帳・整備台帳・貸出台帳）にし、管理画面と使い方は左上の「≡」から開けます。" },
     { v: "2026.11.17", date: "2026-11-17", title: "修理中の備品の操作を制限・整備依頼に整備項目", body: "備品台帳の「修理中」の備品は、管理者と整備担当者だけが操作できます。整備依頼では、整備項目も選べます。" },
     { v: "2026.11.16", date: "2026-11-16", title: "メニューバー・借受者台帳を管理画面へ", body: "画面左上の「≡」からメニューバーを開き、各画面へ移動できます。借受者台帳は管理画面の中に移しました。持出登録などのボタンの大きさも統一しました。" },
     { v: "2026.11.15", date: "2026-11-15", title: "検索・絞り込み・並び替えを引き継ぎ", body: "備品台帳・整備台帳・貸出台帳で設定した検索、絞り込み、並び替え、表示の切り替えを、次に開いたときも引き継ぎます。" },
