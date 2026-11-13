@@ -256,6 +256,17 @@
   .card-actions.has-req{flex-wrap:wrap;}
   .card-actions.has-req > [data-action="primary"]{flex:1 1 100%;}
   .card-actions.has-req > .reqbtn{flex:1 1 0; min-width:0;}
+  .ph-row{display:flex; flex-wrap:wrap; gap:8px;}
+  .ph-row:empty{display:none;}
+  .ph-item{position:relative; width:84px; height:84px; border-radius:10px; overflow:hidden; border:1px solid var(--line);}
+  .ph-item img{width:100%; height:100%; object-fit:cover; display:block;}
+  .ph-item button{position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; border:0; background:rgba(0,0,0,.65); color:#fff; font-size:12px; cursor:pointer; line-height:22px; padding:0;}
+  .ph-strip{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .ph-thumb{width:56px; height:56px; object-fit:cover; border-radius:8px; border:1px solid var(--line); cursor:zoom-in; display:block;}
+  .lightbox{position:fixed; inset:0; z-index:600; background:rgba(0,0,0,.85); display:flex; align-items:center; justify-content:center; padding:16px;}
+  .lightbox[hidden]{display:none;}
+  .lightbox img{max-width:100%; max-height:100%; border-radius:8px; object-fit:contain;}
+  .lb-close{position:absolute; top:calc(12px + env(safe-area-inset-top,0px)); right:14px; width:40px; height:40px; border-radius:50%; border:0; background:rgba(255,255,255,.9); font-size:18px; cursor:pointer;}
   .req-who{font-size:12px; color:var(--text-muted);}
   .dm-empty{font-size:13px; color:var(--text-muted); padding:8px 0;}
   .dm-sum{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:var(--text-muted); background:var(--bg); border-radius:8px; padding:8px 12px; margin-block-end:8px;}
@@ -1937,6 +1948,9 @@
   </div>
 </div>
 
+<!-- 写真の拡大表示 -->
+<div class="lightbox" id="lightbox" hidden><img id="lightboxImg" alt=""><button type="button" class="lb-close" id="lightboxClose" aria-label="閉じる">✕</button></div>
+
 <!-- 整備依頼 modal -->
 <div class="modal-overlay" id="reqOverlay">
   <div class="modal">
@@ -1958,6 +1972,13 @@
         <label for="reqIssue">依頼内容 <span style="color:var(--danger);">*</span></label>
         <textarea id="reqIssue" rows="4" placeholder="どこがどう悪いかを具体的に書いてください&#10;例）エンジンがかからない／チェーンが外れる／刃が欠けた"></textarea>
         <span class="login-hint" id="reqErr" style="color:var(--danger);" hidden>依頼内容を入力してください。</span>
+      </div>
+      <div class="field">
+        <label>写真（任意・3枚まで）</label>
+        <div class="ph-row" id="reqPhotos"></div>
+        <input type="file" id="reqFile" accept="image/*" multiple hidden>
+        <button type="button" class="btn btn-ghost btn-sm" id="reqAddPhoto" style="align-self:flex-start;">写真を追加（撮影・選択）</button>
+        <span class="login-hint" id="reqPhotoErr" style="color:var(--danger);" hidden></span>
       </div>
       <div class="req-who" id="reqWho"></div>
     </div>
@@ -2764,7 +2785,7 @@
       var period = fmtDate(m.startDate || "") + (m.endDate && m.endDate !== m.startDate ? " 〜 " + fmtDate(m.endDate) : (m.status === "整備中" ? " 〜 整備中" : ""));
       h += '<div class="dm-item" data-dmid="' + esc(m.id) + '">';
       h += '<div class="dm-top"><span class="tnum dm-date">' + esc(period) + '</span>' + histStatusBadge(m) + '</div>';
-      h += '<div class="dm-issue">' + esc(m.issue || "内容の記載なし") + '</div>';
+      h += '<div class="dm-issue">' + esc(m.issue || "内容の記載なし") + '</div>' + photosHtml(m.photos);
       h += '<dl class="dm-kv">' + (m.maintType ? '<dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>' : "") + (m.staffName ? '<dt>担当者</dt><dd>' + esc(m.staffName) + '</dd>' : "") + (m.partsCost ? '<dt>部品・費用</dt><dd>' + esc(m.partsCost) + '</dd>' : "") + '</dl>';
       if(cs.length) h += '<ul class="dm-cm">' + cs.map(function(c){ return '<li><span class="tnum">' + esc(fmtDate(c.date)) + '</span> ' + esc(c.text || "") + '</li>'; }).join("") + '</ul>';
       h += '<div class="dm-acts"><button class="btn btn-ghost btn-sm" data-dmedit="' + esc(m.id) + '" type="button">詳細・編集</button></div>';
@@ -3159,6 +3180,7 @@
       if(it && it.location) html += '    <dt>定位置</dt><dd>' + esc(it.location) + '</dd>';
       if(m.partsCost) html += '    <dt>部品・費用</dt><dd>' + esc(m.partsCost) + '</dd>';
       html += '  </dl>';
+      html += photosHtml(m.photos);
       if(cm) html += '  <div class="mc-latest">コメント ' + (m.comments || []).length + '件　最新：' + esc(cm.text || "") + '</div>';
       html += '  <div class="mc-actions">';
       html += '    <button class="btn btn-primary btn-sm" data-action="mdone" style="flex:1;">完了</button>';
@@ -3430,7 +3452,7 @@
         var nc = (m.comments || []).length;
         return '<div class="hcard" style="--hc:' + col + ';" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '">' +
           '<div class="top"><div><div class="no tnum">' + (typeof m.no === "number" ? fmtNo(m.no) : "-") + '</div><div class="nm">' + esc(m.equipmentName || "") + '</div></div>' + histStatusBadge(m) + '</div>' +
-          '<div class="iss">' + esc(m.issue || "内容の記載なし") + '</div>' +
+          '<div class="iss">' + esc(m.issue || "内容の記載なし") + '</div>' + photosHtml(m.photos) +
           '<dl><dt>実施日</dt><dd class="tnum">' + esc(fmtDate(dayOf(m)) || "-") + '</dd>' +
           (m.maintType ? '<dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>' : "") +
           '<dt>担当者</dt><dd>' + esc(m.staffName || "未定") + '</dd>' +
@@ -3524,7 +3546,7 @@
       html += '  <td class="tnum" data-label="実施日">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
       html += '  <td class="mname" data-label="機材">' + '<span style="color:var(--accent-strong);">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span> <span style="font-weight:400; color:var(--text-muted);">(' + esc(m.equipmentName || "") + ')</span></td>';
       html += '  <td data-label="整備種目">' + esc(m.maintType || "") + '</td>';
-      html += '  <td data-label="作業内容">' + esc(m.issue || "") + maintCommentsHtml(m) + '</td>';
+      html += '  <td data-label="作業内容">' + esc(m.issue || "") + photosHtml(m.photos) + maintCommentsHtml(m) + '</td>';
       html += '  <td data-label="部品/費用">' + esc(m.partsCost || "-") + '</td>';
       html += '  <td data-label="担当者">' + esc(m.staffName || "") + '</td>';
       html += '  <td data-label="状態"><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>' +
@@ -7120,6 +7142,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.13", date: "2026-11-13", title: "整備依頼に写真を添付", body: "整備依頼で、不具合の写真を3枚まで撮影・選択して添付できます。整備台帳や備品の整備履歴で、タップして拡大できます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備依頼を分かりやすく", body: "備品カードの「整備依頼」ボタンから、依頼内容（不具合など）を入力して依頼できます。依頼者と日付も記録され、整備台帳に出ます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "アプリの更新をお知らせ", body: "新しいバージョンが公開されると更新画面が出て、ボタンひとつで最新の状態になります。" },
     { v: "2026.11.13", date: "2026-11-13", title: "備品台帳から整備を依頼・整備履歴を確認", body: "備品カードのレンチのボタン、または備品を開いた画面から整備を依頼できます。備品を開くと、その備品の整備履歴（期間・作業内容・費用・担当者・コメント）を詳しく確認できます。" },
@@ -7378,11 +7401,20 @@
     var me = currentBorrowerEmp();
     return (me && ((me.lastName || "") + " " + (me.firstName || "")).trim()) || currentLoginId || "";
   }
+  var reqPhotos = [];
+  function photosHtml(list, cls){
+    if(!list || !list.length) return "";
+    return '<div class="ph-strip' + (cls ? " " + cls : "") + '">' + list.map(function(d){ return '<img class="ph-thumb" src="' + esc(d) + '" alt="添付写真" loading="lazy">'; }).join("") + '</div>';
+  }
+  function renderReqPhotos(){
+    $("reqPhotos").innerHTML = reqPhotos.map(function(d, i){ return '<div class="ph-item"><img src="' + esc(d) + '" alt="添付写真"><button type="button" data-rm="' + i + '" aria-label="この写真を外す">✕</button></div>'; }).join("");
+    $("reqAddPhoto").disabled = reqPhotos.length >= 3;
+  }
   function openRequestModal(eid){
     var it = state.items[eid]; if(!it) return;
     reqEid = eid;
     $("reqEquip").textContent = (typeof it.no === "number" ? fmtNo(it.no) + "　" : "") + (it.name || "");
-    $("reqIssue").value = ""; $("reqErr").hidden = true;
+    $("reqIssue").value = ""; $("reqErr").hidden = true; reqPhotos = []; $("reqPhotoErr").hidden = true; $("reqFile").value = ""; renderReqPhotos();
     $("reqWho").textContent = "依頼者：" + (requesterName() || "—") + "　／　依頼日：" + fmtDate(todayISO());
     $("reqOverlay").classList.add("show");
     setTimeout(function(){ $("reqIssue").focus(); }, 50);
@@ -7398,12 +7430,12 @@
     if(om){
       // すでに整備中の記録がある場合は、その記録に依頼内容を追記する
       var cm = { date: today, text: "【追加の依頼】" + issue, by: currentLoginId || "" };
-      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
+      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), photos: (om.photos || []).concat(reqPhotos).slice(0, 6), updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
     }else{
       db.collection("maintenance").add({
         equipmentId: reqEid, equipmentName: it.name, no: (typeof it.no === "number" ? it.no : null), category: it.category,
         issue: issue, maintType: "", staffName: "", parts: "", cost: "", partsCost: "",
-        status: "整備中", startDate: today, endDate: null, notes: "", requestedBy: who, requestedAt: Date.now(),
+        status: "整備中", startDate: today, endDate: null, notes: "", requestedBy: who, requestedAt: Date.now(), photos: reqPhotos.slice(),
         createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
     }
@@ -7416,6 +7448,25 @@
     $("reqCancelBtn").addEventListener("click", closeRequestModal);
     $("reqSaveBtn").addEventListener("click", saveRequest);
     $("reqIssue").addEventListener("input", function(){ $("reqErr").hidden = true; });
+    $("reqAddPhoto").addEventListener("click", function(){ $("reqFile").click(); });
+    $("reqFile").addEventListener("change", function(){
+      var files = Array.prototype.slice.call($("reqFile").files || [], 0, Math.max(0, 3 - reqPhotos.length));
+      var err = $("reqPhotoErr"); err.hidden = true;
+      if(($("reqFile").files || []).length > files.length){ err.textContent = "写真は3枚までです。"; err.hidden = false; }
+      Promise.all(files.map(function(f){ return resizeImageFileToDataUrl(f, 1000, 0.72).catch(function(){ return null; }); })).then(function(list){
+        list.forEach(function(d){ if(d && reqPhotos.length < 3) reqPhotos.push(d); });
+        if(list.some(function(d){ return !d; })){ err.textContent = "読み込めなかった写真があります。"; err.hidden = false; }
+        $("reqFile").value = ""; renderReqPhotos();
+      });
+    });
+    $("reqPhotos").addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-rm]"); if(b){ reqPhotos.splice(parseInt(b.getAttribute("data-rm"), 10), 1); renderReqPhotos(); } });
+    // 写真の拡大表示（どの画面の写真も、タップで大きく表示）。カードなどのクリックより先に処理する
+    document.addEventListener("click", function(e){
+      var im = e.target.closest && e.target.closest("img.ph-thumb");
+      if(im){ e.stopPropagation(); e.preventDefault(); $("lightboxImg").src = im.src; $("lightbox").hidden = false; return; }
+      if(e.target.id === "lightbox" || e.target.id === "lightboxClose") $("lightbox").hidden = true;
+    }, true);
+    document.addEventListener("keydown", function(e){ if(e.key === "Escape" && !$("lightbox").hidden) $("lightbox").hidden = true; });
   }
 
   boot();
