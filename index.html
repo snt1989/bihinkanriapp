@@ -165,6 +165,8 @@
   }
   .addbtn:hover{background:var(--accent-strong);}
   .addbtn svg{width:15px; height:15px;}
+  .morebtn{grid-column:1 / -1; min-height:var(--btn-h,38px); border:1px solid var(--line); background:var(--surface); color:var(--accent-strong); font:inherit; font-size:13px; font-weight:700; border-radius:9px; cursor:pointer; padding:0 16px;}
+  .morebtn:hover{background:var(--accent-soft);}
   /* ===== 画面上部・検索バーの大きさをそろえる（PC） ===== */
   @media (min-width:641px){
     header.top{flex-wrap:nowrap; gap:10px;}
@@ -2702,6 +2704,27 @@
     }
   }
 
+  // ---------- 縦に長い一覧は、最初は少なめに表示して「もっと見る」で増やす ----------
+  var listLimits = {};
+  function isNarrow(){ try{ return window.matchMedia("(max-width:640px)").matches; }catch(e){ return false; } }
+  function listLimit(key, sig, narrowN, wideN){
+    var L = listLimits[key];
+    if(!L || L.sig !== sig){ L = listLimits[key] = { sig: sig, extra: 0 }; }
+    return (isNarrow() ? narrowN : wideN) + L.extra;
+  }
+  function moreHtml(key, shown, total, step){
+    if(shown >= total) return "";
+    return '<button type="button" class="morebtn" data-more="' + key + '" data-step="' + step + '">もっと見る（残り ' + (total - shown) + '件）</button>';
+  }
+  function wireMore(root, rerender){
+    if(root._moreWired) return; root._moreWired = true;
+    root.addEventListener("click", function(e){
+      var b = e.target.closest && e.target.closest("[data-more]"); if(!b) return;
+      e.stopPropagation();
+      var k = b.getAttribute("data-more"); if(listLimits[k]) listLimits[k].extra += parseInt(b.getAttribute("data-step"), 10) || 5;
+      rerender();
+    });
+  }
   function renderList(){
     var root = $("listRoot");
     var items = filteredItems();
@@ -2717,6 +2740,9 @@
 
     var html = "";
     var catHues = buildCatHues();
+    var eqLim = listLimit("eq", [state.search, state.statusFilter, state.categoryFilter, state.locationFilter, state.sortKey].join("|"), 5, 12);
+    var eqAll = items.length;
+    items = items.slice(0, eqLim);
     items.forEach(function(it){
       var sc = statusClass(it.status);
       html += '<div class="card" data-id="' + esc(it.id) + '" style="--ch:' + (catHues[it.category] != null ? catHues[it.category] : 140) + ';">';
@@ -2761,7 +2787,9 @@
       html += '  </div>';
       html += '</div>';
     });
+    html += moreHtml("eq", items.length, eqAll, isNarrow() ? 5 : 12);
     root.innerHTML = html;
+    wireMore(root, renderList);
 
     Array.prototype.forEach.call(root.querySelectorAll(".card"), function(card){
       var id = card.getAttribute("data-id");
@@ -3260,6 +3288,8 @@
     if(rows.length === 0 && orphans.length === 0){ root.innerHTML = '<div class="empty">現在、点検・修理が必要な備品はありません</div>'; return; }
 
     var html = "";
+    var mtAll = rows.length, mtLim = listLimit("mt", "x", 3, 8);
+    rows = rows.slice(0, mtLim);
     rows.forEach(function(m){
       var it = state.items[m.equipmentId], days = maintDaysOpen(m);
       var cm = (m.comments || []).slice().sort(function(a, b){ return String(b.date || "").localeCompare(String(a.date || "")); })[0];
@@ -3295,7 +3325,9 @@
       html += '  <div class="mc-issue">整備記録がありません。タップして整備記録を入力してください。</div>';
       html += '</div>';
     });
+    html += moreHtml("mt", rows.length, mtAll, isNarrow() ? 3 : 8);
     root.innerHTML = html;
+    wireMore(root, renderMaintOpenGrid);
 
     Array.prototype.forEach.call(root.querySelectorAll(".maintcard"), function(card){
       var eid = card.getAttribute("data-eid");
@@ -7313,6 +7345,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.19", date: "2026-11-19", title: "一覧の表示数を少なく", body: "備品台帳と整備台帳の一覧は、最初は少なめ（スマホは備品5件・整備3件）だけ表示し、「もっと見る」で続きを表示します。" },
     { v: "2026.11.18", date: "2026-11-18", title: "ボタンの大きさを整えました", body: "上部のボタン・検索バー・カードのボタンの高さをそろえました。スマホの下部メニューは4つ（ホーム・備品台帳・整備台帳・貸出台帳）にし、管理画面と使い方は左上の「≡」から開けます。" },
     { v: "2026.11.17", date: "2026-11-17", title: "修理中の備品の操作を制限・整備依頼に整備項目", body: "備品台帳の「修理中」の備品は、管理者と整備担当者だけが操作できます。整備依頼では、整備項目も選べます。" },
     { v: "2026.11.16", date: "2026-11-16", title: "メニューバー・借受者台帳を管理画面へ", body: "画面左上の「≡」からメニューバーを開き、各画面へ移動できます。借受者台帳は管理画面の中に移しました。持出登録などのボタンの大きさも統一しました。" },
