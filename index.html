@@ -327,6 +327,18 @@
   .histtable .hno{display:block; font-size:11.5px; font-weight:700; color:var(--accent-strong);}
   .histtable .hnm{display:block; font-size:13px; font-weight:700; color:var(--text); line-height:1.4;}
   .histtable .hissue{font-size:13px; color:var(--text);}
+  .histtable .hcnt{display:inline-block; margin-inline-start:4px; padding:0 7px; border-radius:999px; background:var(--accent); color:var(--on-accent); font-size:10.5px; line-height:17px;}
+  @media (min-width:641px){
+    .histtable tr.hsame-row td{border-top:1px dashed var(--line-soft);}
+    .histtable tr.hsame-row td.hsame .hno, .histtable tr.hsame-row td.hsame .hnm{display:none;}
+    .histtable tr.hsame-row td.hsame::before{content:"〃 同じ機材"; font-size:11.5px; color:var(--text-faint);}
+    .histtable tr.hgrp-cont td{border-bottom-style:dashed;}
+    .histtable tr[data-mid]:not(.hsame-row).hgrp-cont td.hname, .histtable tr.hsame-row td.hname{box-shadow:inset 3px 0 0 var(--accent-soft);}
+  }
+  @media (max-width:640px){
+    .histtable tr.hsame-row{border-left:3px solid var(--accent) !important;}
+    .histtable tr.hgrp-cont{border-left:3px solid var(--accent) !important;}
+  }
   .histtable .hdim{color:var(--text-faint);}
   .tchip{display:inline-block; margin:0 4px 4px 0; padding:2px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent-strong); font-size:11.5px; font-weight:700; line-height:1.5;}
   .histtable .hbtns{display:flex; gap:6px; flex-wrap:nowrap; justify-content:flex-end;}
@@ -3785,9 +3797,23 @@
     if(rows.length === 0){ body.innerHTML = '<tr><td colspan="8"><div class="empty">条件に合う整備記録がありません</div></td></tr>'; $("maintHistoryAlt").innerHTML = '<div class="empty">条件に合う整備記録がありません</div>'; return; }
     if(state.mhView !== "table"){ renderHistAlt(rows, dayOf); return; }
 
+    // 同じ機材番号は、同じ日の中でひとまとめに並べる
+    if(state.mhSort === "dateDesc" || state.mhSort === "dateAsc"){
+      var byDay = [], idxDay = {};
+      rows.forEach(function(m){ var d = dayOf(m); if(!(d in idxDay)){ idxDay[d] = byDay.length; byDay.push([]); } byDay[idxDay[d]].push(m); });
+      rows = [];
+      byDay.forEach(function(list){
+        var order = [], grp = {};
+        list.forEach(function(m){ var k = m.equipmentId || ("n" + m.id); if(!grp[k]){ grp[k] = []; order.push(k); } grp[k].push(m); });
+        order.forEach(function(k){ grp[k].forEach(function(m){ rows.push(m); }); });
+      });
+    }
     var html = "", lastDay = null;
-    rows.forEach(function(m){
+    rows.forEach(function(m, ri){
       var day = dayOf(m);
+      var prevR = rows[ri - 1], nextR = rows[ri + 1];
+      var sameAsPrev = !!prevR && prevR.equipmentId === m.equipmentId && dayOf(prevR) === day && (state.mhSort === "dateDesc" || state.mhSort === "dateAsc" ? true : true);
+      var grpSize = 0; if(!sameAsPrev){ for(var gi = ri; gi < rows.length && rows[gi].equipmentId === m.equipmentId && dayOf(rows[gi]) === day; gi++) grpSize++; }
       if((state.mhSort === "dateDesc" || state.mhSort === "dateAsc") && day !== lastDay){
         lastDay = day;
         var note = state.maintDayNotes[day];
@@ -3798,9 +3824,9 @@
         html += '  </div>';
         html += '</td></tr>';
       }
-      html += '<tr data-eid="' + esc(m.equipmentId) + '" data-mid="' + esc(m.id) + '">';
+      html += '<tr data-eid="' + esc(m.equipmentId) + '" data-mid="' + esc(m.id) + '" class="' + (sameAsPrev ? "hsame-row" : "") + ((nextR && nextR.equipmentId === m.equipmentId && dayOf(nextR) === day) ? " hgrp-cont" : "") + '">';
       html += '  <td class="tnum" data-label="実施日">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
-      html += '  <td class="hname" data-label="機材"><span class="hno tnum">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span><span class="hnm">' + esc(m.equipmentName || "") + '</span></td>';
+      html += '  <td class="hname' + (sameAsPrev ? ' hsame' : '') + '" data-label="機材"><span class="hno tnum">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + (grpSize > 1 ? ' <span class="hcnt">' + grpSize + '件</span>' : '') + '</span><span class="hnm">' + esc(m.equipmentName || "") + '</span></td>';
       html += '  <td data-label="整備種目">' + (splitTypes(m.maintType).map(function(t){ return '<span class="tchip">' + esc(t) + '</span>'; }).join("") || '<span class="hdim">—</span>') + '</td>';
       html += '  <td class="hwork" data-label="作業内容"><div class="hissue">' + esc(m.issue || "") + '</div>' + photosHtml(m.photos) + maintCommentsHtml(m) + '</td>';
       html += '  <td data-label="部品・費用">' + (m.partsCost ? esc(m.partsCost) : '<span class="hdim">—</span>') + '</td>';
@@ -7440,6 +7466,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.24", date: "2026-11-24", title: "同じ機材番号をひとまとめに表示", body: "整備実施履歴で、同じ日・同じ番号の記録を続けて並べ、「○件」と表示します。2件目以降は機材名を省いて見やすくしました。" },
     { v: "2026.11.23", date: "2026-11-23", title: "整備実施履歴の日付ごとのコメント入力を削除", body: "整備実施履歴の表から、日付ごとのコメント入力欄をなくしました。" },
     { v: "2026.11.22", date: "2026-11-22", title: "整備実施履歴を見やすく整理", body: "スマホでは1画面に約3件が入るよう、カードを詰めました。整備実施履歴の表を、機材・整備種目（タグ表示）・作業内容・費用・担当者・状態・操作の列に分け、操作ボタンを1行にまとめました。スマホは日付と状態を1行にして、カードを低くしました。" },
     { v: "2026.11.21", date: "2026-11-21", title: "プルダウンを表示されやすく修正", body: "備品の編集（カテゴリ・保管場所）や借受者の登録（会社名・事業部）で、候補の一覧が出ない・すぐ消える問題を直しました。スマホのキーボードが出ていても閉じません。" },
