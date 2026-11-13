@@ -917,16 +917,24 @@
     .histtable thead{display:none;}
     .histtable tbody{display:block;}
     .histtable tr{display:block; background:var(--surface); border:1px solid var(--line); border-radius:12px; margin-block-end:10px; padding:6px 12px;}
-    .histtable tr.daynote-row{background:none; border:none; padding:0; margin:14px 0 6px;}
+    .histtable tr.daynote-row{background:none; border:none; padding:0; margin:10px 0 6px;}
     .histtable tr.daynote-row td{display:block; padding:8px 10px !important; border-radius:10px;}
     .histtable tr.daynote-row .daynote-input{min-width:0 !important; width:100%; flex:1 1 100% !important;}
     .histtable td{display:block; padding:7px 0; border-bottom:1px solid var(--line-soft); white-space:normal;}
     .histtable td:last-child{border-bottom:none;}
     .histtable td[data-label]::before{content:attr(data-label); display:block; font-size:10.5px; color:var(--text-faint); font-weight:700; margin-block-end:1px;}
-    .histtable tr[data-mid]{display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:10px; padding:4px 14px 10px;}
+    .histtable tr[data-mid]{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:10px; padding:2px 12px 8px; margin-block-end:8px;}
+    .histtable tr[data-mid] td[data-label="部品・費用"], .histtable tr[data-mid] td[data-label="担当者"]{grid-column:auto; border-bottom:none; padding:3px 0; font-size:12px;}
+    .histtable tr[data-mid] td[data-label="部品・費用"]::before, .histtable tr[data-mid] td[data-label="担当者"]::before{display:inline; margin:0 6px 0 0; font-size:10.5px;}
+    .histtable tr[data-mid] td[data-label="整備種目"]{border-bottom:none; padding:4px 0 0;}
+    .histtable tr[data-mid] td[data-label="整備種目"]::before{display:none !important;}
+    .histtable tr[data-mid] td[data-label="作業内容"]{padding:3px 0 6px; border-bottom:1px solid var(--line-soft);}
+    .histtable tr[data-mid] td.hact{padding:6px 0 0; border-bottom:none;}
+    .histtable tr[data-mid] td.hact .hbtns{gap:6px;}
+    .histtable tr[data-mid] td.hact .hbtns .btn{flex:1 1 0; min-height:34px;}
     .histtable tr[data-mid] td{grid-column:1 / -1; padding:6px 0;}
     .histtable tr[data-mid] td[data-label="実施日"]{grid-column:1; grid-row:1; border-bottom:none; align-self:center; font-size:12.5px; color:var(--text-muted); font-weight:600;}
-    .histtable tr[data-mid] td[data-label="状態"]{grid-column:2; grid-row:1; border-bottom:none; align-self:center;}
+    .histtable tr[data-mid] td[data-label="状態"]{grid-column:2; grid-row:1; border-bottom:none; align-self:center; justify-self:end;}
     .histtable tr[data-mid] td[data-label="実施日"]::before, .histtable tr[data-mid] td[data-label="状態"]::before, .histtable tr[data-mid] td[data-label="機材"]::before, .histtable tr[data-mid] td[data-label="作業内容"]::before{display:none !important;}
     .histtable tr[data-mid] td[data-label="作業内容"]{font-size:13.5px;}
     .histtable td.hact::before{display:none !important;}
@@ -7432,7 +7440,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
-    { v: "2026.11.22", date: "2026-11-22", title: "整備実施履歴を見やすく整理", body: "整備実施履歴の表を、機材・整備種目（タグ表示）・作業内容・費用・担当者・状態・操作の列に分け、操作ボタンを1行にまとめました。スマホは日付と状態を1行にして、カードを低くしました。" },
+    { v: "2026.11.22", date: "2026-11-22", title: "整備実施履歴を見やすく整理", body: "スマホでは1画面に約3件が入るよう、カードを詰めました。整備実施履歴の表を、機材・整備種目（タグ表示）・作業内容・費用・担当者・状態・操作の列に分け、操作ボタンを1行にまとめました。スマホは日付と状態を1行にして、カードを低くしました。" },
     { v: "2026.11.21", date: "2026-11-21", title: "プルダウンを表示されやすく修正", body: "備品の編集（カテゴリ・保管場所）や借受者の登録（会社名・事業部）で、候補の一覧が出ない・すぐ消える問題を直しました。スマホのキーボードが出ていても閉じません。" },
     { v: "2026.11.20", date: "2026-11-20", title: "整備項目を複数選べます", body: "点検・整備の記録（直接入力・編集）と整備依頼で、整備項目を複数選べるようになりました。" },
     { v: "2026.11.19", date: "2026-11-19", title: "一覧の表示数を少なく", body: "備品台帳と整備台帳の一覧は、最初は少なめ（スマホは備品5件・整備3件）だけ表示し、「もっと見る」で続きを表示します。" },
