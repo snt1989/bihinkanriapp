@@ -211,6 +211,28 @@
   .maintcard .mc-loc{font-size:11.5px; color:var(--text-muted);}
   .maintcard .mc-issue{background:var(--surface); border-radius:8px; padding:9px 11px; font-size:12px; color:var(--text);}
   .maintcard .mc-issue b{color:var(--repair-fg); font-weight:700;}
+  .maintcard{position:relative; border-left:5px solid var(--age,#9AA7A0) !important; cursor:pointer;}
+  .maintcard:hover{box-shadow:0 4px 14px rgba(0,0,0,.10);}
+  .maintcard .mc-age{display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:10px; color:#fff; background:var(--age,#9AA7A0); white-space:nowrap;}
+  .maintcard .mc-facts{display:grid; grid-template-columns:auto 1fr; gap:3px 10px; font-size:12px; margin:0;}
+  .maintcard .mc-facts dt{color:var(--text-faint); font-weight:600;}
+  .maintcard .mc-facts dd{margin:0; color:var(--text); min-width:0; word-break:break-word;}
+  .maintcard .mc-latest{font-size:12px; color:var(--text-muted); border-top:1px dashed var(--line); padding-top:6px;}
+  .maintcard .mc-actions{display:flex; gap:8px;}
+  .mt-tiles{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-block-end:14px;}
+  .mt-tile{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 14px; min-width:0;}
+  .mt-tile small{display:block; font-size:12px; color:var(--text-muted);}
+  .mt-tile b{font-size:26px; font-variant-numeric:tabular-nums; line-height:1.3;}
+  .mt-tile b span{font-size:13px; font-weight:400; color:var(--text-muted); margin-inline-start:3px;}
+  .mt-tile.warn b{color:#D93025;}
+  .mh-bar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line);}
+  .mh-bar .mh-search{flex:1 1 220px; min-width:0;}
+  .mh-bar select{flex:0 0 auto; min-width:130px;}
+  .mh-count{margin-inline-start:auto; font-size:12px; color:var(--text-muted); white-space:nowrap;}
+  .histtable tbody tr[data-mid]:nth-child(even) td{background:transparent;}
+  .histtable tbody tr[data-mid]:hover td{background:var(--accent-soft);}
+  .histtable tr.daynote-row td{border-top:2px solid var(--line);}
+  @media (max-width:640px){ .mt-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .mh-bar select{flex:1 1 40%;} .mh-count{flex:1 1 100%; margin:0;} }
   .checkoutbox{
     background:var(--lent-bg); border-radius:10px; padding:8px 10px; margin:0 0 8px; font-size:11.5px; line-height:1.65;
   }
@@ -951,6 +973,8 @@
     <span class="desc">修理・点検の履歴と、現在整備中の備品を管理します</span>
   </div>
 
+  <div class="mt-tiles" id="maintTiles"></div>
+
   <div class="adminblock">
     <div class="adminblock-head" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
       <div>
@@ -980,6 +1004,16 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
         整備台帳CSV
       </button>
+    </div>
+    <div class="mh-bar">
+      <div class="search mh-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="mhSearch" type="text" placeholder="機材・作業内容・担当者で検索" autocomplete="off">
+      </div>
+      <select class="selfilter" id="mhStatus"><option value="">状態：すべて</option><option>整備中</option><option>完了</option><option>廃棄</option><option>中止</option></select>
+      <select class="selfilter" id="mhMonth"><option value="">期間：すべて</option></select>
+      <select class="selfilter" id="mhStaff"><option value="">担当者：すべて</option></select>
+      <span class="mh-count" id="mhCount"></span>
     </div>
     <div style="overflow-x:auto;">
       <table class="mastertable histtable">
@@ -2913,44 +2947,70 @@
   // ---------- 整備台帳 ----------
 
   function renderMaintList(){
+    renderMaintTiles();
     renderMaintOpenGrid();
     renderMaintHistoryTable();
+  }
+
+  function maintStartDay(m){ return m.startDate || (m.createdAt ? new Date(m.createdAt + 9*3600000).toISOString().slice(0, 10) : ""); }
+  function maintDaysOpen(m){ var d = maintStartDay(m); return d ? Math.max(0, Math.round((new Date(todayISO()).getTime() - new Date(d).getTime()) / 86400000)) : 0; }
+  function ageColor(n){ return n >= 7 ? "#D93025" : (n >= 3 ? "#E39A00" : "#2E7D45"); }
+  function yenOf(m){ var n = parseInt(String(m.cost == null ? "" : m.cost).replace(/[^0-9]/g, ""), 10); return isNaN(n) ? 0 : n; }
+
+  function renderMaintTiles(){
+    var root = $("maintTiles"); if(!root) return;
+    if(!state.ready){ root.innerHTML = ""; return; }
+    var all = allMaint(), open = openMaintRecords(), mon = todayISO().slice(0, 7);
+    var long = open.filter(function(m){ return maintDaysOpen(m) >= 7; }).length + repairOrphanItems().length * 0;
+    var done = all.filter(function(m){ return m.status === "完了" && (m.endDate || "").slice(0, 7) === mon; });
+    var cost = all.filter(function(m){ return (m.endDate || m.startDate || "").slice(0, 7) === mon; }).reduce(function(a, m){ return a + yenOf(m); }, 0);
+    root.innerHTML =
+      '<div class="mt-tile ' + (open.length ? "warn" : "") + '"><small>整備中</small><b>' + repairCount() + '<span>件</span></b></div>' +
+      '<div class="mt-tile ' + (long ? "warn" : "") + '"><small>7日以上かかっている</small><b>' + long + '<span>件</span></b></div>' +
+      '<div class="mt-tile"><small>今月の完了</small><b>' + done.length + '<span>件</span></b></div>' +
+      '<div class="mt-tile"><small>今月の整備費用</small><b>' + cost.toLocaleString("ja-JP") + '<span>円</span></b></div>';
   }
 
   function renderMaintOpenGrid(){
     var root = $("maintOpenGrid");
     if(!root) return;
     var rows = openMaintRecords();
-    rows.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+    rows.sort(function(a,b){ return maintDaysOpen(b) - maintDaysOpen(a) || (a.createdAt||0) - (b.createdAt||0); }); // 長くかかっているものを先頭に
     var orphans = repairOrphanItems();
     if(!state.ready){ root.innerHTML = '<div class="empty">読み込み中…</div>'; return; }
     if(rows.length === 0 && orphans.length === 0){ root.innerHTML = '<div class="empty">現在、点検・修理が必要な備品はありません</div>'; return; }
 
     var html = "";
     rows.forEach(function(m){
-      var it = state.items[m.equipmentId];
-      html += '<div class="maintcard" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '">';
+      var it = state.items[m.equipmentId], days = maintDaysOpen(m);
+      var cm = (m.comments || []).slice().sort(function(a, b){ return String(b.date || "").localeCompare(String(a.date || "")); })[0];
+      html += '<div class="maintcard" style="--age:' + ageColor(days) + ';" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '">';
       html += '  <div class="mc-top">';
       html += '    <div><div class="mc-no tnum">' + (typeof m.no==="number" ? fmtNo(m.no) : "") + '</div><div class="mc-name">' + esc(m.equipmentName || "") + '</div></div>';
-      html += '    <span class="badge repair">整備中</span>';
+      html += '    <span class="mc-age">' + (days === 0 ? "本日開始" : days + "日目") + '</span>';
       html += '  </div>';
-      if(it && it.location){
-        html += '  <div class="mc-loc">定位置: ' + esc(it.location) + '</div>';
-      }
-      html += '  <div class="mc-issue"><b>不具合:</b> ' + esc(m.issue || "内容の記載なし") + '</div>';
-      html += '  <div style="display:flex; gap:8px;">';
+      html += '  <div class="mc-issue"><b>不具合</b>　' + esc(m.issue || "内容の記載なし") + '</div>';
+      html += '  <dl class="mc-facts">';
+      html += '    <dt>開始日</dt><dd class="tnum">' + esc(fmtDate(maintStartDay(m)) || "-") + '</dd>';
+      if(m.maintType) html += '    <dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>';
+      html += '    <dt>担当者</dt><dd>' + esc(m.staffName || "未定") + '</dd>';
+      if(it && it.location) html += '    <dt>定位置</dt><dd>' + esc(it.location) + '</dd>';
+      if(m.partsCost) html += '    <dt>部品・費用</dt><dd>' + esc(m.partsCost) + '</dd>';
+      html += '  </dl>';
+      if(cm) html += '  <div class="mc-latest">コメント ' + (m.comments || []).length + '件　最新：' + esc(cm.text || "") + '</div>';
+      html += '  <div class="mc-actions">';
       html += '    <button class="btn btn-primary btn-sm" data-action="mdone" style="flex:1;">完了</button>';
       html += '    <button class="btn btn-ghost btn-sm" data-action="mretire" style="flex:1;">廃棄</button>';
       html += '  </div>';
       html += '</div>';
     });
     orphans.forEach(function(it){
-      html += '<div class="maintcard" data-eid="' + esc(it.id) + '">';
+      html += '<div class="maintcard" style="--age:#9AA7A0;" data-eid="' + esc(it.id) + '">';
       html += '  <div class="mc-top">';
       html += '    <div><div class="mc-no tnum">' + (typeof it.no==="number" ? fmtNo(it.no) : "") + '</div><div class="mc-name">' + esc(it.name || "") + '</div></div>';
-      html += '    <span class="badge repair">修理中</span>';
+      html += '    <span class="mc-age">修理中</span>';
       html += '  </div>';
-      if(it.location) html += '  <div class="mc-loc">定位置: ' + esc(it.location) + '</div>';
+      if(it.location) html += '  <dl class="mc-facts"><dt>定位置</dt><dd>' + esc(it.location) + '</dd></dl>';
       html += '  <div class="mc-issue">整備記録がありません。タップして整備記録を入力してください。</div>';
       html += '</div>';
     });
@@ -3171,6 +3231,26 @@
     saveMaintComments(mid, (m.comments || []).concat([{ date: date || todayISO(), text: text, by: by, createdAt: Date.now() }]));
   }
 
+  state.mhf = { q: "", status: "", month: "", staff: "" };
+  function syncMaintFilters(rows, dayOf){
+    var months = {}, staff = {};
+    rows.forEach(function(m){ var d = dayOf(m).slice(0, 7); if(d) months[d] = 1; if(m.staffName) staff[m.staffName] = 1; });
+    var mk = Object.keys(months).sort().reverse(), sk = Object.keys(staff).sort();
+    var mh = '<option value="">期間：すべて</option>' + mk.map(function(k){ return '<option value="' + k + '">' + k.replace("-", "年") + '月</option>'; }).join("");
+    var sh = '<option value="">担当者：すべて</option>' + sk.map(function(k){ return '<option value="' + esc(k) + '">' + esc(k) + '</option>'; }).join("");
+    var mSel = $("mhMonth"), sSel = $("mhStaff");
+    if(mSel && mSel._html !== mh){ mSel.innerHTML = mh; mSel._html = mh; }
+    if(sSel && sSel._html !== sh){ sSel.innerHTML = sh; sSel._html = sh; }
+    if(mSel) mSel.value = state.mhf.month; if(sSel) sSel.value = state.mhf.staff;
+  }
+  function wireMaintFilters(){
+    var map = { mhSearch: "q", mhStatus: "status", mhMonth: "month", mhStaff: "staff" };
+    Object.keys(map).forEach(function(id){
+      var el = $(id); if(!el) return;
+      var fn = function(){ state.mhf[map[id]] = el.value; renderMaintHistoryTable(); };
+      el.addEventListener(id === "mhSearch" ? "input" : "change", fn);
+    });
+  }
   function renderMaintHistoryTable(){
     var body = $("maintHistoryTableBody");
     if(!body) return;
@@ -3178,7 +3258,23 @@
     function dayOf(m){ return m.endDate || m.startDate || ""; }
     rows.sort(function(a,b){ return dayOf(b).localeCompare(dayOf(a)) || (b.createdAt||0) - (a.createdAt||0); });
     if(!state.ready){ body.innerHTML = '<tr><td colspan="7"><div class="empty">読み込み中…</div></td></tr>'; return; }
-    if(rows.length === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">整備記録がありません</div></td></tr>'; return; }
+    var total = rows.length;
+    syncMaintFilters(rows, dayOf);
+    var F = state.mhf;
+    var q = (F.q || "").toLowerCase();
+    rows = rows.filter(function(m){
+      if(F.status && m.status !== F.status) return false;
+      if(F.month && dayOf(m).slice(0, 7) !== F.month) return false;
+      if(F.staff && (m.staffName || "") !== F.staff) return false;
+      if(q){
+        var hay = [m.equipmentName, typeof m.no === "number" ? fmtNo(m.no) : "", m.maintType, m.issue, m.parts, m.staffName, (m.comments || []).map(function(c){ return c.text; }).join(" ")].join(" ").toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    var cnt = $("mhCount"); if(cnt) cnt.textContent = rows.length === total ? total + "件" : rows.length + " / " + total + "件";
+    if(total === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">整備記録がありません</div></td></tr>'; return; }
+    if(rows.length === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">条件に合う整備記録がありません</div></td></tr>'; return; }
 
     var html = "", lastDay = null;
     rows.forEach(function(m){
@@ -6195,7 +6291,7 @@
   }
 
   async function boot(){
-    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon].forEach(function(f){
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
     try{ switchPage("home"); renderAll(); }catch(e){ console.error("initial render failed", e); }
@@ -6766,6 +6862,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.13", date: "2026-11-13", title: "整備台帳を見やすく", body: "上部に件数と費用のまとめ、整備中のカードに経過日数と担当・コメント、実施履歴に検索と絞り込みを追加しました。" },
     { v: "2026.10.30", date: "2026-10-30", title: "ダッシュボードを追加", body: "最初の画面に、返却期限超過・整備が必要な備品・お知らせ・今月の燃料・最近の貸出返却をまとめました。" },
     { v: "2026.10.27", date: "2026-10-27", title: "ロゴ・アイコンを管理画面から変更できます", body: "管理画面の「ロゴ・アイコン設定」で、画面のロゴとホーム画面などのアイコンを登録できます。" },
     { v: "2026.10.27", date: "2026-10-27", title: "ベルにお知らせを表示", body: "ベルのマークから、お知らせ・要対応の件数・アプリの更新情報を確認できます。" },
