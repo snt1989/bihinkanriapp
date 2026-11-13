@@ -228,6 +228,28 @@
   .mh-bar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line);}
   .mh-bar .mh-search{flex:1 1 220px; min-width:0;}
   .mh-bar select{flex:0 0 auto; min-width:130px;}
+  .mh-view{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; flex:0 0 auto;}
+  .mh-view button{font:inherit; font-size:13px; padding:7px 14px; border:0; background:var(--surface); color:var(--text-muted); cursor:pointer;}
+  .mh-view button + button{border-left:1px solid var(--line);}
+  .mh-view button.active{background:var(--accent); color:var(--on-accent,#fff); font-weight:700;}
+  .mh-alt{padding:14px 16px;}
+  .mh-alt[hidden]{display:none;}
+  .hcards{display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:12px;}
+  .hcard{background:var(--surface); border:1px solid var(--line); border-top:4px solid var(--hc,#9AA7A0); border-radius:12px; padding:11px 13px; display:flex; flex-direction:column; gap:7px; cursor:pointer; min-width:0;}
+  .hcard:hover{box-shadow:0 4px 14px rgba(0,0,0,.10);}
+  .hcard .top{display:flex; justify-content:space-between; gap:8px; align-items:flex-start;}
+  .hcard .no{font-size:11px; color:var(--text-faint); font-weight:600;}
+  .hcard .nm{font-size:14px; font-weight:700; line-height:1.4;}
+  .hcard .iss{font-size:13px; word-break:break-word;}
+  .hcard dl{display:grid; grid-template-columns:auto 1fr; gap:2px 10px; margin:0; font-size:12px;}
+  .hcard dt{color:var(--text-faint); font-weight:600;} .hcard dd{margin:0; min-width:0; word-break:break-word;}
+  .hcard .acts{display:flex; gap:6px; flex-wrap:wrap; margin-top:auto;}
+  .egroup{border:1px solid var(--line); border-radius:12px; margin-block-end:12px; overflow:hidden;}
+  .egroup > .eh{display:flex; flex-wrap:wrap; gap:6px 14px; align-items:baseline; padding:9px 14px; background:var(--bg); cursor:pointer;}
+  .egroup .eh b{font-size:14px;} .egroup .eh span{font-size:12px; color:var(--text-muted);}
+  .egroup .er{display:grid; grid-template-columns:100px 120px 1fr auto auto; gap:6px 12px; align-items:center; padding:8px 14px; border-top:1px solid var(--line-soft); font-size:13px;}
+  .egroup .er .d{font-variant-numeric:tabular-nums; color:var(--text-muted);}
+  @media (max-width:640px){ .egroup .er{grid-template-columns:1fr auto;} .egroup .er > *:nth-child(n+3){grid-column:1 / -1;} .mh-view{flex:1 1 100%;} .mh-view button{flex:1;} }
   .mh-count{margin-inline-start:auto; font-size:12px; color:var(--text-muted); white-space:nowrap;}
   .histtable tbody tr[data-mid]:nth-child(even) td{background:transparent;}
   .histtable tbody tr[data-mid]:hover td{background:var(--accent-soft);}
@@ -1022,9 +1044,23 @@
       <select class="selfilter" id="mhStatus"><option value="">状態：すべて</option><option>整備中</option><option>完了</option><option>廃棄</option><option>中止</option></select>
       <select class="selfilter" id="mhMonth"><option value="">期間：すべて</option></select>
       <select class="selfilter" id="mhStaff"><option value="">担当者：すべて</option></select>
+      <select class="selfilter" id="mhSort" aria-label="並べ替え">
+        <option value="dateDesc">並べ替え：実施日が新しい順</option>
+        <option value="dateAsc">実施日が古い順</option>
+        <option value="noAsc">機材番号順</option>
+        <option value="costDesc">費用が高い順</option>
+        <option value="statusFirst">整備中を先頭に</option>
+        <option value="staff">担当者順</option>
+      </select>
+      <div class="mh-view" id="mhView" role="group" aria-label="表示の切り替え">
+        <button type="button" data-v="table" class="active">表</button>
+        <button type="button" data-v="cards">カード</button>
+        <button type="button" data-v="equip">機材別</button>
+      </div>
       <span class="mh-count" id="mhCount"></span>
     </div>
-    <div style="overflow-x:auto;">
+    <div id="maintHistoryAlt" class="mh-alt" hidden></div>
+    <div style="overflow-x:auto;" id="maintHistoryTableWrap">
       <table class="mastertable histtable">
         <thead>
           <tr>
@@ -3241,6 +3277,71 @@
   }
 
   state.mhf = { q: "", status: "", month: "", staff: "" };
+  (function(){ var v = "table", so = "dateDesc"; try{ v = localStorage.getItem("bihin.mhView") || v; so = localStorage.getItem("bihin.mhSort") || so; }catch(e){} state.mhView = v; state.mhSort = so; })();
+  function sortMaint(rows, dayOf){
+    var k = state.mhSort;
+    var byDate = function(a, b){ return dayOf(b).localeCompare(dayOf(a)) || (b.createdAt||0) - (a.createdAt||0); };
+    var fn = byDate;
+    if(k === "dateAsc") fn = function(a, b){ return dayOf(a).localeCompare(dayOf(b)) || (a.createdAt||0) - (b.createdAt||0); };
+    else if(k === "noAsc") fn = function(a, b){ return (typeof a.no === "number" ? a.no : 1e9) - (typeof b.no === "number" ? b.no : 1e9) || byDate(a, b); };
+    else if(k === "costDesc") fn = function(a, b){ return yenOf(b) - yenOf(a) || byDate(a, b); };
+    else if(k === "statusFirst") fn = function(a, b){ return (a.status === "整備中" ? 0 : 1) - (b.status === "整備中" ? 0 : 1) || byDate(a, b); };
+    else if(k === "staff") fn = function(a, b){ return (a.staffName || "\uffff").localeCompare(b.staffName || "\uffff", "ja") || byDate(a, b); };
+    return rows.sort(fn);
+  }
+  function histStatusBadge(m){ return '<span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>'; }
+  function histActions(m){
+    return (m.status === "整備中"
+      ? '<button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button>'
+      : '<button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button>') + '<button class="btn btn-ghost btn-sm" data-action="hedit">編集</button>';
+  }
+  function bindHistActions(root){
+    Array.prototype.forEach.call(root.querySelectorAll("[data-mid]"), function(el){
+      var mid = el.getAttribute("data-mid"), eid = el.getAttribute("data-eid");
+      el.addEventListener("click", function(e){ if(e.target.closest("[data-action], input")) return; if(state.items[eid]) openDrawer(eid); });
+      var map = { hdone: function(){ finishMaintQuick(mid, "完了"); }, hretire: function(){ finishMaintQuick(mid, "廃棄"); }, hreopen: function(){ reopenMaint(mid); }, hedit: function(){ openMaintEdit(mid); } };
+      Array.prototype.forEach.call(el.querySelectorAll("[data-action]"), function(b){
+        var f = map[b.getAttribute("data-action")]; if(f) b.addEventListener("click", function(e){ e.stopPropagation(); f(); });
+      });
+    });
+  }
+  function renderHistAlt(rows, dayOf){
+    var alt = $("maintHistoryAlt"), html = "";
+    if(state.mhView === "cards"){
+      html = '<div class="hcards">' + rows.map(function(m){
+        var col = m.status === "整備中" ? "#D93025" : (m.status === "完了" ? "#2E7D45" : "#9AA7A0");
+        var nc = (m.comments || []).length;
+        return '<div class="hcard" style="--hc:' + col + ';" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '">' +
+          '<div class="top"><div><div class="no tnum">' + (typeof m.no === "number" ? fmtNo(m.no) : "-") + '</div><div class="nm">' + esc(m.equipmentName || "") + '</div></div>' + histStatusBadge(m) + '</div>' +
+          '<div class="iss">' + esc(m.issue || "内容の記載なし") + '</div>' +
+          '<dl><dt>実施日</dt><dd class="tnum">' + esc(fmtDate(dayOf(m)) || "-") + '</dd>' +
+          (m.maintType ? '<dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>' : "") +
+          '<dt>担当者</dt><dd>' + esc(m.staffName || "未定") + '</dd>' +
+          (m.partsCost ? '<dt>部品・費用</dt><dd>' + esc(m.partsCost) + '</dd>' : "") +
+          (nc ? '<dt>コメント</dt><dd>' + nc + '件</dd>' : "") + '</dl>' +
+          '<div class="acts">' + histActions(m) + '</div></div>';
+      }).join("") + '</div>';
+    }else{
+      var groups = {}, order = [];
+      rows.forEach(function(m){ var k = m.equipmentId || m.equipmentName || "?"; if(!groups[k]){ groups[k] = []; order.push(k); } groups[k].push(m); });
+      html = order.map(function(k){
+        var g = groups[k], f = g[0], cost = g.reduce(function(a, m){ return a + yenOf(m); }, 0), open = g.filter(function(m){ return m.status === "整備中"; }).length;
+        return '<div class="egroup"><div class="eh" data-mid="' + esc(f.id) + '" data-eid="' + esc(f.equipmentId) + '"><b>' + (typeof f.no === "number" ? fmtNo(f.no) + "　" : "") + esc(f.equipmentName || "") + '</b><span>' + g.length + '件の整備' + (open ? '（整備中 ' + open + '件）' : "") + (cost ? '　費用合計 ' + cost.toLocaleString("ja-JP") + '円' : "") + '</span></div>' +
+          g.map(function(m){
+            return '<div class="er" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '"><span class="d">' + esc(fmtDate(dayOf(m)) || "-") + '</span><span>' + esc(m.maintType || "") + '</span><span>' + esc(m.issue || "") + (m.staffName ? ' <span style="color:var(--text-muted)">（' + esc(m.staffName) + '）</span>' : "") + '</span>' + histStatusBadge(m) + '<span style="display:flex; gap:6px; flex-wrap:wrap;">' + histActions(m) + '</span></div>';
+          }).join("") + '</div>';
+      }).join("");
+    }
+    alt.innerHTML = html;
+    bindHistActions(alt);
+  }
+  function applyMaintView(){
+    var v = state.mhView, table = v === "table";
+    $("maintHistoryTableWrap").hidden = !table;
+    $("maintHistoryAlt").hidden = table;
+    Array.prototype.forEach.call($("mhView").querySelectorAll("button"), function(b){ b.classList.toggle("active", b.getAttribute("data-v") === v); });
+    var so = $("mhSort"); if(so) so.value = state.mhSort;
+  }
   function syncMaintFilters(rows, dayOf){
     var months = {}, staff = {};
     rows.forEach(function(m){ var d = dayOf(m).slice(0, 7); if(d) months[d] = 1; if(m.staffName) staff[m.staffName] = 1; });
@@ -3254,6 +3355,8 @@
   }
   function wireMaintFilters(){
     var map = { mhSearch: "q", mhStatus: "status", mhMonth: "month", mhStaff: "staff" };
+    var so = $("mhSort"); if(so) so.addEventListener("change", function(){ state.mhSort = so.value; try{ localStorage.setItem("bihin.mhSort", state.mhSort); }catch(e){} renderMaintHistoryTable(); });
+    var vw = $("mhView"); if(vw) vw.addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-v]"); if(!b) return; state.mhView = b.getAttribute("data-v"); try{ localStorage.setItem("bihin.mhView", state.mhView); }catch(e2){} renderMaintHistoryTable(); });
     Object.keys(map).forEach(function(id){
       var el = $(id); if(!el) return;
       var fn = function(){ state.mhf[map[id]] = el.value; renderMaintHistoryTable(); };
@@ -3265,8 +3368,8 @@
     if(!body) return;
     var rows = allMaint().slice();
     function dayOf(m){ return m.endDate || m.startDate || ""; }
-    rows.sort(function(a,b){ return dayOf(b).localeCompare(dayOf(a)) || (b.createdAt||0) - (a.createdAt||0); });
     if(!state.ready){ body.innerHTML = '<tr><td colspan="7"><div class="empty">読み込み中…</div></td></tr>'; return; }
+    sortMaint(rows, dayOf);
     var total = rows.length;
     syncMaintFilters(rows, dayOf);
     var F = state.mhf;
@@ -3282,13 +3385,15 @@
       return true;
     });
     var cnt = $("mhCount"); if(cnt) cnt.textContent = rows.length === total ? total + "件" : rows.length + " / " + total + "件";
-    if(total === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">整備記録がありません</div></td></tr>'; return; }
-    if(rows.length === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">条件に合う整備記録がありません</div></td></tr>'; return; }
+    applyMaintView();
+    if(total === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">整備記録がありません</div></td></tr>'; $("maintHistoryAlt").innerHTML = '<div class="empty">整備記録がありません</div>'; return; }
+    if(rows.length === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">条件に合う整備記録がありません</div></td></tr>'; $("maintHistoryAlt").innerHTML = '<div class="empty">条件に合う整備記録がありません</div>'; return; }
+    if(state.mhView !== "table"){ renderHistAlt(rows, dayOf); return; }
 
     var html = "", lastDay = null;
     rows.forEach(function(m){
       var day = dayOf(m);
-      if(day !== lastDay){
+      if((state.mhSort === "dateDesc" || state.mhSort === "dateAsc") && day !== lastDay){
         lastDay = day;
         var note = state.maintDayNotes[day];
         html += '<tr class="daynote-row"><td colspan="7" style="background:var(--bg); padding:8px 12px;">';
@@ -6898,6 +7003,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.13", date: "2026-11-13", title: "整備実施履歴の表示切り替えと並べ替え", body: "表・カード・機材別の3つの表示に切り替えられます。実施日・機材番号・費用・担当者などで並べ替えもできます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "ログイン画面に整備士用を追加", body: "ログイン画面で「社員・管理者」と「整備士」を切り替えられます。整備士のIDでログインすると、整備台帳が開きます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備台帳を見やすく", body: "上部に件数と費用のまとめ、整備中のカードに経過日数と担当・コメント、実施履歴に検索と絞り込みを追加しました。" },
     { v: "2026.10.30", date: "2026-10-30", title: "ダッシュボードを追加", body: "最初の画面に、返却期限超過・整備が必要な備品・お知らせ・今月の燃料・最近の貸出返却をまとめました。" },
