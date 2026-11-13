@@ -584,6 +584,11 @@
   .login-welcome .lw-note{font-size:12px; color:var(--text-muted);}
   .login-welcome .lw-warn{font-size:12px; color:var(--danger); background:var(--repair-bg); border-radius:8px; padding:9px 12px; font-weight:600; margin-block:12px 6px; text-align:left;}
   .login-welcome[hidden]{display:none;}
+  .login-kind{display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; background:var(--bg); border:1px solid var(--line); border-radius:10px;}
+  .login-kind button{font:inherit; font-size:13px; font-weight:700; padding:8px 6px; border:0; border-radius:7px; background:none; color:var(--text-muted); cursor:pointer;}
+  .login-kind button.active{background:var(--surface); color:var(--accent-strong); box-shadow:0 1px 3px rgba(0,0,0,.12);}
+  .login-kind.is-mech button.active{background:var(--accent); color:var(--on-accent,#fff);}
+  .login-kind[hidden]{display:none;}
   .login-mode{text-align:center; font-size:14px; font-weight:700; margin-block-end:14px; color:var(--text);}
   .login-mode[hidden]{display:none;}
   .login-form[hidden]{display:none;}
@@ -777,6 +782,10 @@
     <div class="login-mode" id="loginModeTitle" hidden>アカウント登録</div>
     <div class="login-checking" id="loginChecking">ログイン状態を確認しています…</div>
     <form class="login-form" id="loginForm" novalidate hidden>
+      <div class="login-kind" id="loginKind" role="tablist" aria-label="ログインの種類">
+        <button type="button" role="tab" class="active" data-kind="staff" aria-selected="true">社員・管理者</button>
+        <button type="button" role="tab" data-kind="mechanic" aria-selected="false">整備士</button>
+      </div>
       <div class="login-error" id="loginError" role="alert" hidden></div>
       <div class="login-info" id="loginInfo" role="status" hidden></div>
       <div class="field" id="loginIdField">
@@ -6440,11 +6449,29 @@
       emailEl.required = !reg;
       pwEl.autocomplete = reg ? "new-password" : "current-password";
       $("loginModeTitle").hidden = !reg;
+      $("loginKind").hidden = reg;
       $("loginFoot").hidden = reg;
       submitBtn.textContent = reg ? "アカウントを登録" : "ログイン";
       modeBtn.textContent = reg ? "ログイン画面に戻る" : "初めての方はアカウント登録";
       clearMsg();
     }
+    // ログインの種類：社員・管理者／整備士。整備士のアカウントは管理者が作成するので、新規登録は出さない
+    var loginKind = "staff";
+    function setKind(k){
+      loginKind = k;
+      var box = $("loginKind");
+      Array.prototype.forEach.call(box.querySelectorAll("button"), function(b){
+        var on = b.getAttribute("data-kind") === k; b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      box.classList.toggle("is-mech", k === "mechanic");
+      var mech = k === "mechanic";
+      document.querySelector('#loginIdField label').textContent = mech ? "整備士ID" : "社員番号（ID）";
+      emailEl.placeholder = mech ? "管理者から伝えられたID" : "例：1234";
+      modeBtn.hidden = mech;
+      $("loginFoot").textContent = mech ? "整備士のIDとパスワードは管理者が発行します。わからない場合は管理者にお問い合わせください" : "パスワードを忘れた場合は管理者にお問い合わせください";
+      clearMsg();
+    }
+    $("loginKind").addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-kind]"); if(b){ setKind(b.getAttribute("data-kind")); emailEl.focus(); } });
     modeBtn.addEventListener("click", function(){ setMode(!registerMode); (registerMode ? lastEl : emailEl).focus(); });
 
     function normName(v){ return (v || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase(); }
@@ -6562,6 +6589,15 @@
         // 権限の確認が長引いても画面が止まらないよう、5秒で通常権限として先へ進む
         var roleTimeout = new Promise(function(res){ setTimeout(function(){ res(""); }, 5000); });
         Promise.race([roleP, roleTimeout]).then(function(role){
+          // 「整備士」でログインしたのに整備士のアカウントではない場合は、ログインさせない
+          if(loginKind === "mechanic" && role !== "mechanic"){
+            started = false;
+            auth.signOut().catch(function(){}).then(function(){
+              $("userBox").hidden = true; $("loginOverlay").hidden = false; form.hidden = false; $("loginChecking").hidden = true;
+              showError("このIDは整備士のアカウントではありません。「社員・管理者」からログインしてください。");
+            });
+            return;
+          }
           try{ applyRole(role); startApp(); applyRole(role); if(isMechanicRole()) switchPage("maintenance"); refreshUserBadge(); }
           catch(e){ console.error("startApp failed", e); }
         });
@@ -6862,6 +6898,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.13", date: "2026-11-13", title: "ログイン画面に整備士用を追加", body: "ログイン画面で「社員・管理者」と「整備士」を切り替えられます。整備士のIDでログインすると、整備台帳が開きます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備台帳を見やすく", body: "上部に件数と費用のまとめ、整備中のカードに経過日数と担当・コメント、実施履歴に検索と絞り込みを追加しました。" },
     { v: "2026.10.30", date: "2026-10-30", title: "ダッシュボードを追加", body: "最初の画面に、返却期限超過・整備が必要な備品・お知らせ・今月の燃料・最近の貸出返却をまとめました。" },
     { v: "2026.10.27", date: "2026-10-27", title: "ロゴ・アイコンを管理画面から変更できます", body: "管理画面の「ロゴ・アイコン設定」で、画面のロゴとホーム画面などのアイコンを登録できます。" },
