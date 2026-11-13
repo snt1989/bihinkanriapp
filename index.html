@@ -253,9 +253,14 @@
   .reqbtn{display:inline-flex; align-items:center; justify-content:center; gap:6px; white-space:nowrap; background:var(--repair-bg); color:var(--repair-fg); border:1.5px solid var(--repair-fg); font-weight:700; padding-inline:12px;}
   .reqbtn svg{width:16px; height:16px;}
   .reqbtn:hover{background:var(--repair-fg); color:#fff;}
-  .card-actions.has-req{flex-wrap:wrap;}
-  .card-actions.has-req > [data-action="primary"]{flex:1 1 100%;}
-  .card-actions.has-req > .reqbtn{flex:1 1 0; min-width:0;}
+  /* 備品カードのボタン：1行にそろえ、高さを抑える（持出登録・整備依頼・編集） */
+  .card-actions{align-items:stretch; gap:6px; padding:8px 12px 12px;}
+  .card-actions .btn{padding:0 10px; min-height:34px; font-size:12.5px; gap:5px;}
+  .card-actions .btn svg{width:15px; height:15px;}
+  .card-actions [data-action="primary"]{flex:1.25 1 0; min-width:0;}
+  .card-actions .reqbtn{flex:1 1 0; min-width:0; padding:0 8px;}
+  .card-actions .iconbtn{flex:0 0 34px; width:34px; height:34px;}
+  @media (max-width:640px){ .card-actions.has-req{flex-wrap:wrap;} .card-actions.has-req [data-action="primary"]{flex:1 1 100%;} }
   .ph-row{display:flex; flex-wrap:wrap; gap:8px;}
   .ph-row:empty{display:none;}
   .ph-item{position:relative; width:84px; height:84px; border-radius:10px; overflow:hidden; border:1px solid var(--line);}
