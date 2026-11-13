@@ -318,6 +318,21 @@
   .histtable tbody tr[data-mid]:nth-child(even) td{background:transparent;}
   .histtable tbody tr[data-mid]:hover td{background:var(--accent-soft);}
   .histtable tr.daynote-row td{border-top:2px solid var(--line);}
+  /* 整備実施履歴（表）を見やすく */
+  .histtable{table-layout:auto;}
+  .histtable td{vertical-align:top; padding:12px 12px; line-height:1.5;}
+  .histtable th{padding:9px 12px; letter-spacing:.02em;}
+  .histtable tbody tr[data-mid]{cursor:pointer;}
+  .histtable .hname{white-space:normal !important;}
+  .histtable .hno{display:block; font-size:11.5px; font-weight:700; color:var(--accent-strong);}
+  .histtable .hnm{display:block; font-size:13px; font-weight:700; color:var(--text); line-height:1.4;}
+  .histtable .hissue{font-size:13px; color:var(--text);}
+  .histtable .hdim{color:var(--text-faint);}
+  .tchip{display:inline-block; margin:0 4px 4px 0; padding:2px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent-strong); font-size:11.5px; font-weight:700; line-height:1.5;}
+  .histtable .hbtns{display:flex; gap:6px; flex-wrap:nowrap; justify-content:flex-end;}
+  .histtable .hbtns .btn{min-height:32px; padding-left:11px; padding-right:11px; font-size:12px;}
+  .histtable tr.daynote-row td{background:var(--bg) !important; border-top:2px solid var(--line); padding:8px 12px !important;}
+  .histtable .daynote-input{flex:1 1 280px; min-width:200px; height:32px !important; font-size:12.5px;}
   @media (max-width:640px){ .mt-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .mh-bar select{flex:1 1 40%;} .mh-count{flex:1 1 100%; margin:0;} }
   .checkoutbox{
     background:var(--lent-bg); border-radius:10px; padding:8px 10px; margin:0 0 8px; font-size:11.5px; line-height:1.65;
@@ -908,9 +923,17 @@
     .histtable td{display:block; padding:7px 0; border-bottom:1px solid var(--line-soft); white-space:normal;}
     .histtable td:last-child{border-bottom:none;}
     .histtable td[data-label]::before{content:attr(data-label); display:block; font-size:10.5px; color:var(--text-faint); font-weight:700; margin-block-end:1px;}
-    .histtable td[data-label="状態"]{display:flex; flex-wrap:wrap; align-items:center; gap:6px;}
-    .histtable td[data-label="状態"]::before{flex:0 0 100%;}
-    .histtable td[data-label="状態"] > div{margin-block-start:0 !important; display:inline-flex; gap:6px;}
+    .histtable tr[data-mid]{display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:10px; padding:4px 14px 10px;}
+    .histtable tr[data-mid] td{grid-column:1 / -1; padding:6px 0;}
+    .histtable tr[data-mid] td[data-label="実施日"]{grid-column:1; grid-row:1; border-bottom:none; align-self:center; font-size:12.5px; color:var(--text-muted); font-weight:600;}
+    .histtable tr[data-mid] td[data-label="状態"]{grid-column:2; grid-row:1; border-bottom:none; align-self:center;}
+    .histtable tr[data-mid] td[data-label="実施日"]::before, .histtable tr[data-mid] td[data-label="状態"]::before, .histtable tr[data-mid] td[data-label="機材"]::before, .histtable tr[data-mid] td[data-label="作業内容"]::before{display:none !important;}
+    .histtable tr[data-mid] td[data-label="作業内容"]{font-size:13.5px;}
+    .histtable td.hact::before{display:none !important;}
+    .histtable .hbtns{flex-wrap:wrap; justify-content:flex-start;}
+    .histtable .hbtns .btn{min-height:var(--btn-h);}
+    .histtable td.hname{display:flex; gap:8px; align-items:baseline;}
+    .histtable td.hname::before{display:none !important;}
     .histtable td.mname{white-space:normal;}
     .mastertable td{padding:10px 8px;}
   }
@@ -1212,13 +1235,14 @@
       <table class="mastertable histtable">
         <thead>
           <tr>
-            <th style="width:100px;">実施日</th>
-            <th>機材番号・品名</th>
-            <th style="width:130px;">整備種目</th>
+            <th style="width:92px;">実施日</th>
+            <th style="width:200px;">機材</th>
+            <th style="width:150px;">整備種目</th>
             <th>作業内容</th>
-            <th style="width:140px;">交換部品 / 費用</th>
-            <th style="width:110px;">整備担当者</th>
-            <th style="width:140px;">状態</th>
+            <th style="width:120px;">部品・費用</th>
+            <th style="width:96px;">担当者</th>
+            <th style="width:72px;">状態</th>
+            <th style="width:176px;">操作</th>
           </tr>
         </thead>
         <tbody id="maintHistoryTableBody"></tbody>
@@ -3731,7 +3755,7 @@
     if(!body) return;
     var rows = allMaint().slice();
     function dayOf(m){ return m.endDate || m.startDate || ""; }
-    if(!state.ready){ body.innerHTML = '<tr><td colspan="7"><div class="empty">読み込み中…</div></td></tr>'; return; }
+    if(!state.ready){ body.innerHTML = '<tr><td colspan="8"><div class="empty">読み込み中…</div></td></tr>'; return; }
     sortMaint(rows, dayOf);
     var total = rows.length;
     syncMaintFilters(rows, dayOf);
@@ -3749,8 +3773,8 @@
     });
     var cnt = $("mhCount"); if(cnt) cnt.textContent = rows.length === total ? total + "件" : rows.length + " / " + total + "件";
     applyMaintView();
-    if(total === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">整備記録がありません</div></td></tr>'; $("maintHistoryAlt").innerHTML = '<div class="empty">整備記録がありません</div>'; return; }
-    if(rows.length === 0){ body.innerHTML = '<tr><td colspan="7"><div class="empty">条件に合う整備記録がありません</div></td></tr>'; $("maintHistoryAlt").innerHTML = '<div class="empty">条件に合う整備記録がありません</div>'; return; }
+    if(total === 0){ body.innerHTML = '<tr><td colspan="8"><div class="empty">整備記録がありません</div></td></tr>'; $("maintHistoryAlt").innerHTML = '<div class="empty">整備記録がありません</div>'; return; }
+    if(rows.length === 0){ body.innerHTML = '<tr><td colspan="8"><div class="empty">条件に合う整備記録がありません</div></td></tr>'; $("maintHistoryAlt").innerHTML = '<div class="empty">条件に合う整備記録がありません</div>'; return; }
     if(state.mhView !== "table"){ renderHistAlt(rows, dayOf); return; }
 
     var html = "", lastDay = null;
@@ -3759,7 +3783,7 @@
       if((state.mhSort === "dateDesc" || state.mhSort === "dateAsc") && day !== lastDay){
         lastDay = day;
         var note = state.maintDayNotes[day];
-        html += '<tr class="daynote-row"><td colspan="7" style="background:var(--bg); padding:8px 12px;">';
+        html += '<tr class="daynote-row"><td colspan="8" style="background:var(--bg); padding:8px 12px;">';
         html += '  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">';
         html += '    <b class="tnum" style="white-space:nowrap;">' + (day ? esc(fmtDate(day)) : "日付なし") + '</b>';
         if(day) html += '    <input type="text" class="daynote-input" data-day="' + esc(day) + '" value="' + esc(note && note.comment ? note.comment : "") + '" placeholder="この日のコメント（入力すると自動で保存されます）" autocomplete="off" style="flex:1; min-width:220px; font-size:12.5px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface, #fff); color:inherit;">';
@@ -3768,14 +3792,13 @@
       }
       html += '<tr data-eid="' + esc(m.equipmentId) + '" data-mid="' + esc(m.id) + '">';
       html += '  <td class="tnum" data-label="実施日">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
-      html += '  <td class="mname" data-label="機材">' + '<span style="color:var(--accent-strong);">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span> <span style="font-weight:400; color:var(--text-muted);">(' + esc(m.equipmentName || "") + ')</span></td>';
-      html += '  <td data-label="整備種目">' + esc(m.maintType || "") + '</td>';
-      html += '  <td data-label="作業内容">' + esc(m.issue || "") + photosHtml(m.photos) + maintCommentsHtml(m) + '</td>';
-      html += '  <td data-label="部品/費用">' + esc(m.partsCost || "-") + '</td>';
-      html += '  <td data-label="担当者">' + esc(m.staffName || "") + '</td>';
-      html += '  <td data-label="状態"><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>' +
-        (m.status === "整備中" ? '<div style="display:flex; gap:6px; margin-block-start:6px;"><button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button></div>' : '<div style="margin-block-start:6px;"><button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button></div>') +
-        '<div style="margin-block-start:6px;"><button class="btn btn-ghost btn-sm" data-action="hedit">編集</button></div></td>';
+      html += '  <td class="hname" data-label="機材"><span class="hno tnum">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + '</span><span class="hnm">' + esc(m.equipmentName || "") + '</span></td>';
+      html += '  <td data-label="整備種目">' + (splitTypes(m.maintType).map(function(t){ return '<span class="tchip">' + esc(t) + '</span>'; }).join("") || '<span class="hdim">—</span>') + '</td>';
+      html += '  <td class="hwork" data-label="作業内容"><div class="hissue">' + esc(m.issue || "") + '</div>' + photosHtml(m.photos) + maintCommentsHtml(m) + '</td>';
+      html += '  <td data-label="部品・費用">' + (m.partsCost ? esc(m.partsCost) : '<span class="hdim">—</span>') + '</td>';
+      html += '  <td data-label="担当者">' + (m.staffName ? esc(m.staffName) : '<span class="hdim">未定</span>') + '</td>';
+      html += '  <td data-label="状態"><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span></td>';
+      html += '  <td class="hact" data-label="操作"><div class="hbtns">' + histActions(m) + '</div></td>';
       html += '</tr>';
     });
     body.innerHTML = html;
@@ -7409,6 +7432,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.22", date: "2026-11-22", title: "整備実施履歴を見やすく整理", body: "整備実施履歴の表を、機材・整備種目（タグ表示）・作業内容・費用・担当者・状態・操作の列に分け、操作ボタンを1行にまとめました。スマホは日付と状態を1行にして、カードを低くしました。" },
     { v: "2026.11.21", date: "2026-11-21", title: "プルダウンを表示されやすく修正", body: "備品の編集（カテゴリ・保管場所）や借受者の登録（会社名・事業部）で、候補の一覧が出ない・すぐ消える問題を直しました。スマホのキーボードが出ていても閉じません。" },
     { v: "2026.11.20", date: "2026-11-20", title: "整備項目を複数選べます", body: "点検・整備の記録（直接入力・編集）と整備依頼で、整備項目を複数選べるようになりました。" },
     { v: "2026.11.19", date: "2026-11-19", title: "一覧の表示数を少なく", body: "備品台帳と整備台帳の一覧は、最初は少なめ（スマホは備品5件・整備3件）だけ表示し、「もっと見る」で続きを表示します。" },
