@@ -2022,6 +2022,10 @@
         <div id="reqEquip" style="padding:9px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); font-weight:700;"></div>
       </div>
       <div class="field">
+        <label for="reqType">整備項目</label>
+        <select id="reqType"></select>
+      </div>
+      <div class="field">
         <label for="reqIssue">依頼内容 <span style="color:var(--danger);">*</span></label>
         <textarea id="reqIssue" rows="4" placeholder="どこがどう悪いかを具体的に書いてください&#10;例）エンジンがかからない／チェーンが外れる／刃が欠けた"></textarea>
         <span class="login-hint" id="reqErr" style="color:var(--danger);" hidden>依頼内容を入力してください。</span>
@@ -2218,6 +2222,7 @@
     empSelected: {},      // employee id -> true
     empEditingId: null,
     adminTab: "dashboard",
+    isAdmin: false,
     adminBorrowerTab: "list",
     loaded: {},           // 初回データ読み込み済みのコレクション（マスタ反映の判定用）
     empNoSettings: null,  // 社員番号の自動割り振り設定（settings/employeeNumber）
@@ -2381,6 +2386,21 @@
 
   // ---- 整備士アカウント（整備に関する操作だけ許可） ----
   function isMechanicRole(){ return state.role === "mechanic"; }
+  // 修理中の備品を操作できるのは、管理者と整備担当者（整備士アカウント／整備担当者マスタに登録されたID）だけ
+  function canRepair(){
+    if(state.isAdmin || isMechanicRole()) return true;
+    var me = normLoginId(currentLoginId || ""); if(!me) return false;
+    return Object.keys(state.mechanics || {}).some(function(k){ var l = state.mechanics[k] && state.mechanics[k].loginId; return l && normLoginId(l) === me; });
+  }
+  function repairDenied(){ alert("修理中の備品は、管理者と整備担当者のみ操作できます。\n整備を依頼する場合は、利用可能な備品の「整備依頼」から行ってください。"); }
+  function fetchAdminFlag(user){
+    if(!user || !user.getIdToken) return;
+    user.getIdToken().then(function(t){
+      return fetch("/api/whoami", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: t }) });
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if(j && j.ok){ state.isAdmin = !!j.admin; try{ renderAll(true); }catch(e){} }
+    }).catch(function(){});
+  }
   function applyRole(role){
     state.role = role || "";
     document.body.classList.toggle("role-mechanic", isMechanicRole());
@@ -2719,7 +2739,7 @@
       }
       html += '  </div>';
       html += '  <div class="card-actions' + (it.status === "利用可能" ? ' has-req' : '') + '">';
-      html += '    <button class="btn ' + (it.status==="貸出中" ? "btn-info" : it.status==="修理中" ? "btn-red" : "btn-primary") + ' btn-block" data-action="primary">' + primaryActionIcon(it.status) + '<span>' + primaryActionLabel(it.status) + '</span></button>';
+      html += '    <button class="btn ' + (it.status==="貸出中" ? "btn-info" : it.status==="修理中" ? "btn-red" : "btn-primary") + ' btn-block" data-action="primary"' + (it.status === "修理中" && !canRepair() ? ' disabled title="修理中の備品は、管理者と整備担当者のみ操作できます"' : '') + '>' + primaryActionIcon(it.status) + '<span>' + primaryActionLabel(it.status) + '</span></button>';
       if(it.status === "利用可能") html += '    <button class="btn reqbtn" data-action="maint" title="故障・不具合の整備を依頼する">' + ICON_WRENCH + '<span>整備依頼</span></button>';
       html += '    <button class="iconbtn" data-action="edit" aria-label="編集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>';
       html += '  </div>';
@@ -2743,6 +2763,7 @@
       if(editBtn) editBtn.addEventListener("click", function(e){
         e.stopPropagation();
         var it = state.items[id];
+        if(it && it.status === "修理中" && !canRepair()){ repairDenied(); return; }
         if(it) openModal(it);
       });
     });
@@ -2762,7 +2783,7 @@
       return;
     }
     if(it.status === "貸出中"){ if(isMulti(it)) openDrawer(id); else openReturnModal(id); return; }
-    if(it.status === "修理中"){ openMaintRecordModal(id); return; }
+    if(it.status === "修理中"){ if(!canRepair()){ repairDenied(); return; } openMaintRecordModal(id); return; }
     if(it.status === "廃棄"){ unretireItem(id); return; }
   }
 
@@ -2844,7 +2865,7 @@
       h += '<div class="dm-issue">' + esc(m.issue || "内容の記載なし") + '</div>' + photosHtml(m.photos);
       h += '<dl class="dm-kv">' + (m.maintType ? '<dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>' : "") + (m.staffName ? '<dt>担当者</dt><dd>' + esc(m.staffName) + '</dd>' : "") + (m.partsCost ? '<dt>部品・費用</dt><dd>' + esc(m.partsCost) + '</dd>' : "") + '</dl>';
       if(cs.length) h += '<ul class="dm-cm">' + cs.map(function(c){ return '<li><span class="tnum">' + esc(fmtDate(c.date)) + '</span> ' + esc(c.text || "") + '</li>'; }).join("") + '</ul>';
-      h += '<div class="dm-acts"><button class="btn btn-ghost btn-sm" data-dmedit="' + esc(m.id) + '" type="button">詳細・編集</button></div>';
+      if(!(it.status === "修理中" && !canRepair())) h += '<div class="dm-acts"><button class="btn btn-ghost btn-sm" data-dmedit="' + esc(m.id) + '" type="button">詳細・編集</button></div>';
       h += '</div>';
     });
     return h + '</div></div>';
@@ -2898,8 +2919,12 @@
       html += '<button class="btn btn-info" id="btnReturn"' + (canReturnAs(it.borrower) ? '' : ' disabled title="持ち出した本人のみ返却できます"') + '>返却する</button>';
       if(!canReturnAs(it.borrower)) html += '<div class="hint" style="font-size:12px; color:var(--text-muted); flex-basis:100%;">返却受付は、持ち出した本人（' + esc(it.borrower || "不明") + '）のみ行えます。</div>';
     } else if(it.status === "修理中"){
-      html += '<button class="btn btn-primary" id="btnRepairDone">修理完了（利用可能へ）</button>';
-      html += '<button class="btn btn-ghost" id="btnMaintReq">整備記録を追加</button>';
+      if(canRepair()){
+        html += '<button class="btn btn-primary" id="btnRepairDone">修理完了（利用可能へ）</button>';
+        html += '<button class="btn btn-ghost" id="btnMaintReq">整備記録を追加</button>';
+      } else {
+        html += '<div class="hint" style="font-size:12.5px; color:var(--text-muted); flex-basis:100%;">修理中の備品は、管理者と整備担当者のみ操作できます。</div>';
+      }
     } else if(it.status === "廃棄"){
       html += '<button class="btn btn-ghost" id="btnUnretire">廃棄を取り消す</button>';
     }
@@ -6961,6 +6986,7 @@
           .then(function(r){ return (r && r.claims && r.claims.role) || ""; }, function(){ return ""; });
         // 権限の確認が長引いても画面が止まらないよう、5秒で通常権限として先へ進む
         var roleTimeout = new Promise(function(res){ setTimeout(function(){ res(""); }, 5000); });
+        fetchAdminFlag(user);
         Promise.race([roleP, roleTimeout]).then(function(role){
           // 「整備士」でログインしたのに整備士のアカウントではない場合は、ログインさせない
           if(loginKind === "mechanic" && role !== "mechanic"){
@@ -7271,6 +7297,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.17", date: "2026-11-17", title: "修理中の備品の操作を制限・整備依頼に整備項目", body: "備品台帳の「修理中」の備品は、管理者と整備担当者だけが操作できます。整備依頼では、整備項目も選べます。" },
     { v: "2026.11.16", date: "2026-11-16", title: "メニューバー・借受者台帳を管理画面へ", body: "画面左上の「≡」からメニューバーを開き、各画面へ移動できます。借受者台帳は管理画面の中に移しました。持出登録などのボタンの大きさも統一しました。" },
     { v: "2026.11.15", date: "2026-11-15", title: "検索・絞り込み・並び替えを引き継ぎ", body: "備品台帳・整備台帳・貸出台帳で設定した検索、絞り込み、並び替え、表示の切り替えを、次に開いたときも引き継ぎます。" },
     { v: "2026.11.14", date: "2026-11-14", title: "スマホの表示を見やすく", body: "スマホでは備品カード・整備中カードを1列で大きく表示し、文字が細かく折り返さないようにしました。ボタンも押しやすい大きさにそろえています。" },
@@ -7546,6 +7573,7 @@
     var it = state.items[eid]; if(!it) return;
     reqEid = eid;
     $("reqEquip").textContent = (typeof it.no === "number" ? fmtNo(it.no) + "　" : "") + (it.name || "");
+    fillSelectWithCurrent("reqType", allMasterNames(state.maintTypes), "", "（わからない・未選択）");
     $("reqIssue").value = ""; $("reqErr").hidden = true; reqPhotos = []; $("reqPhotoErr").hidden = true; $("reqFile").value = ""; renderReqPhotos();
     $("reqWho").textContent = "依頼者：" + (requesterName() || "—") + "　／　依頼日：" + fmtDate(todayISO());
     $("reqOverlay").classList.add("show");
@@ -7557,22 +7585,22 @@
     var issue = ($("reqIssue").value || "").trim();
     if(!issue){ $("reqErr").hidden = false; $("reqIssue").focus(); return; }
     if(!db) return;
-    var today = todayISO(), who = requesterName();
+    var today = todayISO(), who = requesterName(), reqType = $("reqType").value || "";
     var om = findOpenMaintenance(reqEid);
     if(om){
       // すでに整備中の記録がある場合は、その記録に依頼内容を追記する
-      var cm = { date: today, text: "【追加の依頼】" + issue, by: currentLoginId || "" };
-      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), photos: (om.photos || []).concat(reqPhotos).slice(0, 6), updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
+      var cm = { date: today, text: "【追加の依頼】" + (reqType ? "（" + reqType + "）" : "") + issue, by: currentLoginId || "" };
+      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), photos: (om.photos || []).concat(reqPhotos).slice(0, 6), maintType: om.maintType || reqType, updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
     }else{
       db.collection("maintenance").add({
         equipmentId: reqEid, equipmentName: it.name, no: (typeof it.no === "number" ? it.no : null), category: it.category,
-        issue: issue, maintType: "", staffName: "", parts: "", cost: "", partsCost: "",
+        issue: issue, maintType: reqType, staffName: "", parts: "", cost: "", partsCost: "",
         status: "整備中", startDate: today, endDate: null, notes: "", requestedBy: who, requestedAt: Date.now(), photos: reqPhotos.slice(),
         createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
     }
     if(it.status !== "修理中"){ updateItem(reqEid, { status: "修理中" }); }
-    addLog(reqEid, "整備依頼", issue + (who ? "（依頼者：" + who + "）" : ""));
+    addLog(reqEid, "整備依頼", (reqType ? "【" + reqType + "】" : "") + issue + (who ? "（依頼者：" + who + "）" : ""));
     closeRequestModal();
   }
   function wireRequest(){
