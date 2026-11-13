@@ -250,6 +250,13 @@
   .egroup .er{display:grid; grid-template-columns:100px 120px 1fr auto auto; gap:6px 12px; align-items:center; padding:8px 14px; border-top:1px solid var(--line-soft); font-size:13px;}
   .egroup .er .d{font-variant-numeric:tabular-nums; color:var(--text-muted);}
   @media (max-width:640px){ .egroup .er{grid-template-columns:1fr auto;} .egroup .er > *:nth-child(n+3){grid-column:1 / -1;} .mh-view{flex:1 1 100%;} .mh-view button{flex:1;} }
+  .reqbtn{display:inline-flex; align-items:center; justify-content:center; gap:6px; white-space:nowrap; background:var(--repair-bg); color:var(--repair-fg); border:1.5px solid var(--repair-fg); font-weight:700; padding-inline:12px;}
+  .reqbtn svg{width:16px; height:16px;}
+  .reqbtn:hover{background:var(--repair-fg); color:#fff;}
+  .card-actions.has-req{flex-wrap:wrap;}
+  .card-actions.has-req > [data-action="primary"]{flex:1 1 100%;}
+  .card-actions.has-req > .reqbtn{flex:1 1 0; min-width:0;}
+  .req-who{font-size:12px; color:var(--text-muted);}
   .dm-empty{font-size:13px; color:var(--text-muted); padding:8px 0;}
   .dm-sum{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:var(--text-muted); background:var(--bg); border-radius:8px; padding:8px 12px; margin-block-end:8px;}
   .dm-sum b{font-size:14px; color:var(--text); font-variant-numeric:tabular-nums;}
@@ -1930,6 +1937,37 @@
   </div>
 </div>
 
+<!-- 整備依頼 modal -->
+<div class="modal-overlay" id="reqOverlay">
+  <div class="modal">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-block-end:16px;">
+      <h3 style="margin-block-end:0; display:flex; align-items:center; gap:8px;">
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:999px; background:var(--repair-bg); color:var(--repair-fg); flex:0 0 auto;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:14px;height:14px;"><path d="M10.6 13.4 5 19l-2-2 5.6-5.6"/><path d="M14 4a4 4 0 0 0-4 4c0 .5.1.9.2 1.3L4 15.5 8.5 20l6.2-6.2c.4.1.8.2 1.3.2a4 4 0 0 0 4-4 3.9 3.9 0 0 0-.4-1.7l-2.4 2.4-2.1-.6-.6-2.1 2.4-2.4A4 4 0 0 0 14 4Z"/></svg>
+        </span>
+        整備を依頼
+      </h3>
+      <button class="drawer-close" id="reqCloseBtn" aria-label="閉じる">✕</button>
+    </div>
+    <div class="fields">
+      <div class="field">
+        <label>対象の備品</label>
+        <div id="reqEquip" style="padding:9px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); font-weight:700;"></div>
+      </div>
+      <div class="field">
+        <label for="reqIssue">依頼内容 <span style="color:var(--danger);">*</span></label>
+        <textarea id="reqIssue" rows="4" placeholder="どこがどう悪いかを具体的に書いてください&#10;例）エンジンがかからない／チェーンが外れる／刃が欠けた"></textarea>
+        <span class="login-hint" id="reqErr" style="color:var(--danger);" hidden>依頼内容を入力してください。</span>
+      </div>
+      <div class="req-who" id="reqWho"></div>
+    </div>
+    <div class="foot">
+      <button class="btn btn-ghost" id="reqCancelBtn">キャンセル</button>
+      <button class="btn btn-primary" id="reqSaveBtn">整備を依頼する</button>
+    </div>
+  </div>
+</div>
+
 <!-- 点検・整備の記録 modal -->
 <div class="modal-overlay" id="maintAddModalOverlay">
   <div class="modal">
@@ -2603,9 +2641,9 @@
         html += '    <div class="cmeta">&nbsp;</div>';
       }
       html += '  </div>';
-      html += '  <div class="card-actions">';
+      html += '  <div class="card-actions' + (it.status === "利用可能" ? ' has-req' : '') + '">';
       html += '    <button class="btn ' + (it.status==="貸出中" ? "btn-info" : it.status==="修理中" ? "btn-red" : "btn-primary") + ' btn-block" data-action="primary">' + primaryActionIcon(it.status) + '<span>' + primaryActionLabel(it.status) + '</span></button>';
-      if(it.status === "利用可能") html += '    <button class="iconbtn" data-action="maint" aria-label="整備を依頼" title="整備を依頼">' + ICON_WRENCH + '</button>';
+      if(it.status === "利用可能") html += '    <button class="btn reqbtn" data-action="maint" title="故障・不具合の整備を依頼する">' + ICON_WRENCH + '<span>整備依頼</span></button>';
       html += '    <button class="iconbtn" data-action="edit" aria-label="編集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>';
       html += '  </div>';
       html += '</div>';
@@ -2623,7 +2661,7 @@
         handlePrimaryAction(id);
       });
       var maintBtn = card.querySelector('[data-action="maint"]');
-      if(maintBtn) maintBtn.addEventListener("click", function(e){ e.stopPropagation(); openMaintRecordModal(id); });
+      if(maintBtn) maintBtn.addEventListener("click", function(e){ e.stopPropagation(); openRequestModal(id); });
       var editBtn = card.querySelector('[data-action="edit"]');
       if(editBtn) editBtn.addEventListener("click", function(e){
         e.stopPropagation();
@@ -2787,9 +2825,6 @@
       html += '<button class="btn btn-ghost" id="btnMaintReq">整備記録を追加</button>';
     } else if(it.status === "廃棄"){
       html += '<button class="btn btn-ghost" id="btnUnretire">廃棄を取り消す</button>';
-    }
-    if(it.status === "利用可能" || (it.status === "貸出中" && isMulti(it))){
-      html += '<button class="btn btn-ghost" id="btnMaintReq">' + ICON_WRENCH + '<span>整備を依頼</span></button>';
     }
     html += '</div>';
 
@@ -3117,6 +3152,7 @@
       html += '  </div>';
       html += '  <div class="mc-issue"><b>不具合</b>　' + esc(m.issue || "内容の記載なし") + '</div>';
       html += '  <dl class="mc-facts">';
+      if(m.requestedBy) html += '    <dt>依頼者</dt><dd>' + esc(m.requestedBy) + '</dd>';
       html += '    <dt>開始日</dt><dd class="tnum">' + esc(fmtDate(maintStartDay(m)) || "-") + '</dd>';
       if(m.maintType) html += '    <dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>';
       html += '    <dt>担当者</dt><dd>' + esc(m.staffName || "未定") + '</dd>';
@@ -6486,7 +6522,7 @@
   }
 
   async function boot(){
-    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wireUpdate].forEach(function(f){
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wireUpdate, wireRequest].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
     try{ switchPage("home"); renderAll(); }catch(e){ console.error("initial render failed", e); }
@@ -7084,6 +7120,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.13", date: "2026-11-13", title: "整備依頼を分かりやすく", body: "備品カードの「整備依頼」ボタンから、依頼内容（不具合など）を入力して依頼できます。依頼者と日付も記録され、整備台帳に出ます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "アプリの更新をお知らせ", body: "新しいバージョンが公開されると更新画面が出て、ボタンひとつで最新の状態になります。" },
     { v: "2026.11.13", date: "2026-11-13", title: "備品台帳から整備を依頼・整備履歴を確認", body: "備品カードのレンチのボタン、または備品を開いた画面から整備を依頼できます。備品を開くと、その備品の整備履歴（期間・作業内容・費用・担当者・コメント）を詳しく確認できます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備実施履歴の表示切り替えと並べ替え", body: "表・カード・機材別の3つの表示に切り替えられます。実施日・機材番号・費用・担当者などで並べ替えもできます。" },
@@ -7333,6 +7370,52 @@
   if("serviceWorker" in navigator && navigator.serviceWorker.addEventListener){
     var hadCtl = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("controllerchange", function(){ if(hadCtl && !updPending){ showUpdate(false); } hadCtl = true; });
+  }
+
+  // ---------- 整備依頼（備品台帳から：依頼内容を入力して、整備台帳に「整備中」で登録） ----------
+  var reqEid = null;
+  function requesterName(){
+    var me = currentBorrowerEmp();
+    return (me && ((me.lastName || "") + " " + (me.firstName || "")).trim()) || currentLoginId || "";
+  }
+  function openRequestModal(eid){
+    var it = state.items[eid]; if(!it) return;
+    reqEid = eid;
+    $("reqEquip").textContent = (typeof it.no === "number" ? fmtNo(it.no) + "　" : "") + (it.name || "");
+    $("reqIssue").value = ""; $("reqErr").hidden = true;
+    $("reqWho").textContent = "依頼者：" + (requesterName() || "—") + "　／　依頼日：" + fmtDate(todayISO());
+    $("reqOverlay").classList.add("show");
+    setTimeout(function(){ $("reqIssue").focus(); }, 50);
+  }
+  function closeRequestModal(){ $("reqOverlay").classList.remove("show"); reqEid = null; }
+  function saveRequest(){
+    var it = reqEid && state.items[reqEid]; if(!it) return;
+    var issue = ($("reqIssue").value || "").trim();
+    if(!issue){ $("reqErr").hidden = false; $("reqIssue").focus(); return; }
+    if(!db) return;
+    var today = todayISO(), who = requesterName();
+    var om = findOpenMaintenance(reqEid);
+    if(om){
+      // すでに整備中の記録がある場合は、その記録に依頼内容を追記する
+      var cm = { date: today, text: "【追加の依頼】" + issue, by: currentLoginId || "" };
+      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
+    }else{
+      db.collection("maintenance").add({
+        equipmentId: reqEid, equipmentName: it.name, no: (typeof it.no === "number" ? it.no : null), category: it.category,
+        issue: issue, maintType: "", staffName: "", parts: "", cost: "", partsCost: "",
+        status: "整備中", startDate: today, endDate: null, notes: "", requestedBy: who, requestedAt: Date.now(),
+        createdAt: Date.now(), updatedAt: Date.now()
+      }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
+    }
+    if(it.status !== "修理中"){ updateItem(reqEid, { status: "修理中" }); }
+    addLog(reqEid, "整備依頼", issue + (who ? "（依頼者：" + who + "）" : ""));
+    closeRequestModal();
+  }
+  function wireRequest(){
+    $("reqCloseBtn").addEventListener("click", closeRequestModal);
+    $("reqCancelBtn").addEventListener("click", closeRequestModal);
+    $("reqSaveBtn").addEventListener("click", saveRequest);
+    $("reqIssue").addEventListener("input", function(){ $("reqErr").hidden = true; });
   }
 
   boot();
