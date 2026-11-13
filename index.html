@@ -106,6 +106,7 @@
     font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap;
   }
   .navtab svg{width:15px; height:15px;}
+  .navtab .nl-short{display:none;}
   .navtab .cnt{font-size:10.5px; background:var(--line-soft); color:var(--text-muted); padding:1px 7px; border-radius:999px; font-weight:700;}
   .navtab.active{background:var(--accent-soft); color:var(--accent-strong);}
   .navtab.active .cnt{background:var(--surface); color:var(--accent-strong);}
@@ -806,17 +807,38 @@
     .stat-icon{display:none;}
     .stat-label{font-size:10.5px; margin:0; white-space:nowrap;}
     .stat-value{font-size:18px;}
-    .toolbar{display:grid; grid-template-columns:1fr; gap:8px; padding:10px; margin-block-end:12px;}
+    .toolbar{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:10px; margin-block-end:12px;}
     .toolbar .search{grid-column:1 / -1; flex:none;}
     .toolbar .addbtn{grid-column:1 / -1; justify-content:center; margin:0; padding:12px 16px;}
-    .toolbar select.selfilter{width:100%; min-width:0; text-overflow:ellipsis; padding-right:34px;}
+    .toolbar select.selfilter{width:100%; min-width:0; text-overflow:ellipsis; padding-right:28px; font-size:14px !important;}
     select{max-width:100%; text-overflow:ellipsis;}
     input, select, textarea, .search input, select.selfilter{font-size:16px !important;}
     .search input{padding:11px 12px 11px 36px;}
     select.selfilter{padding:11px 30px 11px 12px;}
     .btn{min-height:38px;}
-    .grid{grid-template-columns:repeat(2,1fr); gap:10px;}
-    .card-body{padding:10px 10px 2px;}
+    /* ===== スマホ：カードを1列・横並びで読みやすく ===== */
+    .navtab .nl-full{display:none;} .navtab .nl-short{display:inline;}
+    .navtab{white-space:nowrap; font-size:10.5px;}
+    .grid{grid-template-columns:minmax(0,1fr); gap:10px;}
+    .card{display:grid; grid-template-columns:104px minmax(0,1fr); grid-template-areas:"thumb body" "act act"; border-radius:14px;}
+    .card .thumb{grid-area:thumb; aspect-ratio:auto; height:100%; min-height:104px; border-bottom:none; border-right:1px solid var(--line);}
+    .card .card-body{grid-area:body; padding:10px 12px 6px; min-width:0;}
+    .card .card-actions{grid-area:act; padding:0 12px 12px;}
+    .card .cname{font-size:14px; margin-block-end:4px;}
+    .card .cnote{-webkit-line-clamp:2; margin-block-end:4px;}
+    .card .cmeta{display:none;}
+    .card .cloc{flex-wrap:wrap;}
+    .card .checkoutbox{font-size:12px;}
+    .card-actions.has-req{flex-wrap:nowrap;}
+    .card-actions.has-req [data-action="primary"]{flex:1.3 1 0;}
+    .card-actions .btn{min-height:40px; font-size:13px;}
+    .card-actions .iconbtn{flex:0 0 40px; width:40px; height:40px;}
+    /* 整備中カード */
+    .maintcard{padding:12px 14px; gap:8px;}
+    .maintcard .mc-name{font-size:15px;}
+    .maintcard .mc-facts{grid-template-columns:5.5em minmax(0,1fr); font-size:13px; gap:4px 8px;}
+    .maintcard .mc-issue{font-size:13px;}
+    .maintcard .mc-actions .btn{min-height:40px;}
     .rec{padding:11px 12px; gap:4px 10px;}
     .drawer{width:100%;}
     .drawer-head{padding:16px 16px 12px;}
@@ -923,7 +945,7 @@
   <nav class="navtabs" id="navTabs">
     <button class="navtab" data-page="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
-      ダッシュボード <span class="cnt tnum" id="navCntHome" hidden>0</span>
+      <span class="nl-full">ダッシュボード</span><span class="nl-short">ホーム</span> <span class="cnt tnum" id="navCntHome" hidden>0</span>
     </button>
     <button class="navtab" data-page="equipment">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/></svg>
@@ -7147,6 +7169,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.14", date: "2026-11-14", title: "スマホの表示を見やすく", body: "スマホでは備品カード・整備中カードを1列で大きく表示し、文字が細かく折り返さないようにしました。ボタンも押しやすい大きさにそろえています。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備依頼に写真を添付", body: "整備依頼で、不具合の写真を3枚まで撮影・選択して添付できます。整備台帳や備品の整備履歴で、タップして拡大できます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備依頼を分かりやすく", body: "備品カードの「整備依頼」ボタンから、依頼内容（不具合など）を入力して依頼できます。依頼者と日付も記録され、整備台帳に出ます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "アプリの更新をお知らせ", body: "新しいバージョンが公開されると更新画面が出て、ボタンひとつで最新の状態になります。" },
