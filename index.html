@@ -2566,6 +2566,7 @@
     var html = '<option value="all">すべてのカテゴリー</option>';
     cats.forEach(function(c){ html += '<option value="' + esc(c) + '">' + esc(c) + '</option>'; });
     if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
+    if(state.ready && state.dbAvailable !== false && cur !== "all" && cats.indexOf(cur) < 0){ state.categoryFilter = cur = "all"; }
     sel.value = cats.indexOf(cur) >= 0 ? cur : "all";
   }
 
@@ -2586,6 +2587,7 @@
     var html = '<option value="all">すべての保管場所</option>';
     locs.forEach(function(l){ html += '<option value="' + esc(l) + '">' + esc(l) + '</option>'; });
     if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
+    if(state.ready && state.dbAvailable !== false && cur !== "all" && locs.indexOf(cur) < 0){ state.locationFilter = cur = "all"; }
     sel.value = locs.indexOf(cur) >= 0 ? cur : "all";
   }
 
@@ -3517,7 +3519,40 @@
     var mSel = $("mhMonth"), sSel = $("mhStaff");
     if(mSel && mSel._html !== mh){ mSel.innerHTML = mh; mSel._html = mh; }
     if(sSel && sSel._html !== sh){ sSel.innerHTML = sh; sSel._html = sh; }
-    if(mSel) mSel.value = state.mhf.month; if(sSel) sSel.value = state.mhf.staff;
+    if(mSel){ mSel.value = state.mhf.month; if(mSel.value !== state.mhf.month) state.mhf.month = ""; }
+    if(sSel){ sSel.value = state.mhf.staff; if(sSel.value !== state.mhf.staff) state.mhf.staff = ""; }
+  }
+  // ---------- 検索・絞り込み・並び替えの設定を端末に保存（次に開いたときも引き継ぐ） ----------
+  var PREF_KEY = "bihin.prefs";
+  function savePrefs(){
+    try{
+      localStorage.setItem(PREF_KEY, JSON.stringify({
+        search: state.search, statusFilter: state.statusFilter, categoryFilter: state.categoryFilter,
+        locationFilter: state.locationFilter, loanFilter: state.loanFilter,
+        fuelMonth: state.fuelMonth, fuelType: state.fuelType, mhf: state.mhf
+      }));
+    }catch(e){}
+  }
+  function loadPrefs(){
+    var p = null;
+    try{ p = JSON.parse(localStorage.getItem(PREF_KEY) || "null"); }catch(e){}
+    if(!p || typeof p !== "object") return;
+    ["search","statusFilter","categoryFilter","locationFilter","loanFilter","fuelMonth","fuelType"].forEach(function(k){
+      if(typeof p[k] === "string") state[k] = p[k];
+    });
+    if(p.mhf && typeof p.mhf === "object"){ ["q","status","month","staff"].forEach(function(k){ if(typeof p.mhf[k] === "string") state.mhf[k] = p.mhf[k]; }); }
+    var se = $("searchInput"); if(se) se.value = state.search;
+    var st = $("statusSelect"); if(st && st.querySelector('option[value="' + state.statusFilter + '"]')) st.value = state.statusFilter; else state.statusFilter = "all";
+    var ls = $("loanStatusSelect"); if(ls && ls.querySelector('option[value="' + state.loanFilter + '"]')) ls.value = state.loanFilter; else state.loanFilter = "open";
+    var ms = $("mhSearch"); if(ms) ms.value = state.mhf.q;
+    var mt = $("mhStatus"); if(mt){ mt.value = state.mhf.status; if(mt.value !== state.mhf.status){ state.mhf.status = ""; mt.value = ""; } }
+  }
+  function wirePrefs(){
+    loadPrefs();
+    var later = function(){ setTimeout(savePrefs, 0); };
+    document.addEventListener("change", later, true);
+    document.addEventListener("input", later, true);
+    document.addEventListener("click", later, true);
   }
   function wireMaintFilters(){
     var map = { mhSearch: "q", mhStatus: "status", mhMonth: "month", mhStaff: "staff" };
@@ -6571,7 +6606,7 @@
   }
 
   async function boot(){
-    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wireUpdate, wireRequest].forEach(function(f){
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wirePrefs, wireUpdate, wireRequest].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
     try{ switchPage("home"); renderAll(); }catch(e){ console.error("initial render failed", e); }
@@ -7169,6 +7204,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.15", date: "2026-11-15", title: "検索・絞り込み・並び替えを引き継ぎ", body: "備品台帳・整備台帳・貸出台帳で設定した検索、絞り込み、並び替え、表示の切り替えを、次に開いたときも引き継ぎます。" },
     { v: "2026.11.14", date: "2026-11-14", title: "スマホの表示を見やすく", body: "スマホでは備品カード・整備中カードを1列で大きく表示し、文字が細かく折り返さないようにしました。ボタンも押しやすい大きさにそろえています。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備依頼に写真を添付", body: "整備依頼で、不具合の写真を3枚まで撮影・選択して添付できます。整備台帳や備品の整備履歴で、タップして拡大できます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備依頼を分かりやすく", body: "備品カードの「整備依頼」ボタンから、依頼内容（不具合など）を入力して依頼できます。依頼者と日付も記録され、整備台帳に出ます。" },
