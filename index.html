@@ -699,6 +699,20 @@
   .bp-post input,.bp-post textarea{width:100%; font-size:16px; font-family:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; box-sizing:border-box; background:var(--surface,#fff); color:inherit;}
   .bp-del{background:none; border:0; color:var(--text-muted); cursor:pointer; font-size:11px; text-decoration:underline; padding:0; margin-left:8px;}
   @media (max-width:640px){ .bellpanel{position:fixed; top:56px; left:8px; right:8px; width:auto; max-width:none;} }
+  .upd-overlay{position:fixed; inset:0; z-index:500; background:rgba(18,20,14,.45); display:flex; align-items:center; justify-content:center; padding:16px;}
+  .upd-overlay[hidden]{display:none;}
+  .upd-card{width:min(400px,100%); background:var(--surface,#fff); color:var(--text,#222); border-radius:16px; padding:24px 22px 20px; box-shadow:0 20px 50px rgba(0,0,0,.28); text-align:center; display:flex; flex-direction:column; gap:10px;}
+  .upd-ico{width:48px; height:48px; margin:0 auto; border-radius:50%; background:var(--accent-soft); color:var(--accent-strong); display:flex; align-items:center; justify-content:center;}
+  .upd-ico svg{width:26px; height:26px;}
+  .upd-card h2{margin:0; font-size:18px;}
+  .upd-sub{margin:0; font-size:13px; color:var(--text-muted);}
+  .upd-list{list-style:none; margin:0; padding:10px 12px; background:var(--bg); border-radius:10px; text-align:left; font-size:13px; display:flex; flex-direction:column; gap:6px; max-height:180px; overflow:auto;}
+  .upd-list:empty{display:none;}
+  .upd-list b{display:block;} .upd-list span{color:var(--text-muted); font-size:12px;}
+  .upd-btns{display:flex; flex-direction:column; gap:6px; margin-top:4px;}
+  .upd-bar{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(16px + env(safe-area-inset-bottom,0px)); z-index:450; display:flex; align-items:center; gap:12px; background:var(--surface,#fff); color:var(--text,#222); border:1px solid var(--accent); border-radius:999px; padding:8px 10px 8px 18px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.22);}
+  .upd-bar[hidden]{display:none;}
+  @media (max-width:640px){ .upd-bar{bottom:calc(76px + env(safe-area-inset-bottom,0px)); width:calc(100% - 24px); justify-content:space-between;} }
   .dash{display:flex; flex-direction:column; gap:14px;}
   .dash-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;}
   .dash-date{font-size:12px; color:var(--text-muted);}
@@ -855,6 +869,24 @@
     </div>
     <div class="login-foot" id="loginFoot">パスワードを忘れた場合は管理者にお問い合わせください</div>
   </div>
+</div>
+
+<!-- アプリの更新のお知らせ -->
+<div class="upd-overlay" id="updOverlay" hidden>
+  <div class="upd-card" role="dialog" aria-modal="true" aria-labelledby="updTitle">
+    <div class="upd-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></div>
+    <h2 id="updTitle">新しいバージョンがあります</h2>
+    <p class="upd-sub" id="updSub">アプリが更新されました。更新すると最新の状態でお使いいただけます。</p>
+    <ul class="upd-list" id="updList"></ul>
+    <div class="upd-btns">
+      <button type="button" class="btn btn-primary" id="updNow">今すぐ更新する</button>
+      <button type="button" class="btn btn-ghost" id="updLater">あとで</button>
+    </div>
+  </div>
+</div>
+<div class="upd-bar" id="updBar" hidden>
+  <span>新しいバージョンがあります</span>
+  <button type="button" class="btn btn-primary btn-sm" id="updBarBtn">更新する</button>
 </div>
 
 <header class="top">
@@ -6454,7 +6486,7 @@
   }
 
   async function boot(){
-    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters].forEach(function(f){
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wireUpdate].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
     try{ switchPage("home"); renderAll(); }catch(e){ console.error("initial render failed", e); }
@@ -7052,6 +7084,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.13", date: "2026-11-13", title: "アプリの更新をお知らせ", body: "新しいバージョンが公開されると更新画面が出て、ボタンひとつで最新の状態になります。" },
     { v: "2026.11.13", date: "2026-11-13", title: "備品台帳から整備を依頼・整備履歴を確認", body: "備品カードのレンチのボタン、または備品を開いた画面から整備を依頼できます。備品を開くと、その備品の整備履歴（期間・作業内容・費用・担当者・コメント）を詳しく確認できます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "整備実施履歴の表示切り替えと並べ替え", body: "表・カード・機材別の3つの表示に切り替えられます。実施日・機材番号・費用・担当者などで並べ替えもできます。" },
     { v: "2026.11.13", date: "2026-11-13", title: "ログイン画面に整備士用を追加", body: "ログイン画面で「社員・管理者」と「整備士」を切り替えられます。整備士のIDでログインすると、整備台帳が開きます。" },
@@ -7236,6 +7269,71 @@
     var go = t.closest("#pageHome [data-dgo]");
     if(go){ var g = go.getAttribute("data-dgo"); if(g === "admin" && go.getAttribute("data-dtab")) state.adminTab = go.getAttribute("data-dtab"); switchPage(g); }
   });
+
+  // ---------- アプリの更新を検知して、更新画面を出す ----------
+  // 起動時のページ内容を覚えておき、一定時間ごと・画面に戻ったときに最新のものと比べる。違っていれば新しい版が公開されている。
+  var loadedSig = "", updPrompted = false, updPending = false;
+  function sigOf(text){ var h = 5381, i; for(i = 0; i < text.length; i++){ h = ((h << 5) + h + text.charCodeAt(i)) | 0; } return text.length + ":" + h; }
+  function fetchSig(){
+    return fetch("./?_=" + Date.now(), { cache: "no-store" }).then(function(r){ return r.ok ? r.text() : Promise.reject(new Error("http " + r.status)); }).then(sigOf);
+  }
+  function updNotes(){
+    var seen = lsGet("bihin.lastVer");
+    return APP_UPDATES.slice(0, 3);
+  }
+  function showUpdate(manual){
+    updPending = true;
+    $("updBar").hidden = false; updateReady = true; updateBellDot();
+    if(updPrompted && !manual) return;
+    updPrompted = true;
+    $("updTitle").textContent = "新しいバージョンがあります";
+    $("updSub").textContent = "アプリが更新されました。更新すると最新の状態でお使いいただけます。";
+    $("updList").innerHTML = "";
+    $("updNow").hidden = false; $("updLater").textContent = "あとで";
+    $("updOverlay").hidden = false;
+  }
+  function applyUpdate(){
+    lsSet("bihin.justUpdated", "1");
+    var done = function(){ location.reload(); };
+    try{
+      var tasks = [];
+      if(window.caches && caches.keys) tasks.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }));
+      if(navigator.serviceWorker && navigator.serviceWorker.getRegistration) tasks.push(navigator.serviceWorker.getRegistration().then(function(r){ return r && r.update ? r.update().catch(function(){}) : null; }));
+      Promise.all(tasks).then(done, done);
+      setTimeout(done, 2500);
+    }catch(e){ done(); }
+  }
+  function checkForUpdate(){
+    if(updPending || document.hidden) return;
+    fetchSig().then(function(sig){
+      if(!loadedSig){ loadedSig = sig; return; }
+      if(sig !== loadedSig) showUpdate(false);
+    }, function(){});
+  }
+  function wireUpdate(){
+    $("updNow").addEventListener("click", applyUpdate);
+    $("updBarBtn").addEventListener("click", applyUpdate);
+    $("updLater").addEventListener("click", function(){ $("updOverlay").hidden = true; });
+    fetchSig().then(function(sig){ loadedSig = sig; }, function(){});
+    setInterval(checkForUpdate, 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkForUpdate(); });
+    window.addEventListener("focus", checkForUpdate);
+    // 更新後の最初の起動：何が新しくなったかを伝える
+    if(lsGet("bihin.justUpdated") === "1"){
+      lsSet("bihin.justUpdated", "");
+      $("updTitle").textContent = "アプリを更新しました";
+      $("updSub").textContent = "最新のバージョン " + APP_VERSION + " になりました。主な更新内容です。";
+      $("updList").innerHTML = updNotes().map(function(u){ return '<li><b>' + esc(u.title) + '</b><span>' + esc(u.body) + '</span></li>'; }).join("");
+      $("updNow").hidden = true; $("updLater").textContent = "閉じる";
+      $("updOverlay").hidden = false;
+    }
+    lsSet("bihin.lastVer", APP_VERSION);
+  }
+  // サービスワーカーが新しい版に切り替わったときも、同じ更新画面を出す
+  if("serviceWorker" in navigator && navigator.serviceWorker.addEventListener){
+    var hadCtl = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", function(){ if(hadCtl && !updPending){ showUpdate(false); } hadCtl = true; });
+  }
 
   boot();
 
