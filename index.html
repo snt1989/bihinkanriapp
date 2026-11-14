@@ -1562,6 +1562,7 @@
             </div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button class="btn btn-ghost btn-sm" id="admEquipDivBtn" title="事業部が未設定の備品を、まとめて「緑化事業部」にします">未設定を緑化事業部に</button>
             <button class="btn btn-ghost btn-sm" id="admEquipCsvBtn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
               CSV出力
@@ -2703,6 +2704,33 @@
     return order;
   }
 
+  // 事業部が未設定の備品を「緑化事業部」にまとめて設定する
+  var DEFAULT_DIVISION = "緑化事業部", divBackfillBusy = false;
+  function backfillDivision(manual){
+    if(divBackfillBusy || !db) return;
+    var targets = allItems().filter(function(it){ return !it.division && it.id; });
+    if(!targets.length) return;
+    divBackfillBusy = true;
+    if(findNewMasterNames("divisions", [DEFAULT_DIVISION]).length) addNewMasterNames("divisions", [DEFAULT_DIVISION]);
+    var chunks = [], i;
+    for(i = 0; i < targets.length; i += 400) chunks.push(targets.slice(i, i + 400));
+    Promise.all(chunks.map(function(list){
+      var batch = db.batch();
+      list.forEach(function(it){ batch.update(db.collection("equipment").doc(it.id), { division: DEFAULT_DIVISION }); });
+      return batch.commit();
+    })).then(function(){
+      divBackfillBusy = false;
+      if(manual) alert(targets.length + "件を「" + DEFAULT_DIVISION + "」に設定しました。");
+    }).catch(function(e){ divBackfillBusy = false; console.warn("division backfill", e); if(manual) alert("設定に失敗しました。もう一度お試しください。"); });
+  }
+  // 事業部がまだ1件も設定されていないとき（初回）だけ、管理者の画面で自動的に実行する
+  function maybeBackfillDivision(){
+    if(!state.ready || !state.isAdmin || state.dbAvailable === false) return;
+    var items = allItems();
+    if(!items.length) return;
+    if(items.some(function(it){ return it.division; })) return;
+    backfillDivision(false);
+  }
   function divisionsInUse(){
     var names = allMasterNames(state.divisions).slice();
     allItems().forEach(function(it){ if(it.division && names.indexOf(it.division) < 0) names.push(it.division); });
@@ -2918,6 +2946,7 @@
     renderCategorySelect();
     renderLocationSelect();
     renderDivisionSelect();
+    maybeBackfillDivision();
     renderList();
     if(state.activeId && state.items[state.activeId]) renderDrawerContent(state.items[state.activeId]);
     if(state.page === "home") renderDashboard();
@@ -6658,6 +6687,12 @@
       });
     });
     $("admEquipCsvBtn").addEventListener("click", exportEquipmentCsv);
+    $("admEquipDivBtn").addEventListener("click", function(){
+      var n = allItems().filter(function(it){ return !it.division; }).length;
+      if(!n){ alert("事業部が未設定の備品はありません。"); return; }
+      if(!confirm("事業部が未設定の備品 " + n + "件を、すべて「緑化事業部」にします。よろしいですか？")) return;
+      backfillDivision(true);
+    });
     $("admEquipImportBtn").addEventListener("click", function(){ $("admEquipImportFile").click(); });
     $("admEquipHistorySearchInput").addEventListener("input", function(e){
       state.admEquipHistorySearch = e.target.value;
@@ -7500,6 +7535,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.26", date: "2026-11-26", title: "既存の備品を緑化事業部に設定", body: "事業部が未設定だった既存の備品を、「緑化事業部」に設定します（管理者が開いたときに自動で1回だけ実行）。管理画面の備品台帳マスタ「未設定を緑化事業部に」からも実行できます。" },
     { v: "2026.11.25", date: "2026-11-25", title: "備品に事業部を設定できます", body: "備品の登録・編集で「事業部」を選べるようになりました（緑化事業部以外もOK）。事業部マスタから選ぶか、新しい事業部名を入力すると自動でマスタに追加されます。備品台帳では事業部で絞り込めます。" },
     { v: "2026.11.24", date: "2026-11-24", title: "同じ機材番号をひとまとめに表示", body: "整備実施履歴で、同じ日・同じ番号の記録を続けて並べ、「○件」と表示します。2件目以降は機材名を省いて見やすくしました。" },
     { v: "2026.11.23", date: "2026-11-23", title: "整備実施履歴の日付ごとのコメント入力を削除", body: "整備実施履歴の表から、日付ごとのコメント入力欄をなくしました。" },
