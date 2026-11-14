@@ -165,6 +165,7 @@
   }
   .addbtn:hover{background:var(--accent-strong);}
   .addbtn svg{width:15px; height:15px;}
+  .cdiv{display:inline-block; margin-block-start:4px; padding:1px 9px; border-radius:6px; background:var(--line-soft); color:var(--text-muted); font-size:11.5px; font-weight:700;}
   input.combo{padding-right:34px !important; background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%236C7062" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>'); background-repeat:no-repeat; background-position:right 10px center; background-size:16px;}
   .mtypes{display:flex; flex-wrap:wrap; gap:6px;}
   .mtype{display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:0 12px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:13px; font-weight:600; color:var(--text-muted); cursor:pointer; user-select:none;}
@@ -188,7 +189,7 @@
     .ustatus{max-width:170px;}
     .toolbar{flex-wrap:nowrap;}
     .toolbar .search{flex:1 1 140px; min-width:140px;}
-    .toolbar select.selfilter{max-width:178px; min-width:0; text-overflow:ellipsis;}
+    .toolbar select.selfilter{max-width:150px; min-width:0; text-overflow:ellipsis;}
     .toolbar .addbtn{margin-inline-start:0;}
   }
   .search input, select.selfilter{height:var(--btn-h,38px); padding-top:0; padding-bottom:0;}
@@ -891,6 +892,7 @@
     .stat-label{font-size:10.5px; margin:0; white-space:nowrap;}
     .stat-value{font-size:18px;}
     .toolbar{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:10px; margin-block-end:12px;}
+    .toolbar #sortSelect{grid-column:1 / -1;}
     .toolbar .search{grid-column:1 / -1; flex:none;}
     .toolbar .addbtn{grid-column:1 / -1; justify-content:center; margin:0; padding:0 16px; min-height:var(--btn-h);}
     .toolbar select.selfilter{width:100%; min-width:0; text-overflow:ellipsis; padding-right:28px; font-size:14px !important;}
@@ -1157,9 +1159,10 @@
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="searchInput" type="text" placeholder="No.・品名・保管場所で検索" autocomplete="off">
+      <input id="searchInput" type="text" placeholder="No.・品名・事業部・保管場所で検索" autocomplete="off">
     </div>
     <select class="selfilter" id="categorySelect"></select>
+    <select class="selfilter" id="divisionSelect"></select>
     <select class="selfilter" id="locationSelect"></select>
     <select class="selfilter" id="statusSelect">
       <option value="all">すべての状態</option>
@@ -1928,6 +1931,10 @@
         <input id="fName" type="text" placeholder="例）マキタ製 500mmポールヘッジトリマ">
       </div>
       <div class="field">
+        <label for="fDivision">事業部（任意・どの事業部の備品か）</label>
+        <input id="fDivision" class="combo" autocomplete="off" placeholder="例）緑化事業部 ／ 造園事業部 ／ 土木事業部">
+      </div>
+      <div class="field">
         <label for="fCategory">カテゴリ（マスタから選択可）</label>
         <input id="fCategory" class="combo" autocomplete="off" placeholder="例）刈払機">
       </div>
@@ -2273,6 +2280,7 @@
     statusFilter: "all",
     categoryFilter: "all",
     locationFilter: "all",
+    divisionFilter: "all",
     sortKey: "default",
     undoStack: [],
     maintFilter: "open",
@@ -2695,6 +2703,21 @@
     return order;
   }
 
+  function divisionsInUse(){
+    var names = allMasterNames(state.divisions).slice();
+    allItems().forEach(function(it){ if(it.division && names.indexOf(it.division) < 0) names.push(it.division); });
+    return names;
+  }
+  function renderDivisionSelect(){
+    var sel = $("divisionSelect"); if(!sel) return;
+    var cur = state.divisionFilter, names = divisionsInUse();
+    var html = '<option value="all">すべての事業部</option>';
+    names.forEach(function(n){ html += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+    html += '<option value="__none">（事業部 未設定）</option>';
+    if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
+    if(state.ready && state.dbAvailable !== false && cur !== "all" && cur !== "__none" && names.indexOf(cur) < 0){ state.divisionFilter = cur = "all"; }
+    sel.value = (cur === "all" || cur === "__none" || names.indexOf(cur) >= 0) ? cur : "all";
+  }
   function renderLocationSelect(){
     var sel = $("locationSelect");
     var cur = state.locationFilter;
@@ -2713,8 +2736,10 @@
       else if(state.statusFilter !== "all" && it.status !== state.statusFilter) return false;
       if(state.categoryFilter !== "all" && it.category !== state.categoryFilter) return false;
       if(state.locationFilter !== "all" && it.location !== state.locationFilter) return false;
+      if(state.divisionFilter === "__none"){ if(it.division) return false; }
+      else if(state.divisionFilter !== "all" && it.division !== state.divisionFilter) return false;
       if(q){
-        var hay = ((it.name||"") + " " + (it.category||"") + " " + (it.location||"") + " " + fmtNo(it.no)).toLowerCase();
+        var hay = ((it.name||"") + " " + (it.division||"") + " " + (it.category||"") + " " + (it.location||"") + " " + fmtNo(it.no)).toLowerCase();
         if(!hay.includes(q)) return false;
       }
       return true;
@@ -2790,7 +2815,7 @@
 
     var html = "";
     var catHues = buildCatHues();
-    var eqLim = listLimit("eq", [state.search, state.statusFilter, state.categoryFilter, state.locationFilter, state.sortKey].join("|"), 5, 12);
+    var eqLim = listLimit("eq", [state.search, state.statusFilter, state.categoryFilter, state.locationFilter, state.divisionFilter, state.sortKey].join("|"), 5, 12);
     var eqAll = items.length;
     items = items.slice(0, eqLim);
     items.forEach(function(it){
@@ -2807,7 +2832,7 @@
       html += '  <div class="card-body" data-open="1">';
       html += '    <div class="card-top"><span class="no tnum">' + fmtNo(it.no) + '</span><span class="badge ' + sc + '">' + statusBadgeIcon(it.status) + '<span>' + esc(cardStatusLabel(it.status)) + '</span></span></div>';
       html += '    <div class="cname">' + esc(it.name) + (isMulti(it) ? ' <span class="tnum" style="font-weight:600; color:var(--text-muted); font-size:.85em;">×' + qtyOf(it) + '</span>' : '') + '</div>';
-      html += '    <div class="cloc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.5 7-12.5A7 7 0 0 0 5 9.5C5 14.5 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.3"/></svg><span><span class="catchip">' + (categoryIcon(it.category) ? esc(categoryIcon(it.category)) + ' ' : '') + esc(it.category) + '</span>' + (it.location ? '　／　' + esc(it.location) : '') + '</span></div>';
+      html += '    <div class="cloc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.5 7-12.5A7 7 0 0 0 5 9.5C5 14.5 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.3"/></svg><span><span class="catchip">' + (categoryIcon(it.category) ? esc(categoryIcon(it.category)) + ' ' : '') + esc(it.category) + '</span>' + (it.location ? '　／　' + esc(it.location) : '') + '</span></div>' + (it.division ? '<div class="cdiv">' + esc(it.division) + '</div>' : '');
       if(it.notes){
         html += '    <div class="cnote">' + esc(it.notes) + '</div>';
       }
@@ -2892,6 +2917,7 @@
     renderNavCounts();
     renderCategorySelect();
     renderLocationSelect();
+    renderDivisionSelect();
     renderList();
     if(state.activeId && state.items[state.activeId]) renderDrawerContent(state.items[state.activeId]);
     if(state.page === "home") renderDashboard();
@@ -3354,6 +3380,7 @@
       html += '    <dt>開始日</dt><dd class="tnum">' + esc(fmtDate(maintStartDay(m)) || "-") + '</dd>';
       if(m.maintType) html += '    <dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>';
       html += '    <dt>担当者</dt><dd>' + esc(m.staffName || "未定") + '</dd>';
+      if(it && it.division) html += '    <dt>事業部</dt><dd>' + esc(it.division) + '</dd>';
       if(it && it.location) html += '    <dt>定位置</dt><dd>' + esc(it.location) + '</dd>';
       if(m.partsCost) html += '    <dt>部品・費用</dt><dd>' + esc(m.partsCost) + '</dd>';
       html += '  </dl>';
@@ -3734,7 +3761,7 @@
     try{
       localStorage.setItem(PREF_KEY, JSON.stringify({
         search: state.search, statusFilter: state.statusFilter, categoryFilter: state.categoryFilter,
-        locationFilter: state.locationFilter, loanFilter: state.loanFilter,
+        locationFilter: state.locationFilter, divisionFilter: state.divisionFilter, loanFilter: state.loanFilter,
         fuelMonth: state.fuelMonth, fuelType: state.fuelType, mhf: state.mhf
       }));
     }catch(e){}
@@ -3743,7 +3770,7 @@
     var p = null;
     try{ p = JSON.parse(localStorage.getItem(PREF_KEY) || "null"); }catch(e){}
     if(!p || typeof p !== "object") return;
-    ["search","statusFilter","categoryFilter","locationFilter","loanFilter","fuelMonth","fuelType"].forEach(function(k){
+    ["search","statusFilter","categoryFilter","locationFilter","divisionFilter","loanFilter","fuelMonth","fuelType"].forEach(function(k){
       if(typeof p[k] === "string") state[k] = p[k];
     });
     if(p.mhf && typeof p.mhf === "object"){ ["q","status","month","staff"].forEach(function(k){ if(typeof p.mhf[k] === "string") state.mhf[k] = p.mhf[k]; }); }
@@ -6277,7 +6304,7 @@
     if(window.visualViewport) window.visualViewport.addEventListener("resize", place);
     window.addEventListener("scroll", function(e){ if(panel && !panel.contains(e.target)) place(); }, true);
   }
-  function wireCombos(){ attachCombo("fCategory", categoryNames); attachCombo("fLocation", locationNames); attachCombo("empCompany", function(){ return allMasterNames(state.companies).slice(); }); attachCombo("empDivision", function(){ return allMasterNames(state.divisions).slice(); }); }
+  function wireCombos(){ attachCombo("fCategory", categoryNames); attachCombo("fLocation", locationNames); attachCombo("fDivision", function(){ return allMasterNames(state.divisions).slice(); }); attachCombo("empCompany", function(){ return allMasterNames(state.companies).slice(); }); attachCombo("empDivision", function(){ return allMasterNames(state.divisions).slice(); }); }
 
   function setModalImagePreview(dataUrl){
     var img = $("fImagePreview");
@@ -6328,6 +6355,7 @@
     $("fName").value = existing ? existing.name : "";
     $("fCategory").value = existing ? existing.category : (categoriesInOrder()[0] || "");
     $("fLocation").value = existing ? (existing.location || "") : "";
+    $("fDivision").value = existing ? (existing.division || "") : "";
     $("fNo").value = existing && typeof existing.no === "number" ? existing.no : nextNo();
     $("fNotes").value = existing ? (existing.notes || "") : "";
     $("fQuantity").value = existing ? qtyOf(existing) : 1;
@@ -6348,6 +6376,7 @@
     var name = $("fName").value.trim();
     var category = $("fCategory").value.trim();
     var location = $("fLocation").value.trim();
+    var division = $("fDivision").value.trim();
     var noVal = $("fNo").value;
     var notes = $("fNotes").value.trim();
     if(!name){ $("fName").focus(); return; }
@@ -6368,11 +6397,12 @@
     // マスタにないカテゴリー名・保管場所は、新規登録でも編集でも自動でマスタに追加する
     var newCats = findNewMasterNames("eqCategories", [category]);
     if(newCats.length) addNewMasterNames("eqCategories", newCats, function(n){ return { icon: autoIconForCategory(n) }; });
+    if(division){ var newDivs = findNewMasterNames("divisions", [division]); if(newDivs.length) addNewMasterNames("divisions", newDivs); }
     var newLocs = findNewMasterNames("eqLocations", [location]);
     if(newLocs.length) addNewMasterNames("eqLocations", newLocs, function(n){ return { yard: n }; });
 
     if(state.editingId){
-      var patch = { name: name, category: category, location: location, notes: notes, quantity: quantity, updatedAt: Date.now() };
+      var patch = { name: name, category: category, location: location, division: division, notes: notes, quantity: quantity, updatedAt: Date.now() };
       var cur = state.items[state.editingId];
       if(cur && quantity !== qtyOf(cur) && (cur.status === "利用可能" || cur.status === "貸出中")){
         // 数量の変更で在庫が増減した場合、状態（利用可能／貸出中）も合わせる
@@ -6387,7 +6417,7 @@
       addLog(state.editingId, "編集", "");
     } else {
       var data = {
-        name: name, category: category, location: location, notes: notes, quantity: quantity,
+        name: name, category: category, location: location, division: division, notes: notes, quantity: quantity,
         no: no === null ? nextNo() : no,
         status: "利用可能", borrower: null, checkoutDate: null, dueDate: null,
         imageData: state.editingImageData || null,
@@ -6440,6 +6470,10 @@
     });
     $("categorySelect").addEventListener("change", function(e){
       state.categoryFilter = e.target.value;
+      renderList();
+    });
+    $("divisionSelect").addEventListener("change", function(e){
+      state.divisionFilter = e.target.value;
       renderList();
     });
     $("locationSelect").addEventListener("change", function(e){
@@ -7466,6 +7500,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.25", date: "2026-11-25", title: "備品に事業部を設定できます", body: "備品の登録・編集で「事業部」を選べるようになりました（緑化事業部以外もOK）。事業部マスタから選ぶか、新しい事業部名を入力すると自動でマスタに追加されます。備品台帳では事業部で絞り込めます。" },
     { v: "2026.11.24", date: "2026-11-24", title: "同じ機材番号をひとまとめに表示", body: "整備実施履歴で、同じ日・同じ番号の記録を続けて並べ、「○件」と表示します。2件目以降は機材名を省いて見やすくしました。" },
     { v: "2026.11.23", date: "2026-11-23", title: "整備実施履歴の日付ごとのコメント入力を削除", body: "整備実施履歴の表から、日付ごとのコメント入力欄をなくしました。" },
     { v: "2026.11.22", date: "2026-11-22", title: "整備実施履歴を見やすく整理", body: "スマホでは1画面に約3件が入るよう、カードを詰めました。整備実施履歴の表を、機材・整備種目（タグ表示）・作業内容・費用・担当者・状態・操作の列に分け、操作ボタンを1行にまとめました。スマホは日付と状態を1行にして、カードを低くしました。" },
