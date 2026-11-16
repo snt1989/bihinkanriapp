@@ -831,6 +831,13 @@
   .menu-item .mi-t{flex:1; min-width:0;}
   .menu-item .mi-n{min-width:22px; padding:0 7px; border-radius:11px; background:var(--line-soft); color:var(--text-muted); font-size:11.5px; line-height:22px; text-align:center; font-weight:700;}
   .menu-item.active .mi-n{background:var(--surface);}
+  .menu-edit{min-height:32px; padding:0 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--accent-strong); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer;}
+  .menu-row{display:flex; align-items:center; gap:4px;} .menu-row .menu-item{flex:1; min-width:0;} .menu-row .menu-item:disabled{opacity:1; cursor:default;}
+  .menu-row.beyond .menu-item{opacity:.55 !important;}
+  .menu-mv{display:flex; gap:4px; flex:0 0 auto;} .menu-mv button{width:36px; height:36px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-size:13px; cursor:pointer;} .menu-mv button:disabled{opacity:.3; cursor:default;}
+  .menu-note{font-size:12px; color:var(--text-muted); padding:4px 8px 10px; line-height:1.5;}
+  .menu-cut{font-size:11px; color:var(--accent-strong); text-align:center; padding:4px 0; border-top:1px dashed var(--accent); border-bottom:0; margin:4px 8px; font-weight:700;}
+  .menu-reset{display:block; margin:12px auto 4px; padding:8px 14px; border:1px solid var(--line); background:var(--surface); border-radius:9px; font:inherit; font-size:12.5px; color:var(--text-muted); cursor:pointer;}
   .menu-sub{padding-inline-start:46px; font-size:13.5px; min-height:40px; font-weight:500; color:var(--text-muted);}
   body.role-mechanic .menu-item[data-mpage="home"], body.role-mechanic .menu-item[data-mpage="loans"], body.role-mechanic .menu-item[data-mpage="borrowers"], body.role-mechanic .menu-item[data-mpage="admin"]{display:none !important;}
   .bellwrap{position:relative; display:inline-flex;}
@@ -952,8 +959,7 @@
     select.selfilter{padding:11px 30px 11px 12px;}
     /* ===== スマホ：カードを1列・横並びで読みやすく ===== */
     .navtab .nl-full{display:none;} .navtab .nl-short{display:inline;}
-    .navtab[data-page="admin"], .navtab[data-page="help"], .navtab[data-page="calendar"]{display:none;} /* 下部は4つまで。管理画面・使い方は左上の「≡」メニューから */
-    body.role-mechanic .navtab[data-page="help"], body.role-mechanic .navtab[data-page="calendar"]{display:flex;}
+    .navtab.m-hide{display:none;} /* 下部は4つまで。それ以外は左上の「≡」メニューから */
     .navtab{white-space:nowrap; font-size:10.5px;}
     .grid{grid-template-columns:minmax(0,1fr); gap:10px;}
     .card{display:grid; grid-template-columns:104px minmax(0,1fr); grid-template-areas:"thumb body" "act act"; border-radius:14px;}
@@ -1147,7 +1153,7 @@
 <!-- メニューバー -->
 <div class="menu-overlay" id="menuOverlay" hidden></div>
 <aside class="menu-panel" id="menuPanel" aria-label="メニュー" hidden>
-  <div class="menu-head"><span>メニュー</span><button type="button" class="menu-close" id="menuClose" aria-label="閉じる">×</button></div>
+  <div class="menu-head"><span>メニュー</span><span style="display:flex; gap:8px; align-items:center;"><button type="button" class="menu-edit" id="menuEditBtn">並び替え</button><button type="button" class="menu-close" id="menuClose" aria-label="閉じる">×</button></span></div>
   <nav class="menu-list" id="menuList"></nav>
   <div class="menu-foot"><button type="button" class="menu-item" id="menuLogout" data-mkeep="1"><span class="mi-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span><span class="mi-t">ログアウト</span></button></div>
 </aside>
@@ -2595,7 +2601,8 @@
   function applyRole(role){
     state.role = role || "";
     document.body.classList.toggle("role-mechanic", isMechanicRole());
-    if(isMechanicRole() && ["maintenance","equipment","help"].indexOf(state.page) === -1) switchPage("maintenance");
+    applyNavOrder();
+    if(isMechanicRole() && ["maintenance","equipment","calendar","help"].indexOf(state.page) === -1) switchPage("maintenance");
   }
   function switchPage(p){
     if(p === "borrowers"){ state.adminTab = "borrowers"; p = "admin"; } // 借受者台帳は管理画面の中へ
@@ -4039,31 +4046,81 @@
     { p: "calendar", t: "カレンダー" },
     { p: "loans", t: "貸出台帳", cnt: "navCntLoan" },
     { p: "admin", t: "管理画面" },
-    { p: "borrowers", t: "借受者台帳", cnt: "navCntBorrower", sub: true },
     { p: "help", t: "使い方" }
   ];
+  var BORROWERS_ITEM = { p: "borrowers", t: "借受者台帳", cnt: "navCntBorrower", sub: true }; // 管理画面のすぐ下に固定
+  var MENU_ORDER_KEY = "bihin.menuOrder", menuEdit = false;
+  function defaultMenuOrder(){ return MENU_ITEMS.map(function(m){ return m.p; }); }
+  function getMenuOrder(){
+    var def = defaultMenuOrder(), saved = null;
+    try{ saved = JSON.parse(localStorage.getItem(MENU_ORDER_KEY) || "null"); }catch(e){}
+    if(!Array.isArray(saved)) return def;
+    var out = saved.filter(function(p, i){ return def.indexOf(p) >= 0 && saved.indexOf(p) === i; });
+    def.forEach(function(p){ if(out.indexOf(p) < 0) out.push(p); }); // 新しい項目は最後に追加
+    return out;
+  }
+  function saveMenuOrder(order){ try{ localStorage.setItem(MENU_ORDER_KEY, JSON.stringify(order)); }catch(e){} }
+  function menuAllowed(p){
+    return isMechanicRole() ? ["equipment","maintenance","calendar","help"].indexOf(p) >= 0 : true;
+  }
+  // 上のタブ・スマホの下のタブにも、同じ並びを反映する（スマホの下のタブは、上から4つまで）
+  function applyNavOrder(){
+    var nav = $("navTabs"); if(!nav) return;
+    var order = getMenuOrder(), shown = 0;
+    order.forEach(function(p){
+      var tab = nav.querySelector('.navtab[data-page="' + p + '"]'); if(!tab) return;
+      nav.appendChild(tab);
+      var ok = menuAllowed(p);
+      tab.classList.toggle("m-hide", !(ok && ++shown <= 4));
+    });
+  }
   function buildMenu(){
     var list = $("menuList"); if(!list) return;
-    var html = "";
-    MENU_ITEMS.forEach(function(m){
+    var order = getMenuOrder(), html = "", shown = 0;
+    $("menuEditBtn").textContent = menuEdit ? "完了" : "並び替え";
+    if(menuEdit) html += '<div class="menu-note">▲▼で並びを変えます。スマホの下のタブには、上から4つが出ます。</div>';
+    function itemHtml(m, idx, total, allowedIdx){
       var tab = document.querySelector('#navTabs .navtab[data-page="' + (m.p === "borrowers" ? "admin" : m.p) + '"]');
       var ic = tab && tab.querySelector("svg") ? tab.querySelector("svg").outerHTML : "";
       var act = (state.page === m.p) || (m.p === "borrowers" && state.page === "admin" && state.adminTab === "borrowers");
       if(m.p === "admin" && state.page === "admin" && state.adminTab === "borrowers") act = false;
       var cnEl = m.cnt ? $(m.cnt) : null, cn = cnEl && !cnEl.hidden ? cnEl.textContent : "";
-      html += '<button type="button" class="menu-item' + (act ? " active" : "") + (m.sub ? " menu-sub" : "") + '" data-mpage="' + m.p + '">' +
-        (m.sub ? "" : '<span class="mi-ic">' + ic + '</span>') + '<span class="mi-t">' + esc(m.t) + '</span>' + (cn !== "" ? '<span class="mi-n tnum">' + esc(cn) + '</span>' : "") + '</button>';
+      var h = '<div class="menu-row' + (menuEdit && allowedIdx >= 4 ? " beyond" : "") + '">';
+      h += '<button type="button" class="menu-item' + (act && !menuEdit ? " active" : "") + (m.sub ? " menu-sub" : "") + '" data-mpage="' + m.p + '"' + (menuEdit ? ' disabled' : '') + '>' +
+        (m.sub ? "" : '<span class="mi-ic">' + ic + '</span>') + '<span class="mi-t">' + esc(m.t) + '</span>' + (!menuEdit && cn !== "" ? '<span class="mi-n tnum">' + esc(cn) + '</span>' : "") + '</button>';
+      if(menuEdit && !m.sub){
+        h += '<span class="menu-mv"><button type="button" data-mmove="-1" data-mp="' + m.p + '"' + (idx === 0 ? " disabled" : "") + ' aria-label="上へ">▲</button><button type="button" data-mmove="1" data-mp="' + m.p + '"' + (idx === total - 1 ? " disabled" : "") + ' aria-label="下へ">▼</button></span>';
+      }
+      return h + '</div>';
+    }
+    var visible = order.filter(menuAllowed);
+    visible.forEach(function(p, idx){
+      var m = MENU_ITEMS.filter(function(x){ return x.p === p; })[0]; if(!m) return;
+      html += itemHtml(m, idx, visible.length, idx);
+      if(p === "admin" && !isMechanicRole()) html += itemHtml(BORROWERS_ITEM, 0, 1, 0);
+      if(menuEdit && idx === 3 && visible.length > 4) html += '<div class="menu-cut">ここまでがスマホの下のタブ</div>';
     });
+    if(menuEdit) html += '<button type="button" class="menu-reset" id="menuReset">初期の並びに戻す</button>';
     list.innerHTML = html;
   }
   function openMenu(){ buildMenu(); $("menuOverlay").hidden = false; $("menuPanel").hidden = false; $("menuBtn").setAttribute("aria-expanded", "true"); }
-  function closeMenu(){ $("menuOverlay").hidden = true; $("menuPanel").hidden = true; $("menuBtn").setAttribute("aria-expanded", "false"); }
+  function closeMenu(){ menuEdit = false; $("menuOverlay").hidden = true; $("menuPanel").hidden = true; $("menuBtn").setAttribute("aria-expanded", "false"); }
   function wireMenu(){
     $("menuBtn").addEventListener("click", function(){ if($("menuPanel").hidden) openMenu(); else closeMenu(); });
     $("menuClose").addEventListener("click", closeMenu);
     $("menuOverlay").addEventListener("click", closeMenu);
     document.addEventListener("keydown", function(e){ if(e.key === "Escape" && !$("menuPanel").hidden) closeMenu(); });
+    $("menuEditBtn").addEventListener("click", function(){ menuEdit = !menuEdit; buildMenu(); });
     $("menuList").addEventListener("click", function(e){
+      var mv = e.target.closest && e.target.closest("[data-mmove]");
+      if(mv){
+        var order = getMenuOrder(), p = mv.getAttribute("data-mp"), dir = parseInt(mv.getAttribute("data-mmove"), 10);
+        // 画面に出ている項目の中で隣と入れ替える
+        var vis = order.filter(menuAllowed), vi = vis.indexOf(p), other = vis[vi + dir];
+        if(other){ var a = order.indexOf(p), b2 = order.indexOf(other); order[a] = other; order[b2] = p; saveMenuOrder(order); applyNavOrder(); buildMenu(); }
+        return;
+      }
+      if(e.target.id === "menuReset"){ saveMenuOrder(defaultMenuOrder()); applyNavOrder(); buildMenu(); return; }
       var b = e.target.closest && e.target.closest("[data-mpage]"); if(!b) return;
       var pg = b.getAttribute("data-mpage");
       if(pg === "admin"){ state.adminTab = state.adminTab === "borrowers" ? "dashboard" : state.adminTab; }
@@ -7226,7 +7283,7 @@
   }
 
   async function boot(){
-    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wirePrefs, wireMenu, wireCalendar, wireCombos, wireUpdate, wireRequest].forEach(function(f){
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wirePrefs, wireMenu, applyNavOrder, wireCalendar, wireCombos, wireUpdate, wireRequest].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
     try{ switchPage("home"); renderAll(); }catch(e){ console.error("initial render failed", e); }
@@ -7825,6 +7882,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.28", date: "2026-11-28", title: "メニューの並び替え", body: "左上の「≡」メニューの「並び替え」で、メニューの順番を変えられます。上のタブ・スマホの下のタブも同じ順番になります（スマホの下のタブは上から4つ）。" },
     { v: "2026.11.27", date: "2026-11-27", title: "カレンダー機能・整備予定日", body: "メニューの「カレンダー」で、整備予定日・整備の開始/完了・返却予定日を月ごとに確認できます。日付を選んで整備予定を追加でき、整備依頼や整備記録にも「整備予定日」を入力できます。予定は整備台帳の履歴から「整備開始」で整備中にできます。" },
     { v: "2026.11.26", date: "2026-11-26", title: "既存の備品を緑化事業部に設定", body: "事業部が未設定だった既存の備品を、「緑化事業部」に設定します（管理者が開いたときに自動で1回だけ実行）。管理画面の備品台帳マスタ「未設定を緑化事業部に」からも実行できます。" },
     { v: "2026.11.25", date: "2026-11-25", title: "備品に事業部を設定できます", body: "備品の登録・編集で「事業部」を選べるようになりました（緑化事業部以外もOK）。事業部マスタから選ぶか、新しい事業部名を入力すると自動でマスタに追加されます。備品台帳では事業部で絞り込めます。" },
