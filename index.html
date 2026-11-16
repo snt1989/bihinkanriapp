@@ -1940,7 +1940,7 @@
     <h3>整備予定を追加</h3>
     <div class="fields">
       <div class="field">
-        <label for="planEquip">対象備品 <span style="color:var(--danger);">*</span></label>
+        <label for="planEquip">対象備品（要点検・修理中のみ） <span style="color:var(--danger);">*</span></label>
         <select id="planEquip"></select>
       </div>
       <div class="field">
@@ -4033,8 +4033,9 @@
   }
   function openPlanModal(dateISO, eid){
     var sel = $("planEquip");
-    var items = allItems().filter(function(it){ return it.status !== "廃棄"; }).sort(function(a, b){ return (a.no || 0) - (b.no || 0); });
-    sel.innerHTML = '<option value="">備品を選択...</option>' + items.map(function(it){
+    // 対象は「要点検・修理中」の備品だけ
+    var items = allItems().filter(function(it){ return it.status === "修理中"; }).sort(function(a, b){ return (a.no || 0) - (b.no || 0); });
+    sel.innerHTML = '<option value="">' + (items.length ? "要点検・修理中の備品を選択..." : "要点検・修理中の備品がありません") + '</option>' + items.map(function(it){
       return '<option value="' + esc(it.id) + '">' + esc((typeof it.no === "number" ? fmtNo(it.no) + "　" : "") + (it.name || "")) + '</option>';
     }).join("");
     sel.value = eid || "";
@@ -4047,7 +4048,7 @@
   function closePlanModal(){ $("planOverlay").classList.remove("show"); }
   function savePlan(){
     var eid = $("planEquip").value, it = state.items[eid], date = $("planDate").value, err = $("planErr");
-    if(!it){ err.textContent = "対象の備品を選んでください。"; err.hidden = false; return; }
+    if(!it || it.status !== "修理中"){ err.textContent = "要点検・修理中の備品を選んでください。"; err.hidden = false; return; }
     if(!date){ err.textContent = "整備予定日を入力してください。"; err.hidden = false; return; }
     if(!db) return;
     var type = getTypeChecks("planType"), staff = $("planStaff").value, issue = $("planIssue").value.trim();
@@ -7907,6 +7908,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.30", date: "2026-11-30", title: "カレンダーの対象備品", body: "カレンダーで整備予定を登録するときの対象備品は、「要点検・修理中」の備品だけ選べるようになりました。" },
     { v: "2026.11.29", date: "2026-11-29", title: "スマホ画面を見やすく", body: "スマホの画面を整理しました。貸出中の一覧を縦並びの見やすいカードに、管理画面のタブは横にスワイプできるように、絞り込みの表示も短くしました。備品台帳以外では上の件数バーを隠してすっきりさせました。" },
     { v: "2026.11.28", date: "2026-11-28", title: "メニューの並び替え", body: "左上の「≡」メニューの「並び替え」で、メニューの順番を変えられます。上のタブ・スマホの下のタブも同じ順番になります（スマホの下のタブは上から4つ）。" },
     { v: "2026.11.27", date: "2026-11-27", title: "カレンダー機能・整備予定日", body: "メニューの「カレンダー」で、整備予定日・整備の開始/完了・返却予定日を月ごとに確認できます。日付を選んで整備予定を追加でき、整備依頼や整備記録にも「整備予定日」を入力できます。予定は整備台帳の履歴から「整備開始」で整備中にできます。" },
