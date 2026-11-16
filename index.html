@@ -1015,6 +1015,30 @@
     .histtable td.mname{white-space:normal;}
     .mastertable td{padding:10px 8px;}
   }
+
+  /* ===== スマホ表示の見やすさ改善 ===== */
+  @media (max-width:640px){
+    .subtabs,.subtabs2{flex-wrap:nowrap; overflow-x:auto; width:100%; max-width:100%; -webkit-overflow-scrolling:touch; scrollbar-width:none;}
+    .subtabs::-webkit-scrollbar,.subtabs2::-webkit-scrollbar{display:none;}
+    .subtab{padding:9px 14px;} .subtab2{padding:8px 12px;}
+    /* 貸出・整備の一覧カード：縦に積んで左そろえ */
+    .reclist{gap:8px;}
+    .rec{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; padding:12px 14px; align-items:start;}
+    .rec .rno{grid-column:1 / -1; flex:none; font-size:11px; font-weight:700; color:var(--accent-strong);}
+    .rec .rmain{grid-column:1 / -1; flex:none;}
+    .rec .rname{font-size:14.5px; line-height:1.4;}
+    .rec .rsub{font-size:12px; line-height:1.5; margin-block-start:2px;}
+    .rec .rdates{grid-column:1 / -1; text-align:left; min-width:0; font-size:12px; line-height:1.6; padding-block-start:6px; border-top:1px dashed var(--line);}
+    .rec .ract{grid-column:1 / -1;}
+    .rec .ract .btn{width:100%; justify-content:center; min-height:40px;}
+    .rec > .badge, .rec > [class*="badge"]{justify-self:start;}
+    /* 表が横にはみ出す場合は横スクロール */
+    #pageAdmin .tablewrap, #pageAdmin table{max-width:100%;}
+    #pageAdmin .panel, #pageAdmin .card-panel{overflow-x:auto;}
+    /* ページ見出し */
+    .page-head, .pagehead{margin-block-end:10px;}
+    .selfilter{font-size:13px;}
+  }
 </style>
 
 <!-- ログイン画面（Firebase Authentication：メールアドレス＋パスワード） -->
@@ -1225,7 +1249,7 @@
     <select class="selfilter" id="divisionSelect"></select>
     <select class="selfilter" id="locationSelect"></select>
     <select class="selfilter" id="statusSelect">
-      <option value="all">すべての状態</option>
+      <option value="all">状態：すべて</option>
       <option value="利用可能">利用可能</option>
       <option value="貸出中">貸出中</option>
       <option value="修理中">修理中</option>
@@ -2608,6 +2632,7 @@
     if(p === "borrowers"){ state.adminTab = "borrowers"; p = "admin"; } // 借受者台帳は管理画面の中へ
     if(isMechanicRole() && ["equipment","maintenance","calendar","help"].indexOf(p) === -1) p = "maintenance";
     state.page = p;
+    var sr = $("statsRow"); if(sr) sr.style.display = (p === "equipment") ? "" : "none";
     ["home","equipment","maintenance","calendar","loans","borrowers","admin","help"].forEach(function(name){
       var el = $("page" + name.charAt(0).toUpperCase() + name.slice(1));
       if(el) el.hidden = (name !== p);
@@ -2809,7 +2834,7 @@
     var sel = $("categorySelect");
     var cur = state.categoryFilter;
     var cats = categoriesInOrder();
-    var html = '<option value="all">すべてのカテゴリー</option>';
+    var html = '<option value="all">カテゴリー：すべて</option>';
     cats.forEach(function(c){ html += '<option value="' + esc(c) + '">' + esc(c) + '</option>'; });
     if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
     if(state.ready && state.dbAvailable !== false && cur !== "all" && cats.indexOf(cur) < 0){ state.categoryFilter = cur = "all"; }
@@ -2861,7 +2886,7 @@
   function renderDivisionSelect(){
     var sel = $("divisionSelect"); if(!sel) return;
     var cur = state.divisionFilter, names = divisionsInUse();
-    var html = '<option value="all">すべての事業部</option>';
+    var html = '<option value="all">事業部：すべて</option>';
     names.forEach(function(n){ html += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
     html += '<option value="__none">（事業部 未設定）</option>';
     if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
@@ -2872,7 +2897,7 @@
     var sel = $("locationSelect");
     var cur = state.locationFilter;
     var locs = locationsInOrder();
-    var html = '<option value="all">すべての保管場所</option>';
+    var html = '<option value="all">保管場所：すべて</option>';
     locs.forEach(function(l){ html += '<option value="' + esc(l) + '">' + esc(l) + '</option>'; });
     if(sel._html !== html){ sel.innerHTML = html; sel._html = html; }
     if(state.ready && state.dbAvailable !== false && cur !== "all" && locs.indexOf(cur) < 0){ state.locationFilter = cur = "all"; }
@@ -7882,6 +7907,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.29", date: "2026-11-29", title: "スマホ画面を見やすく", body: "スマホの画面を整理しました。貸出中の一覧を縦並びの見やすいカードに、管理画面のタブは横にスワイプできるように、絞り込みの表示も短くしました。備品台帳以外では上の件数バーを隠してすっきりさせました。" },
     { v: "2026.11.28", date: "2026-11-28", title: "メニューの並び替え", body: "左上の「≡」メニューの「並び替え」で、メニューの順番を変えられます。上のタブ・スマホの下のタブも同じ順番になります（スマホの下のタブは上から4つ）。" },
     { v: "2026.11.27", date: "2026-11-27", title: "カレンダー機能・整備予定日", body: "メニューの「カレンダー」で、整備予定日・整備の開始/完了・返却予定日を月ごとに確認できます。日付を選んで整備予定を追加でき、整備依頼や整備記録にも「整備予定日」を入力できます。予定は整備台帳の履歴から「整備開始」で整備中にできます。" },
     { v: "2026.11.26", date: "2026-11-26", title: "既存の備品を緑化事業部に設定", body: "事業部が未設定だった既存の備品を、「緑化事業部」に設定します（管理者が開いたときに自動で1回だけ実行）。管理画面の備品台帳マスタ「未設定を緑化事業部に」からも実行できます。" },
