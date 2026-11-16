@@ -1319,7 +1319,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="mhSearch" type="text" placeholder="機材・作業内容・担当者で検索" autocomplete="off">
       </div>
-      <select class="selfilter" id="mhStatus"><option value="">状態：すべて</option><option>予定</option><option>整備中</option><option>完了</option><option>廃棄</option><option>中止</option></select>
+      <select class="selfilter" id="mhStatus"><option value="">状態：すべて</option><option>予定</option><option>整備中</option><option>完了</option><option>廃棄</option><option>中止</option><option>中止</option></select>
       <select class="selfilter" id="mhMonth"><option value="">期間：すべて</option></select>
       <select class="selfilter" id="mhStaff"><option value="">担当者：すべて</option></select>
       <select class="selfilter" id="mhSort" aria-label="並べ替え">
@@ -3567,6 +3567,7 @@
       html += '  <div class="mc-actions">';
       html += '    <button class="btn btn-primary btn-sm" data-action="mdone" style="flex:1;">完了</button>';
       html += '    <button class="btn btn-ghost btn-sm" data-action="mretire" style="flex:1;">廃棄</button>';
+      html += '    <button class="btn btn-ghost btn-sm" data-action="mcancel" style="flex:1;">キャンセル</button>';
       html += '  </div>';
       html += '</div>';
     });
@@ -3593,6 +3594,8 @@
       var mid = card.getAttribute("data-mid");
       var doneBtn = card.querySelector('[data-action="mdone"]');
       if(doneBtn) doneBtn.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(mid, "完了"); });
+      var cancelBtn = card.querySelector('[data-action="mcancel"]');
+      if(cancelBtn) cancelBtn.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(mid, "中止"); });
       var retireBtn = card.querySelector('[data-action="mretire"]');
       if(retireBtn) retireBtn.addEventListener("click", function(e){ e.stopPropagation(); finishMaintQuick(mid, "廃棄"); });
     });
@@ -3744,7 +3747,9 @@
     if(!m || m.status !== "整備中" || !db) return;
     var it = state.items[m.equipmentId];
     var name = (it && it.name) || m.equipmentName || "この備品";
-    var msg = result === "廃棄"
+    var msg = result === "中止"
+      ? "「" + name + "」の整備をキャンセル（中止）します。よろしいですか？\n（備品は利用可能に戻ります。あとから「整備中に戻す」で再開できます）"
+      : result === "廃棄"
       ? "「" + name + "」を廃棄にします。よろしいですか？\n（あとから備品の詳細で「廃棄を取り消す」と戻せます）"
       : "「" + name + "」の整備を完了にし、利用可能（保管中）に戻します。よろしいですか？";
     if(!confirm(msg)) return;
@@ -3759,6 +3764,10 @@
       if(result === "廃棄"){
         updateItem(it.id, { status: "廃棄" });
         addLog(it.id, "廃棄登録", detail);
+      } else if(result === "中止"){
+        var otherOpen = openMaintRecords().some(function(o){ return o.id !== mid && o.equipmentId === it.id; });
+        if(it.status === "修理中" && !otherOpen) updateItem(it.id, { status: "利用可能" });
+        addLog(it.id, "整備を中止", detail);
       } else {
         if(it.status === "修理中") updateItem(it.id, { status: "利用可能" });
         addLog(it.id, "修理完了", detail);
@@ -3837,7 +3846,7 @@
   function histStatusBadge(m){ return '<span class="badge ' + badgeCls(m.status) + '">' + esc(m.status || "") + '</span>'; }
   function histActions(m){
     return (m.status === "整備中"
-      ? '<button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button>'
+      ? '<button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button><button class="btn btn-ghost btn-sm" data-action="hstop">キャンセル</button>'
       : (m.status === "予定"
         ? '<button class="btn btn-primary btn-sm" data-action="hstart">整備開始</button><button class="btn btn-ghost btn-sm" data-action="hcancel">取消</button>'
         : '<button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button>')) + '<button class="btn btn-ghost btn-sm" data-action="hedit">編集</button>';
@@ -3846,7 +3855,7 @@
     Array.prototype.forEach.call(root.querySelectorAll("[data-mid]"), function(el){
       var mid = el.getAttribute("data-mid"), eid = el.getAttribute("data-eid");
       el.addEventListener("click", function(e){ if(e.target.closest("[data-action], input")) return; if(state.items[eid]) openDrawer(eid); });
-      var map = { hdone: function(){ finishMaintQuick(mid, "完了"); }, hretire: function(){ finishMaintQuick(mid, "廃棄"); }, hreopen: function(){ reopenMaint(mid); }, hstart: function(){ startPlanned(mid); }, hcancel: function(){ cancelPlanned(mid); }, hedit: function(){ openMaintEdit(mid); } };
+      var map = { hdone: function(){ finishMaintQuick(mid, "完了"); }, hretire: function(){ finishMaintQuick(mid, "廃棄"); }, hstop: function(){ finishMaintQuick(mid, "中止"); }, hreopen: function(){ reopenMaint(mid); }, hstart: function(){ startPlanned(mid); }, hcancel: function(){ cancelPlanned(mid); }, hedit: function(){ openMaintEdit(mid); } };
       Array.prototype.forEach.call(el.querySelectorAll("[data-action]"), function(b){
         var f = map[b.getAttribute("data-action")]; if(f) b.addEventListener("click", function(e){ e.stopPropagation(); f(); });
       });
@@ -7917,6 +7926,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.12.01", date: "2026-12-01", title: "整備のキャンセル", body: "整備中の記録に「キャンセル」ボタンを追加しました。キャンセルすると記録は「中止」になり、備品は利用可能に戻ります（「整備中に戻す」で再開もできます）。整備予定の「取消」はこれまでどおりです。" },
     { v: "2026.11.30", date: "2026-11-30", title: "カレンダーの対象備品", body: "カレンダーで整備予定を登録するときの対象備品は、「整備中」の備品だけを、複数まとめて選べるようになりました。" },
     { v: "2026.11.29", date: "2026-11-29", title: "スマホ画面を見やすく", body: "スマホの画面を整理しました。貸出中の一覧を縦並びの見やすいカードに、管理画面のタブは横にスワイプできるように、絞り込みの表示も短くしました。備品台帳以外では上の件数バーを隠してすっきりさせました。" },
     { v: "2026.11.28", date: "2026-11-28", title: "メニューの並び替え", body: "左上の「≡」メニューの「並び替え」で、メニューの順番を変えられます。上のタブ・スマホの下のタブも同じ順番になります（スマホの下のタブは上から4つ）。" },
