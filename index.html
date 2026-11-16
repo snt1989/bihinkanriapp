@@ -916,7 +916,10 @@
 
   /* ===== mobile layout ===== */
   @media (max-width:640px){
-    body{font-size:14px; padding-bottom:calc(66px + env(safe-area-inset-bottom,0px));}
+    body{font-size:14px; padding-bottom:calc(120px + env(safe-area-inset-bottom,0px));}
+    html{scroll-padding-bottom:120px;}
+    .page{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px)) !important;}
+    .page::after{content:""; display:block; height:1px;}
     header.top{padding:8px 12px; gap:8px; flex-wrap:nowrap;}
     .brand{min-width:0;}
     .brand-text h1{font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
@@ -7926,6 +7929,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.12.02", date: "2026-12-02", title: "スマホ：一覧の下が隠れる問題を修正", body: "スマホで、下のタブに隠れて一覧の最後の「もっと見る」が押せなかった問題を直しました。" },
     { v: "2026.12.01", date: "2026-12-01", title: "整備のキャンセル", body: "整備中の記録に「キャンセル」ボタンを追加しました。キャンセルすると記録は「中止」になり、備品は利用可能に戻ります（「整備中に戻す」で再開もできます）。整備予定の「取消」はこれまでどおりです。" },
     { v: "2026.11.30", date: "2026-11-30", title: "カレンダーの対象備品", body: "カレンダーで整備予定を登録するときの対象備品は、「整備中」の備品だけを、複数まとめて選べるようになりました。" },
     { v: "2026.11.29", date: "2026-11-29", title: "スマホ画面を見やすく", body: "スマホの画面を整理しました。貸出中の一覧を縦並びの見やすいカードに、管理画面のタブは横にスワイプできるように、絞り込みの表示も短くしました。備品台帳以外では上の件数バーを隠してすっきりさせました。" },
