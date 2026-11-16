@@ -165,6 +165,55 @@
   }
   .addbtn:hover{background:var(--accent-strong);}
   .addbtn svg{width:15px; height:15px;}
+  /* ===== カレンダー ===== */
+  :root{--c-plan:#2F6DB5; --c-plan-bg:#E3ECF8; --c-work:#D93025; --c-work-bg:#FBE5E3; --c-done:#2E7D45; --c-done-bg:#E1F1E6; --c-loan:#B7791F; --c-loan-bg:#FBEFD8;}
+  .cal-card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px; margin-block-end:14px;}
+  .cal-nav{display:flex; align-items:center; gap:8px; margin-block-end:10px; flex-wrap:wrap;}
+  .cal-title{font-size:16px; min-width:7.5em; text-align:center;}
+  .cal-nav .iconbtn{font-size:20px; line-height:1;}
+  .cal-legend{display:flex; flex-wrap:wrap; gap:6px; margin-block-end:10px;}
+  .cal-lg{display:inline-flex; align-items:center; gap:6px; min-height:30px; padding:0 11px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--text-faint); font:inherit; font-size:12px; font-weight:700; cursor:pointer;}
+  .cal-lg i{width:9px; height:9px; border-radius:50%; background:currentColor;}
+  .cal-lg.on.plan{color:var(--c-plan); background:var(--c-plan-bg); border-color:transparent;}
+  .cal-lg.on.work{color:var(--c-work); background:var(--c-work-bg); border-color:transparent;}
+  .cal-lg.on.done{color:var(--c-done); background:var(--c-done-bg); border-color:transparent;}
+  .cal-lg.on.loan{color:var(--c-loan); background:var(--c-loan-bg); border-color:transparent;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  .cal-dow{background:var(--bg); text-align:center; font-size:11.5px; font-weight:700; color:var(--text-muted); padding:6px 0;}
+  .cal-dow.sun, .cal-cell.sun .cal-num{color:#D93025;} .cal-dow.sat, .cal-cell.sat .cal-num{color:#2F6DB5;}
+  .cal-cell{background:var(--surface); border:0; font:inherit; text-align:left; display:flex; flex-direction:column; gap:3px; min-height:92px; padding:5px 5px 4px; cursor:pointer; min-width:0; position:relative;}
+  .cal-cell:hover{background:var(--line-soft);}
+  .cal-cell.out{background:var(--bg);} .cal-cell.out .cal-num{opacity:.4;}
+  .cal-cell.sel{box-shadow:inset 0 0 0 2px var(--accent);}
+  .cal-num{font-size:12.5px; font-weight:700; line-height:20px; width:22px; height:22px; text-align:center; border-radius:50%;}
+  .cal-cell.today .cal-num{background:var(--accent); color:var(--on-accent) !important;}
+  .cal-evs{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .cal-ev{display:block; font-size:11px; font-weight:600; line-height:1.35; padding:1px 5px; border-radius:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cal-ev.plan{background:var(--c-plan-bg); color:var(--c-plan);} .cal-ev.work{background:var(--c-work-bg); color:var(--c-work);}
+  .cal-ev.done{background:var(--c-done-bg); color:var(--c-done);} .cal-ev.loan{background:var(--c-loan-bg); color:var(--c-loan);}
+  .cal-ev.late{box-shadow:inset 0 0 0 1px var(--c-work);}
+  .cal-more{font-size:11px; color:var(--text-faint); padding-inline-start:4px;}
+  .cal-dots{display:none;}
+  .cal-day{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px 14px;}
+  .cal-day-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-block-end:10px; border-bottom:1px solid var(--line-soft); margin-block-end:6px;}
+  .cal-item{display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--line-soft);}
+  .cal-item:last-child{border-bottom:0;}
+  .cal-tag{flex:0 0 auto; font-size:11px; font-weight:800; padding:2px 9px; border-radius:999px; margin-block-start:2px;}
+  .cal-tag.plan{background:var(--c-plan-bg); color:var(--c-plan);} .cal-tag.work{background:var(--c-work-bg); color:var(--c-work);}
+  .cal-tag.done{background:var(--c-done-bg); color:var(--c-done);} .cal-tag.loan{background:var(--c-loan-bg); color:var(--c-loan);}
+  .cal-item-main{flex:1; min-width:0;} .cal-item-name{font-size:13.5px; font-weight:700; color:var(--text);}
+  .cal-item-sub{font-size:12px; color:var(--text-muted); margin-block-start:2px;}
+  .cal-item-act{display:flex; gap:6px; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end;}
+  .cal-item-act .btn{min-height:32px; font-size:12px;}
+  .badge.plan{background:var(--c-plan-bg); color:var(--c-plan);}
+  .histtable .hplan{display:inline-block; margin-block-start:4px; padding:1px 8px; border-radius:6px; background:var(--c-plan-bg); color:var(--c-plan); font-size:11.5px; font-weight:700;}
+  @media (max-width:640px){
+    .cal-card{padding:8px;} .cal-cell{min-height:52px; align-items:center; padding:4px 2px;}
+    .cal-evs{display:none;} .cal-dots{display:flex; gap:3px; justify-content:center; flex-wrap:wrap;}
+    .cal-dots i{width:7px; height:7px; border-radius:50%;} .cal-dots i.plan{background:var(--c-plan);} .cal-dots i.work{background:var(--c-work);} .cal-dots i.done{background:var(--c-done);} .cal-dots i.loan{background:var(--c-loan);}
+    .cal-add{flex:1 1 100%; margin-inline-start:0 !important; justify-content:center;}
+    .cal-item{flex-wrap:wrap;} .cal-item-act{flex:1 1 100%; justify-content:flex-start;}
+  }
   .cdiv{display:inline-block; margin-block-start:4px; padding:1px 9px; border-radius:6px; background:var(--line-soft); color:var(--text-muted); font-size:11.5px; font-weight:700;}
   input.combo{padding-right:34px !important; background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%236C7062" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>'); background-repeat:no-repeat; background-position:right 10px center; background-size:16px;}
   .mtypes{display:flex; flex-wrap:wrap; gap:6px;}
@@ -220,6 +269,7 @@
   .badge.in{background:var(--in-bg); color:var(--in-fg);}
   .badge.lent{background:var(--lent-bg); color:var(--lent-fg);}
   .badge.repair{background:var(--repair-bg); color:var(--repair-fg);}
+  .badge.plan{background:#E3ECF8; color:#1F4E8C;}
   .badge.retired{background:var(--retired-bg); color:var(--retired-fg);}
   .cname{font-size:13.5px; font-weight:700; color:var(--text); line-height:1.4; margin-block-end:6px; overflow-wrap:break-word;}
   .cloc{display:flex; align-items:flex-start; gap:5px; font-size:11.5px; color:var(--text-muted); margin-block-end:4px;}
@@ -902,8 +952,8 @@
     select.selfilter{padding:11px 30px 11px 12px;}
     /* ===== スマホ：カードを1列・横並びで読みやすく ===== */
     .navtab .nl-full{display:none;} .navtab .nl-short{display:inline;}
-    .navtab[data-page="admin"], .navtab[data-page="help"]{display:none;} /* 下部は4つまで。管理画面・使い方は左上の「≡」メニューから */
-    body.role-mechanic .navtab[data-page="help"]{display:flex;}
+    .navtab[data-page="admin"], .navtab[data-page="help"], .navtab[data-page="calendar"]{display:none;} /* 下部は4つまで。管理画面・使い方は左上の「≡」メニューから */
+    body.role-mechanic .navtab[data-page="help"], body.role-mechanic .navtab[data-page="calendar"]{display:flex;}
     .navtab{white-space:nowrap; font-size:10.5px;}
     .grid{grid-template-columns:minmax(0,1fr); gap:10px;}
     .card{display:grid; grid-template-columns:104px minmax(0,1fr); grid-template-areas:"thumb body" "act act"; border-radius:14px;}
@@ -1050,6 +1100,10 @@
     <button class="navtab" data-page="equipment">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/></svg>
       備品台帳
+    </button>
+    <button class="navtab" data-page="calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/></svg>
+      カレンダー
     </button>
     <button class="navtab" data-page="maintenance">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.6 13.4 5 19l-2-2 5.6-5.6"/><path d="M14 4a4 4 0 0 0-4 4c0 .5.1.9.2 1.3L4 15.5 8.5 20l6.2-6.2c.4.1.8.2 1.3.2a4 4 0 0 0 4-4c0-.6-.1-1.1-.4-1.6l-2.9 2.9-2-2L17.6 6a3.9 3.9 0 0 0-1.6-.4"/></svg>
@@ -1235,7 +1289,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="mhSearch" type="text" placeholder="機材・作業内容・担当者で検索" autocomplete="off">
       </div>
-      <select class="selfilter" id="mhStatus"><option value="">状態：すべて</option><option>整備中</option><option>完了</option><option>廃棄</option><option>中止</option></select>
+      <select class="selfilter" id="mhStatus"><option value="">状態：すべて</option><option>予定</option><option>整備中</option><option>完了</option><option>廃棄</option><option>中止</option></select>
       <select class="selfilter" id="mhMonth"><option value="">期間：すべて</option></select>
       <select class="selfilter" id="mhStaff"><option value="">担当者：すべて</option></select>
       <select class="selfilter" id="mhSort" aria-label="並べ替え">
@@ -1288,6 +1342,26 @@
     </select>
   </div>
   <div class="reclist" id="loanList"></div>
+</div>
+
+<!-- カレンダー -->
+<div class="page" id="pageCalendar" hidden>
+  <div class="pagehead">
+    <h2>カレンダー</h2>
+    <span class="desc">整備予定日・整備の実施・返却予定日を、月ごとに確認できます</span>
+  </div>
+  <div class="cal-card">
+    <div class="cal-nav">
+      <button type="button" class="iconbtn" id="calPrev" aria-label="前の月">‹</button>
+      <b class="cal-title tnum" id="calTitle"></b>
+      <button type="button" class="iconbtn" id="calNext" aria-label="次の月">›</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="calToday">今日</button>
+      <button type="button" class="addbtn cal-add" id="calAddBtn" style="margin-inline-start:auto;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>整備予定を追加</button>
+    </div>
+    <div class="cal-legend" id="calLegend"></div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+  <div class="cal-day" id="calDay"></div>
 </div>
 
 <!-- 管理画面 -->
@@ -1830,12 +1904,47 @@
   </div>
 </div>
 
+<!-- 整備予定の登録 -->
+<div class="modal-overlay" id="planOverlay">
+  <div class="modal">
+    <h3>整備予定を追加</h3>
+    <div class="fields">
+      <div class="field">
+        <label for="planEquip">対象備品 <span style="color:var(--danger);">*</span></label>
+        <select id="planEquip"></select>
+      </div>
+      <div class="field">
+        <label for="planDate">整備予定日 <span style="color:var(--danger);">*</span></label>
+        <input id="planDate" type="date">
+      </div>
+      <div class="field">
+        <label>整備項目（複数選べます）</label>
+        <div class="mtypes" id="planType"></div>
+      </div>
+      <div class="field">
+        <label for="planStaff">整備担当者</label>
+        <select id="planStaff"></select>
+      </div>
+      <div class="field">
+        <label for="planIssue">予定内容・メモ</label>
+        <textarea id="planIssue" rows="3" placeholder="例）年次点検、刃の交換、オイル交換 など"></textarea>
+      </div>
+      <span class="login-hint" id="planErr" style="color:var(--danger);" hidden></span>
+    </div>
+    <div class="foot">
+      <button class="btn btn-ghost" id="planCancelBtn">キャンセル</button>
+      <button class="btn btn-primary" id="planSaveBtn">予定を登録</button>
+    </div>
+  </div>
+</div>
+
 <!-- 整備記録の編集（点検・整備実施履歴） -->
 <div class="modal-overlay" id="maintEditOverlay">
   <div class="modal">
     <h3>整備記録を編集</h3>
     <div class="fields">
       <div class="field"><label>対象備品</label><div id="meEquip" style="font-weight:600; font-size:13.5px;"></div></div>
+      <div class="field"><label for="meDue">整備予定日（任意）</label><input id="meDue" type="date"></div>
       <div class="field" style="flex-direction:row; gap:10px;">
         <div class="field" style="flex:1;"><label for="meStart">開始日</label><input id="meStart" type="date"></div>
         <div class="field" style="flex:1;"><label for="meEnd">終了日（整備中は空欄）</label><input id="meEnd" type="date"></div>
@@ -2102,6 +2211,10 @@
         <div class="mtypes" id="reqType"></div>
       </div>
       <div class="field">
+        <label for="reqDue">整備予定日（任意）</label>
+        <input id="reqDue" type="date">
+      </div>
+      <div class="field">
         <label for="reqIssue">依頼内容 <span style="color:var(--danger);">*</span></label>
         <textarea id="reqIssue" rows="4" placeholder="どこがどう悪いかを具体的に書いてください&#10;例）エンジンがかからない／チェーンが外れる／刃が欠けた"></textarea>
         <span class="login-hint" id="reqErr" style="color:var(--danger);" hidden>依頼内容を入力してください。</span>
@@ -2139,6 +2252,7 @@
         <label for="maintAddEquip">対象備品 <span style="color:var(--danger);">*</span></label>
         <select id="maintAddEquip"></select>
       </div>
+      <div class="field"><label for="maintAddDue">整備予定日（任意）</label><input id="maintAddDue" type="date"></div>
       <div class="field" style="flex-direction:column; gap:10px;">
         <div class="field">
           <label>整備種目（複数選べます）</label>
@@ -2485,9 +2599,9 @@
   }
   function switchPage(p){
     if(p === "borrowers"){ state.adminTab = "borrowers"; p = "admin"; } // 借受者台帳は管理画面の中へ
-    if(isMechanicRole() && ["equipment","maintenance","help"].indexOf(p) === -1) p = "maintenance";
+    if(isMechanicRole() && ["equipment","maintenance","calendar","help"].indexOf(p) === -1) p = "maintenance";
     state.page = p;
-    ["home","equipment","maintenance","loans","borrowers","admin","help"].forEach(function(name){
+    ["home","equipment","maintenance","calendar","loans","borrowers","admin","help"].forEach(function(name){
       var el = $("page" + name.charAt(0).toUpperCase() + name.slice(1));
       if(el) el.hidden = (name !== p);
     });
@@ -2496,6 +2610,7 @@
     });
     if(p === "home") renderDashboard();
     if(p === "maintenance") renderMaintList();
+    if(p === "calendar") renderCalendar();
     if(p === "loans") renderLoanList();
     if(p === "borrowers") renderBorrowers();
     if(p === "admin"){ renderAdmin(); if(state.adminTab === "borrowers") renderBorrowers(); }
@@ -2951,6 +3066,7 @@
     if(state.activeId && state.items[state.activeId]) renderDrawerContent(state.items[state.activeId]);
     if(state.page === "home") renderDashboard();
     if(state.page === "maintenance") renderMaintList();
+    if(state.page === "calendar") renderCalendar();
     if(state.page === "loans") renderLoanList();
     if(state.page === "admin" && state.adminTab === "borrowers") renderBorrowers();
     if(state.page === "admin") renderAdmin();
@@ -3406,6 +3522,7 @@
       html += '  <div class="mc-issue"><b>不具合</b>　' + esc(m.issue || "内容の記載なし") + '</div>';
       html += '  <dl class="mc-facts">';
       if(m.requestedBy) html += '    <dt>依頼者</dt><dd>' + esc(m.requestedBy) + '</dd>';
+      if(m.plannedDate) html += '    <dt>整備予定日</dt><dd class="tnum">' + esc(fmtDate(m.plannedDate)) + '</dd>';
       html += '    <dt>開始日</dt><dd class="tnum">' + esc(fmtDate(maintStartDay(m)) || "-") + '</dd>';
       if(m.maintType) html += '    <dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>';
       html += '    <dt>担当者</dt><dd>' + esc(m.staffName || "未定") + '</dd>';
@@ -3523,6 +3640,7 @@
     if(!m) return;
     maintEditingId = mid;
     $("meEquip").textContent = (typeof m.no === "number" ? "[" + fmtNo(m.no) + "] " : "") + (m.equipmentName || "") + "　（" + (m.status || "") + "）";
+    $("meDue").value = m.plannedDate || "";
     $("meStart").value = m.startDate || "";
     $("meEnd").value = m.endDate || "";
     fillTypeChecks("meType", m.maintType || "");
@@ -3564,6 +3682,7 @@
     if(!m || !db){ closeMaintEdit(); return; }
     var parts = $("meParts").value.trim(), cost = $("meCost").value.trim();
     var patch = {
+      plannedDate: $("meDue").value || null,
       startDate: $("meStart").value || m.startDate || null,
       endDate: $("meEnd").value || null,
       maintType: getTypeChecks("meType"), staffName: $("meStaff").value,
@@ -3571,7 +3690,8 @@
       partsCost: [parts, cost ? cost + "円" : ""].filter(Boolean).join("／"),
       updatedAt: Date.now()
     };
-    if(m.status === "整備中") patch.endDate = null; // 整備中の記録に終了日は付けない
+    if(m.status === "整備中" || m.status === "予定") patch.endDate = null; // 整備中・予定の記録に終了日は付けない
+    if(m.status === "予定") patch.startDate = null;
     var before = {};
     Object.keys(patch).forEach(function(k){ before[k] = (k in m) ? m[k] : null; });
     pushUndo("整備記録の編集", function(){
@@ -3680,17 +3800,21 @@
     else if(k === "staff") fn = function(a, b){ return (a.staffName || "\uffff").localeCompare(b.staffName || "\uffff", "ja") || byDate(a, b); };
     return rows.sort(fn);
   }
-  function histStatusBadge(m){ return '<span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span>'; }
+  function mDay(m){ return m.endDate || m.startDate || m.plannedDate || ""; }
+  function badgeCls(st){ return st === "整備中" ? "repair" : (st === "予定" ? "plan" : (st === "廃棄" || st === "中止" ? "retired" : "in")); }
+  function histStatusBadge(m){ return '<span class="badge ' + badgeCls(m.status) + '">' + esc(m.status || "") + '</span>'; }
   function histActions(m){
     return (m.status === "整備中"
       ? '<button class="btn btn-primary btn-sm" data-action="hdone">完了</button><button class="btn btn-ghost btn-sm" data-action="hretire">廃棄</button>'
-      : '<button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button>') + '<button class="btn btn-ghost btn-sm" data-action="hedit">編集</button>';
+      : (m.status === "予定"
+        ? '<button class="btn btn-primary btn-sm" data-action="hstart">整備開始</button><button class="btn btn-ghost btn-sm" data-action="hcancel">取消</button>'
+        : '<button class="btn btn-ghost btn-sm" data-action="hreopen">整備中に戻す</button>')) + '<button class="btn btn-ghost btn-sm" data-action="hedit">編集</button>';
   }
   function bindHistActions(root){
     Array.prototype.forEach.call(root.querySelectorAll("[data-mid]"), function(el){
       var mid = el.getAttribute("data-mid"), eid = el.getAttribute("data-eid");
       el.addEventListener("click", function(e){ if(e.target.closest("[data-action], input")) return; if(state.items[eid]) openDrawer(eid); });
-      var map = { hdone: function(){ finishMaintQuick(mid, "完了"); }, hretire: function(){ finishMaintQuick(mid, "廃棄"); }, hreopen: function(){ reopenMaint(mid); }, hedit: function(){ openMaintEdit(mid); } };
+      var map = { hdone: function(){ finishMaintQuick(mid, "完了"); }, hretire: function(){ finishMaintQuick(mid, "廃棄"); }, hreopen: function(){ reopenMaint(mid); }, hstart: function(){ startPlanned(mid); }, hcancel: function(){ cancelPlanned(mid); }, hedit: function(){ openMaintEdit(mid); } };
       Array.prototype.forEach.call(el.querySelectorAll("[data-action]"), function(b){
         var f = map[b.getAttribute("data-action")]; if(f) b.addEventListener("click", function(e){ e.stopPropagation(); f(); });
       });
@@ -3745,11 +3869,174 @@
     if(mSel){ mSel.value = state.mhf.month; if(mSel.value !== state.mhf.month) state.mhf.month = ""; }
     if(sSel){ sSel.value = state.mhf.staff; if(sSel.value !== state.mhf.staff) state.mhf.staff = ""; }
   }
+  // ---------- 整備予定（開始・取消） ----------
+  function startPlanned(mid){
+    var m = state.maintenance[mid]; if(!m || m.status !== "予定" || !db) return;
+    var it = state.items[m.equipmentId], name = (it && it.name) || m.equipmentName || "この備品";
+    if(it && (it.status === "貸出中" || (isMulti(it) && lentQty(it.id) > 0))){ alert("「" + name + "」は貸出中です。返却されてから整備を開始してください。"); return; }
+    if(it && it.status === "修理中" && !canRepair()){ repairDenied(); return; }
+    if(!confirm("「" + name + "」の整備を開始します。よろしいですか？\n（備品の状態は「点検・修理中」になります）")) return;
+    var today = todayISO();
+    db.collection("maintenance").doc(mid).update({ status: "整備中", startDate: today, updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備記録の更新", e); });
+    m.status = "整備中"; m.startDate = today;
+    if(it){
+      if(it.status === "利用可能") updateItem(it.id, { status: "修理中" });
+      addLog(it.id, "整備開始（予定から）", [m.maintType, m.issue].filter(Boolean).join("／"));
+    }
+    renderAll(true);
+  }
+  function cancelPlanned(mid){
+    var m = state.maintenance[mid]; if(!m || m.status !== "予定" || !db) return;
+    var it = state.items[m.equipmentId], name = (it && it.name) || m.equipmentName || "この備品";
+    if(!confirm("「" + name + "」の整備予定（" + fmtDate(m.plannedDate) + "）を取り消します。よろしいですか？")) return;
+    db.collection("maintenance").doc(mid).update({ status: "中止", endDate: todayISO(), updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備予定の取消", e); });
+    m.status = "中止"; m.endDate = todayISO();
+    if(it) addLog(it.id, "整備予定を取消", [m.maintType, m.issue].filter(Boolean).join("／"));
+    renderAll(true);
+  }
+
+  // ---------- カレンダー ----------
+  var CAL_TYPES = {
+    plan: { label: "整備予定", cls: "plan" },
+    work: { label: "整備開始", cls: "work" },
+    done: { label: "整備完了", cls: "done" },
+    loan: { label: "返却予定", cls: "loan" }
+  };
+  var calState = { y: 0, m: 0, sel: "", on: { plan: true, work: true, done: true, loan: true } };
+  function pad2(n){ return String(n).padStart(2, "0"); }
+  function isoOf(y, m, d){ return y + "-" + pad2(m + 1) + "-" + pad2(d); }
+  function calEvents(){
+    var map = {};
+    function add(day, ev){ if(!day) return; (map[day] = map[day] || []).push(ev); }
+    allMaint().forEach(function(m){
+      var label = (typeof m.no === "number" ? fmtNo(m.no) + " " : "") + (m.equipmentName || "");
+      if(m.plannedDate && (m.status === "予定" || m.status === "整備中")) add(m.plannedDate, { type: "plan", label: label, mid: m.id, eid: m.equipmentId, m: m });
+      if(m.status === "整備中" && m.startDate) add(m.startDate, { type: "work", label: label, mid: m.id, eid: m.equipmentId, m: m });
+      if(m.status === "完了" && m.endDate) add(m.endDate, { type: "done", label: label, mid: m.id, eid: m.equipmentId, m: m });
+    });
+    var t = todayISO();
+    allLoans().forEach(function(l){
+      if(l.status !== "貸出中" || !l.dueDate || String(l.id).indexOf("tmp_") === 0) return;
+      var it = state.items[l.equipmentId];
+      add(l.dueDate, { type: "loan", label: (it ? (typeof it.no === "number" ? fmtNo(it.no) + " " : "") + (it.name || "") : "") + (l.borrower ? "（" + l.borrower + "）" : ""), eid: l.equipmentId, late: l.dueDate < t });
+    });
+    return map;
+  }
+  var WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+  function renderCalendar(){
+    var grid = $("calGrid"); if(!grid) return;
+    if(!calState.y){ var n = new Date(); calState.y = n.getFullYear(); calState.m = n.getMonth(); calState.sel = todayISO(); }
+    $("calTitle").textContent = calState.y + "年 " + (calState.m + 1) + "月";
+    var lg = "";
+    Object.keys(CAL_TYPES).forEach(function(k){ lg += '<button type="button" class="cal-lg ' + CAL_TYPES[k].cls + (calState.on[k] ? " on" : "") + '" data-calt="' + k + '"><i></i>' + CAL_TYPES[k].label + '</button>'; });
+    $("calLegend").innerHTML = lg;
+    var evs = calEvents(), first = new Date(calState.y, calState.m, 1), startOff = first.getDay();
+    var days = new Date(calState.y, calState.m + 1, 0).getDate(), weeks = Math.ceil((startOff + days) / 7), today = todayISO();
+    var h = '';
+    WEEKDAYS.forEach(function(w, i){ h += '<div class="cal-dow' + (i === 0 ? " sun" : (i === 6 ? " sat" : "")) + '">' + w + '</div>'; });
+    for(var c = 0; c < weeks * 7; c++){
+      var d = c - startOff + 1, out = d < 1 || d > days;
+      var dt = new Date(calState.y, calState.m, d), iso = isoOf(dt.getFullYear(), dt.getMonth(), dt.getDate());
+      var list = (evs[iso] || []).filter(function(e){ return calState.on[e.type]; });
+      var dow = c % 7;
+      h += '<button type="button" class="cal-cell' + (out ? " out" : "") + (iso === today ? " today" : "") + (iso === calState.sel ? " sel" : "") + (dow === 0 ? " sun" : (dow === 6 ? " sat" : "")) + '" data-cald="' + iso + '">';
+      h += '<span class="cal-num tnum">' + dt.getDate() + '</span>';
+      h += '<span class="cal-evs">';
+      list.slice(0, 3).forEach(function(e){ h += '<span class="cal-ev ' + CAL_TYPES[e.type].cls + (e.late ? " late" : "") + '">' + esc(e.label) + '</span>'; });
+      if(list.length > 3) h += '<span class="cal-more">+' + (list.length - 3) + '</span>';
+      h += '</span>';
+      if(list.length){ h += '<span class="cal-dots">'; list.slice(0, 4).forEach(function(e){ h += '<i class="' + CAL_TYPES[e.type].cls + '"></i>'; }); h += '</span>'; }
+      h += '</button>';
+    }
+    grid.innerHTML = h;
+    renderCalDay(evs);
+  }
+  function renderCalDay(evs){
+    var box = $("calDay"); if(!box) return;
+    evs = evs || calEvents();
+    var iso = calState.sel; if(!iso){ box.innerHTML = ""; return; }
+    var p = iso.split("-"), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+    var list = (evs[iso] || []).filter(function(e){ return calState.on[e.type]; });
+    var h = '<div class="cal-day-head"><b class="tnum">' + esc(fmtDate(iso)) + '（' + WEEKDAYS[dt.getDay()] + '）</b><span class="desc">' + list.length + '件</span>';
+    h += '<button type="button" class="btn btn-primary btn-sm" data-calplan="' + iso + '" style="margin-inline-start:auto;">＋ この日に整備予定を追加</button></div>';
+    if(!list.length) h += '<div class="empty" style="padding:18px 8px;">この日の予定はありません。</div>';
+    list.forEach(function(e){
+      var m = e.m;
+      h += '<div class="cal-item ' + CAL_TYPES[e.type].cls + '">';
+      h += '<span class="cal-tag ' + CAL_TYPES[e.type].cls + '">' + CAL_TYPES[e.type].label + (e.late ? "（期限超過）" : "") + '</span>';
+      h += '<div class="cal-item-main"><div class="cal-item-name">' + esc(e.label) + '</div>';
+      if(m){
+        var sub = [m.maintType, m.issue].filter(Boolean).join("　／　");
+        if(sub) h += '<div class="cal-item-sub">' + esc(sub) + '</div>';
+        if(m.staffName) h += '<div class="cal-item-sub">担当：' + esc(m.staffName) + '</div>';
+      }
+      h += '</div><div class="cal-item-act">';
+      if(m && m.status === "予定") h += '<button type="button" class="btn btn-primary btn-sm" data-calstart="' + esc(e.mid) + '">整備開始</button>';
+      if(m) h += '<button type="button" class="btn btn-ghost btn-sm" data-caledit="' + esc(e.mid) + '">編集</button>';
+      else if(state.items[e.eid]) h += '<button type="button" class="btn btn-ghost btn-sm" data-calopen="' + esc(e.eid) + '">詳細</button>';
+      h += '</div></div>';
+    });
+    box.innerHTML = h;
+  }
+  function calShift(delta){
+    var d = new Date(calState.y, calState.m + delta, 1); calState.y = d.getFullYear(); calState.m = d.getMonth(); renderCalendar();
+  }
+  function wireCalendar(){
+    $("calPrev").addEventListener("click", function(){ calShift(-1); });
+    $("calNext").addEventListener("click", function(){ calShift(1); });
+    $("calToday").addEventListener("click", function(){ var n = new Date(); calState.y = n.getFullYear(); calState.m = n.getMonth(); calState.sel = todayISO(); renderCalendar(); });
+    $("calAddBtn").addEventListener("click", function(){ openPlanModal(calState.sel || todayISO()); });
+    $("pageCalendar").addEventListener("click", function(e){
+      var t = e.target.closest && e.target.closest("[data-calt],[data-cald],[data-calplan],[data-calstart],[data-caledit],[data-calopen]"); if(!t) return;
+      if(t.hasAttribute("data-calt")){ var k = t.getAttribute("data-calt"); calState.on[k] = !calState.on[k]; renderCalendar(); return; }
+      if(t.hasAttribute("data-cald")){ calState.sel = t.getAttribute("data-cald"); var p = calState.sel.split("-"); if(+p[1] - 1 !== calState.m || +p[0] !== calState.y){ calState.y = +p[0]; calState.m = +p[1] - 1; } renderCalendar(); var dp = $("calDay"); if(dp && isNarrow()) dp.scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
+      if(t.hasAttribute("data-calplan")){ openPlanModal(t.getAttribute("data-calplan")); return; }
+      if(t.hasAttribute("data-calstart")){ startPlanned(t.getAttribute("data-calstart")); return; }
+      if(t.hasAttribute("data-caledit")){ openMaintEdit(t.getAttribute("data-caledit")); return; }
+      if(t.hasAttribute("data-calopen")){ openDrawer(t.getAttribute("data-calopen")); return; }
+    });
+    $("planCancelBtn").addEventListener("click", closePlanModal);
+    $("planSaveBtn").addEventListener("click", savePlan);
+    $("planOverlay").addEventListener("mousedown", function(e){ if(e.target === $("planOverlay")) closePlanModal(); });
+  }
+  function openPlanModal(dateISO, eid){
+    var sel = $("planEquip");
+    var items = allItems().filter(function(it){ return it.status !== "廃棄"; }).sort(function(a, b){ return (a.no || 0) - (b.no || 0); });
+    sel.innerHTML = '<option value="">備品を選択...</option>' + items.map(function(it){
+      return '<option value="' + esc(it.id) + '">' + esc((typeof it.no === "number" ? fmtNo(it.no) + "　" : "") + (it.name || "")) + '</option>';
+    }).join("");
+    sel.value = eid || "";
+    $("planDate").value = dateISO || todayISO();
+    fillTypeChecks("planType", "");
+    fillSelectWithCurrent("planStaff", allMasterNames(state.mechanics), "", "（未選択）");
+    $("planIssue").value = ""; $("planErr").hidden = true;
+    $("planOverlay").classList.add("show");
+  }
+  function closePlanModal(){ $("planOverlay").classList.remove("show"); }
+  function savePlan(){
+    var eid = $("planEquip").value, it = state.items[eid], date = $("planDate").value, err = $("planErr");
+    if(!it){ err.textContent = "対象の備品を選んでください。"; err.hidden = false; return; }
+    if(!date){ err.textContent = "整備予定日を入力してください。"; err.hidden = false; return; }
+    if(!db) return;
+    var type = getTypeChecks("planType"), staff = $("planStaff").value, issue = $("planIssue").value.trim();
+    db.collection("maintenance").add({
+      equipmentId: eid, equipmentName: it.name, no: (typeof it.no === "number" ? it.no : null), category: it.category,
+      issue: issue, maintType: type, staffName: staff, parts: "", cost: "", partsCost: "",
+      status: "予定", plannedDate: date, startDate: null, endDate: null, notes: "", requestedBy: requesterName(), requestedAt: Date.now(),
+      createdAt: Date.now(), updatedAt: Date.now()
+    }).catch(function(e){ console.warn(e); alertSaveFailed("整備予定の登録", e); });
+    addLog(eid, "整備予定を登録", fmtDate(date) + (type ? "　" + type : "") + (issue ? "　" + issue : ""));
+    closePlanModal();
+    calState.sel = date; var p = date.split("-"); calState.y = +p[0]; calState.m = +p[1] - 1;
+    setTimeout(function(){ if(state.page === "calendar") renderCalendar(); }, 150);
+  }
+
   // ---------- メニューバー ----------
   var MENU_ITEMS = [
     { p: "home", t: "ホーム（ダッシュボード）", cnt: "navCntHome" },
     { p: "equipment", t: "備品台帳" },
     { p: "maintenance", t: "整備台帳", cnt: "navCntMaint" },
+    { p: "calendar", t: "カレンダー" },
     { p: "loans", t: "貸出台帳", cnt: "navCntLoan" },
     { p: "admin", t: "管理画面" },
     { p: "borrowers", t: "借受者台帳", cnt: "navCntBorrower", sub: true },
@@ -3830,7 +4117,7 @@
     var body = $("maintHistoryTableBody");
     if(!body) return;
     var rows = allMaint().slice();
-    function dayOf(m){ return m.endDate || m.startDate || ""; }
+    function dayOf(m){ return mDay(m); }
     if(!state.ready){ body.innerHTML = '<tr><td colspan="8"><div class="empty">読み込み中…</div></td></tr>'; return; }
     sortMaint(rows, dayOf);
     var total = rows.length;
@@ -3881,13 +4168,13 @@
         html += '</td></tr>';
       }
       html += '<tr data-eid="' + esc(m.equipmentId) + '" data-mid="' + esc(m.id) + '" class="' + (sameAsPrev ? "hsame-row" : "") + ((nextR && nextR.equipmentId === m.equipmentId && dayOf(nextR) === day) ? " hgrp-cont" : "") + '">';
-      html += '  <td class="tnum" data-label="実施日">' + esc(fmtDate(m.endDate || m.startDate)) + '</td>';
+      html += '  <td class="tnum" data-label="実施日">' + esc(fmtDate(mDay(m))) + '</td>';
       html += '  <td class="hname' + (sameAsPrev ? ' hsame' : '') + '" data-label="機材"><span class="hno tnum">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + (grpSize > 1 ? ' <span class="hcnt">' + grpSize + '件</span>' : '') + '</span><span class="hnm">' + esc(m.equipmentName || "") + '</span></td>';
       html += '  <td data-label="整備種目">' + (splitTypes(m.maintType).map(function(t){ return '<span class="tchip">' + esc(t) + '</span>'; }).join("") || '<span class="hdim">—</span>') + '</td>';
-      html += '  <td class="hwork" data-label="作業内容"><div class="hissue">' + esc(m.issue || "") + '</div>' + photosHtml(m.photos) + maintCommentsHtml(m) + '</td>';
+      html += '  <td class="hwork" data-label="作業内容"><div class="hissue">' + esc(m.issue || "") + '</div>' + (m.plannedDate && m.status !== "完了" ? '<div class="hplan">整備予定日 ' + esc(fmtDate(m.plannedDate)) + '</div>' : '') + photosHtml(m.photos) + maintCommentsHtml(m) + '</td>';
       html += '  <td data-label="部品・費用">' + (m.partsCost ? esc(m.partsCost) : '<span class="hdim">—</span>') + '</td>';
       html += '  <td data-label="担当者">' + (m.staffName ? esc(m.staffName) : '<span class="hdim">未定</span>') + '</td>';
-      html += '  <td data-label="状態"><span class="badge ' + (m.status === "整備中" ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status || "") + '</span></td>';
+      html += '  <td data-label="状態"><span class="badge ' + badgeCls(m.status) + '">' + esc(m.status || "") + '</span></td>';
       html += '  <td class="hact" data-label="操作"><div class="hbtns">' + histActions(m) + '</div></td>';
       html += '</tr>';
     });
@@ -3928,7 +4215,7 @@
   async function exportMaintenanceCsv(){
     var rows = [["実施日","管理番号","品名","整備種目","作業内容","交換部品／費用","整備担当者","状態","コメント"]];
     allMaint().slice().sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); }).forEach(function(m){
-      rows.push([fmtDate(m.endDate || m.startDate), typeof m.no==="number"?fmtNo(m.no):"", m.equipmentName||"", m.maintType||"", m.issue||"", m.partsCost||"", m.staffName||"", m.status||"", (m.comments||[]).map(function(c){ return fmtDate(c.date) + " " + (c.text||""); }).join(" / ")]);
+      rows.push([fmtDate(mDay(m)), typeof m.no==="number"?fmtNo(m.no):"", m.equipmentName||"", m.maintType||"", m.issue||"", m.partsCost||"", m.staffName||"", m.status||"", (m.comments||[]).map(function(c){ return fmtDate(c.date) + " " + (c.text||""); }).join(" / ")]);
     });
     var csv = rows.map(function(r){
       return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }).join(",");
@@ -3963,7 +4250,7 @@
     var past = allMaint().filter(function(m){ return m.equipmentId === equipmentId && (!om || m.id !== om.id); })
       .sort(function(a,b){ return (b.endDate || b.startDate || "").localeCompare(a.endDate || a.startDate || ""); });
     $("maintAddHistory").innerHTML = past.length ? '<div style="font-weight:700; margin-block-end:3px;">この備品の整備履歴</div>' + past.slice(0, 8).map(function(m){
-      return '<div><span class="tnum" style="color:var(--text-faint);">' + esc(fmtDate(m.endDate || m.startDate)) + '</span>　' + esc(m.maintType || "") + '　' + esc(m.issue || "") + '（' + esc(m.status || "") + '）</div>';
+      return '<div><span class="tnum" style="color:var(--text-faint);">' + esc(fmtDate(mDay(m))) + '</span>　' + esc(m.maintType || "") + '　' + esc(m.issue || "") + '（' + esc(m.status || "") + '）</div>';
     }).join("") : "";
   }
   function addMaintCommentFromModal(){
@@ -3979,6 +4266,7 @@
     var it = state.items[equipmentId];
     var om = findOpenMaintenance(equipmentId);
     fillTypeChecks("maintAddType", om ? (om.maintType || "") : "");
+    $("maintAddDue").value = om ? (om.plannedDate || "") : "";
     $("maintAddStaff").value = om ? (om.staffName || "") : "";
     $("maintAddIssue").value = om ? (om.issue || "") : "";
     $("maintAddParts").value = om ? (om.parts || "") : "";
@@ -4024,12 +4312,14 @@
     var cost = $("maintAddCost").value.trim();
     var today = todayISO();
     var om = findOpenMaintenance(eid);
+    var dueVal = $("maintAddDue").value || null;
     var payload = {
       equipmentId: eid, equipmentName: it.name, no: (typeof it.no==="number"?it.no:null), category: it.category,
       issue: issue, maintType: maintType, staffName: staffName, parts: parts, cost: cost,
       partsCost: [parts, cost ? cost + "円" : ""].filter(Boolean).join("／"),
       status: "整備中",
       endDate: null,
+      plannedDate: dueVal,
       updatedAt: Date.now()
     };
     var cText = $("maintAddComment").value.trim();
@@ -4804,7 +5094,7 @@
       if(m.maintType) html += '  <span class="acat">' + esc(m.maintType) + '</span>';
       if(m.staffName) html += '  <span class="acat">整備担当者: ' + esc(m.staffName) + '</span>';
       html += '  <span class="acat">開始 ' + fmtDate(m.startDate) + (m.endDate ? " ／ 完了 " + fmtDate(m.endDate) : "") + '</span>';
-      html += '  <span class="badge ' + (open ? "repair" : (m.status === "廃棄" || m.status === "中止" ? "retired" : "in")) + '">' + esc(m.status) + '</span>';
+      html += '  <span class="badge ' + badgeCls(m.status) + '">' + esc(m.status) + '</span>';
       html += '</div>';
     });
     root.innerHTML = html;
@@ -6936,7 +7226,7 @@
   }
 
   async function boot(){
-    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wirePrefs, wireMenu, wireCombos, wireUpdate, wireRequest].forEach(function(f){
+    [wireStatic, wireHelp, wireEmpNo, wireIconPicker, wireEmpPwReset, wireLogo, wireIcon, wireMaintFilters, wirePrefs, wireMenu, wireCalendar, wireCombos, wireUpdate, wireRequest].forEach(function(f){
       try{ f(); }catch(e){ console.error("init failed: " + (f && f.name), e); }
     });
     try{ switchPage("home"); renderAll(); }catch(e){ console.error("initial render failed", e); }
@@ -7535,6 +7825,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.11.27", date: "2026-11-27", title: "カレンダー機能・整備予定日", body: "メニューの「カレンダー」で、整備予定日・整備の開始/完了・返却予定日を月ごとに確認できます。日付を選んで整備予定を追加でき、整備依頼や整備記録にも「整備予定日」を入力できます。予定は整備台帳の履歴から「整備開始」で整備中にできます。" },
     { v: "2026.11.26", date: "2026-11-26", title: "既存の備品を緑化事業部に設定", body: "事業部が未設定だった既存の備品を、「緑化事業部」に設定します（管理者が開いたときに自動で1回だけ実行）。管理画面の備品台帳マスタ「未設定を緑化事業部に」からも実行できます。" },
     { v: "2026.11.25", date: "2026-11-25", title: "備品に事業部を設定できます", body: "備品の登録・編集で「事業部」を選べるようになりました（緑化事業部以外もOK）。事業部マスタから選ぶか、新しい事業部名を入力すると自動でマスタに追加されます。備品台帳では事業部で絞り込めます。" },
     { v: "2026.11.24", date: "2026-11-24", title: "同じ機材番号をひとまとめに表示", body: "整備実施履歴で、同じ日・同じ番号の記録を続けて並べ、「○件」と表示します。2件目以降は機材名を省いて見やすくしました。" },
@@ -7821,6 +8112,7 @@
     reqEid = eid;
     $("reqEquip").textContent = (typeof it.no === "number" ? fmtNo(it.no) + "　" : "") + (it.name || "");
     fillTypeChecks("reqType", "");
+    $("reqDue").value = "";
     $("reqIssue").value = ""; $("reqErr").hidden = true; reqPhotos = []; $("reqPhotoErr").hidden = true; $("reqFile").value = ""; renderReqPhotos();
     $("reqWho").textContent = "依頼者：" + (requesterName() || "—") + "　／　依頼日：" + fmtDate(todayISO());
     $("reqOverlay").classList.add("show");
@@ -7833,16 +8125,16 @@
     if(!issue){ $("reqErr").hidden = false; $("reqIssue").focus(); return; }
     if(!db) return;
     var today = todayISO(), who = requesterName(), reqType = getTypeChecks("reqType");
-    var om = findOpenMaintenance(reqEid);
+    var om = findOpenMaintenance(reqEid), reqDue = $("reqDue").value || null;
     if(om){
       // すでに整備中の記録がある場合は、その記録に依頼内容を追記する
       var cm = { date: today, text: "【追加の依頼】" + (reqType ? "（" + reqType + "）" : "") + issue, by: currentLoginId || "" };
-      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), photos: (om.photos || []).concat(reqPhotos).slice(0, 6), maintType: mergeTypes(om.maintType, reqType), updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
+      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), photos: (om.photos || []).concat(reqPhotos).slice(0, 6), maintType: mergeTypes(om.maintType, reqType), plannedDate: reqDue || om.plannedDate || null, updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
     }else{
       db.collection("maintenance").add({
         equipmentId: reqEid, equipmentName: it.name, no: (typeof it.no === "number" ? it.no : null), category: it.category,
         issue: issue, maintType: reqType, staffName: "", parts: "", cost: "", partsCost: "",
-        status: "整備中", startDate: today, endDate: null, notes: "", requestedBy: who, requestedAt: Date.now(), photos: reqPhotos.slice(),
+        status: "整備中", startDate: today, endDate: null, plannedDate: reqDue, notes: "", requestedBy: who, requestedAt: Date.now(), photos: reqPhotos.slice(),
         createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
     }
