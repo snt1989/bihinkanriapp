@@ -1042,6 +1042,21 @@
     .page-head, .pagehead{margin-block-end:10px;}
     .selfilter{font-size:13px;}
   }
+
+  /* ===== 整備の緊急度 ===== */
+  .urgs{display:flex; gap:8px;}
+  .urgopt{flex:1 1 0; position:relative; cursor:pointer; margin:0;}
+  .urgopt input{position:absolute; opacity:0; pointer-events:none; width:1px; height:1px;}
+  .urgopt span{display:flex; align-items:center; justify-content:center; min-height:40px; border:1.5px solid var(--line); border-radius:10px; font-weight:700; font-size:14px; background:#fff; color:var(--text);}
+  .urgopt input:focus-visible + span{outline:2px solid var(--accent); outline-offset:2px;}
+  .urgopt.u0 input:checked + span{background:#E6F2EA; border-color:#2E7D45; color:#1D5A31;}
+  .urgopt.u1 input:checked + span{background:#FFF1D6; border-color:#D98A00; color:#7A4F00;}
+  .urgopt.u2 input:checked + span{background:#FBE3E3; border-color:#C0392B; color:#9B1C1C;}
+  .urg{display:inline-flex; align-items:center; gap:3px; font-size:11.5px; font-weight:800; padding:2px 8px; border-radius:999px; white-space:nowrap; vertical-align:middle;}
+  .urg-1{background:#FFF1D6; color:#7A4F00; border:1px solid #E8B04A;}
+  .urg-2{background:#C0392B; color:#fff; border:1px solid #C0392B;}
+  .maintcard.urg-card-2{box-shadow:0 0 0 2px #C0392B inset;}
+  .maintcard.urg-card-1{box-shadow:0 0 0 2px #E8B04A inset;}
 </style>
 
 <!-- ログイン画面（Firebase Authentication：メールアドレス＋パスワード） -->
@@ -1959,6 +1974,10 @@
         <select id="planStaff"></select>
       </div>
       <div class="field">
+        <label>緊急度</label>
+        <div class="urgs" id="planUrg"></div>
+      </div>
+      <div class="field">
         <label for="planIssue">予定内容・メモ</label>
         <textarea id="planIssue" rows="3" placeholder="例）年次点検、刃の交換、オイル交換 など"></textarea>
       </div>
@@ -1984,6 +2003,7 @@
       </div>
       <div class="field" style="flex-direction:row; gap:10px;">
         <div class="field" style="flex:1 1 100%;"><label>整備種目（複数選べます）</label><div class="mtypes" id="meType"></div></div>
+        <div class="field" style="flex:1 1 100%;"><label>緊急度</label><div class="urgs" id="meUrg"></div></div>
         <div class="field" style="flex:1;"><label for="meStaff">整備担当者</label><select id="meStaff"></select></div>
       </div>
       <div class="field"><label for="meIssue">作業内容・処置詳細</label><textarea id="meIssue"></textarea></div>
@@ -2244,6 +2264,10 @@
         <div class="mtypes" id="reqType"></div>
       </div>
       <div class="field">
+        <label>緊急度</label>
+        <div class="urgs" id="reqUrg"></div>
+      </div>
+      <div class="field">
         <label for="reqDue">整備予定日（任意）</label>
         <input id="reqDue" type="date">
       </div>
@@ -2290,6 +2314,10 @@
         <div class="field">
           <label>整備種目（複数選べます）</label>
           <div class="mtypes" id="maintAddType"></div>
+        </div>
+        <div class="field">
+          <label>緊急度</label>
+          <div class="urgs" id="maintAddUrg"></div>
         </div>
         <div class="field">
           <label for="maintAddStaff">整備担当者</label>
@@ -3536,7 +3564,7 @@
     var root = $("maintOpenGrid");
     if(!root) return;
     var rows = openMaintRecords();
-    rows.sort(function(a,b){ return maintDaysOpen(b) - maintDaysOpen(a) || (a.createdAt||0) - (b.createdAt||0); }); // 長くかかっているものを先頭に
+    rows.sort(function(a,b){ return urgRank(urgOf(b)) - urgRank(urgOf(a)) || maintDaysOpen(b) - maintDaysOpen(a) || (a.createdAt||0) - (b.createdAt||0); }); // 緊急度が高いもの→長くかかっているものを先頭に
     var orphans = repairOrphanItems();
     if(!state.ready){ root.innerHTML = '<div class="empty">読み込み中…</div>'; return; }
     if(rows.length === 0 && orphans.length === 0){ root.innerHTML = '<div class="empty">現在、点検・修理が必要な備品はありません</div>'; return; }
@@ -3547,10 +3575,10 @@
     rows.forEach(function(m){
       var it = state.items[m.equipmentId], days = maintDaysOpen(m);
       var cm = (m.comments || []).slice().sort(function(a, b){ return String(b.date || "").localeCompare(String(a.date || "")); })[0];
-      html += '<div class="maintcard" style="--age:' + ageColor(days) + ';" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '">';
+      html += '<div class="maintcard' + (urgRank(urgOf(m)) ? " urg-card-" + urgRank(urgOf(m)) : "") + '" style="--age:' + ageColor(days) + ';" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '">';
       html += '  <div class="mc-top">';
       html += '    <div><div class="mc-no tnum">' + (typeof m.no==="number" ? fmtNo(m.no) : "") + '</div><div class="mc-name">' + esc(m.equipmentName || "") + '</div></div>';
-      html += '    <span class="mc-age">' + (days === 0 ? "本日開始" : days + "日目") + '</span>';
+      html += '    <span style="display:flex; gap:6px; align-items:center;">' + urgBadge(m) + '<span class="mc-age">' + (days === 0 ? "本日開始" : days + "日目") + '</span></span>';
       html += '  </div>';
       html += '  <div class="mc-issue"><b>不具合</b>　' + esc(m.issue || "内容の記載なし") + '</div>';
       html += '  <dl class="mc-facts">';
@@ -3652,6 +3680,18 @@
   var TYPE_SEP = "、";
   function splitTypes(v){ return String(v || "").split(TYPE_SEP).map(function(x){ return x.trim(); }).filter(Boolean); }
   function mergeTypes(a, b){ var out = splitTypes(a); splitTypes(b).forEach(function(x){ if(out.indexOf(x) < 0) out.push(x); }); return out.join(TYPE_SEP); }
+  var URG_LEVELS = ["通常", "急ぎ", "緊急"];
+  function urgOf(m){ var u = m && m.urgency; return URG_LEVELS.indexOf(u) >= 0 ? u : "通常"; }
+  function urgRank(u){ return URG_LEVELS.indexOf(u) < 0 ? 0 : URG_LEVELS.indexOf(u); }
+  function urgBadge(m){ var u = urgOf(m); return u === "通常" ? "" : '<span class="urg urg-' + urgRank(u) + '">' + (u === "緊急" ? "緊急" : "急ぎ") + '</span>'; }
+  function fillUrgency(id, cur){
+    var root = $(id); if(!root) return;
+    var c = URG_LEVELS.indexOf(cur) >= 0 ? cur : "通常";
+    root.innerHTML = URG_LEVELS.map(function(u, i){
+      return '<label class="urgopt u' + i + '"><input type="radio" name="' + id + '" value="' + u + '"' + (u === c ? " checked" : "") + '><span>' + u + '</span></label>';
+    }).join("");
+  }
+  function getUrgency(id){ var r = $(id) && $(id).querySelector("input:checked"); return r ? r.value : "通常"; }
   function fillTypeChecks(id, current){
     var cur = splitTypes(current), names = allMasterNames(state.maintTypes).slice();
     cur.forEach(function(c){ if(names.indexOf(c) < 0) names.push(c); }); // マスタに無い過去の値も残す
@@ -3680,6 +3720,7 @@
     $("meStart").value = m.startDate || "";
     $("meEnd").value = m.endDate || "";
     fillTypeChecks("meType", m.maintType || "");
+    fillUrgency("meUrg", urgOf(m));
     fillSelectWithCurrent("meStaff", allMasterNames(state.mechanics), m.staffName || "", "（未選択）");
     $("meIssue").value = m.issue || "";
     $("meParts").value = m.parts || "";
@@ -3721,7 +3762,7 @@
       plannedDate: $("meDue").value || null,
       startDate: $("meStart").value || m.startDate || null,
       endDate: $("meEnd").value || null,
-      maintType: getTypeChecks("meType"), staffName: $("meStaff").value,
+      maintType: getTypeChecks("meType"), urgency: getUrgency("meUrg"), staffName: $("meStaff").value,
       issue: $("meIssue").value.trim(), parts: parts, cost: cost,
       partsCost: [parts, cost ? cost + "円" : ""].filter(Boolean).join("／"),
       updatedAt: Date.now()
@@ -3870,7 +3911,7 @@
         var nc = (m.comments || []).length;
         return '<div class="hcard" style="--hc:' + col + ';" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '">' +
           '<div class="top"><div><div class="no tnum">' + (typeof m.no === "number" ? fmtNo(m.no) : "-") + '</div><div class="nm">' + esc(m.equipmentName || "") + '</div></div>' + histStatusBadge(m) + '</div>' +
-          '<div class="iss">' + esc(m.issue || "内容の記載なし") + '</div>' + photosHtml(m.photos) +
+          '<div class="iss">' + urgBadge(m) + " " + esc(m.issue || "内容の記載なし") + '</div>' + photosHtml(m.photos) +
           '<dl><dt>実施日</dt><dd class="tnum">' + esc(fmtDate(dayOf(m)) || "-") + '</dd>' +
           (m.maintType ? '<dt>整備種目</dt><dd>' + esc(m.maintType) + '</dd>' : "") +
           '<dt>担当者</dt><dd>' + esc(m.staffName || "未定") + '</dd>' +
@@ -4056,6 +4097,7 @@
     }).join("") : '<span class="mtypes-empty">整備中の備品がありません</span>';
     $("planDate").value = dateISO || todayISO();
     fillTypeChecks("planType", "");
+    fillUrgency("planUrg", "通常");
     fillSelectWithCurrent("planStaff", allMasterNames(state.mechanics), "", "（未選択）");
     $("planIssue").value = ""; $("planErr").hidden = true;
     $("planOverlay").classList.add("show");
@@ -4072,7 +4114,7 @@
     its.forEach(function(it){
       db.collection("maintenance").add({
         equipmentId: it.id, equipmentName: it.name, no: (typeof it.no === "number" ? it.no : null), category: it.category,
-        issue: issue, maintType: type, staffName: staff, parts: "", cost: "", partsCost: "",
+        issue: issue, maintType: type, urgency: getUrgency("planUrg"), staffName: staff, parts: "", cost: "", partsCost: "",
         status: "予定", plannedDate: date, startDate: null, endDate: null, notes: "", requestedBy: requesterName(), requestedAt: Date.now(),
         createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); alertSaveFailed("整備予定の登録", e); });
@@ -4273,7 +4315,7 @@
       html += '  <td class="tnum" data-label="実施日">' + esc(fmtDate(mDay(m))) + '</td>';
       html += '  <td class="hname' + (sameAsPrev ? ' hsame' : '') + '" data-label="機材"><span class="hno tnum">' + esc(typeof m.no==="number" ? fmtNo(m.no) : "-") + (grpSize > 1 ? ' <span class="hcnt">' + grpSize + '件</span>' : '') + '</span><span class="hnm">' + esc(m.equipmentName || "") + '</span></td>';
       html += '  <td data-label="整備種目">' + (splitTypes(m.maintType).map(function(t){ return '<span class="tchip">' + esc(t) + '</span>'; }).join("") || '<span class="hdim">—</span>') + '</td>';
-      html += '  <td class="hwork" data-label="作業内容"><div class="hissue">' + esc(m.issue || "") + '</div>' + (m.plannedDate && m.status !== "完了" ? '<div class="hplan">整備予定日 ' + esc(fmtDate(m.plannedDate)) + '</div>' : '') + photosHtml(m.photos) + maintCommentsHtml(m) + '</td>';
+      html += '  <td class="hwork" data-label="作業内容"><div class="hissue">' + urgBadge(m) + " " + esc(m.issue || "") + '</div>' + (m.plannedDate && m.status !== "完了" ? '<div class="hplan">整備予定日 ' + esc(fmtDate(m.plannedDate)) + '</div>' : '') + photosHtml(m.photos) + maintCommentsHtml(m) + '</td>';
       html += '  <td data-label="部品・費用">' + (m.partsCost ? esc(m.partsCost) : '<span class="hdim">—</span>') + '</td>';
       html += '  <td data-label="担当者">' + (m.staffName ? esc(m.staffName) : '<span class="hdim">未定</span>') + '</td>';
       html += '  <td data-label="状態"><span class="badge ' + badgeCls(m.status) + '">' + esc(m.status || "") + '</span></td>';
@@ -4368,6 +4410,7 @@
     var it = state.items[equipmentId];
     var om = findOpenMaintenance(equipmentId);
     fillTypeChecks("maintAddType", om ? (om.maintType || "") : "");
+    fillUrgency("maintAddUrg", om ? urgOf(om) : "通常");
     $("maintAddDue").value = om ? (om.plannedDate || "") : "";
     $("maintAddStaff").value = om ? (om.staffName || "") : "";
     $("maintAddIssue").value = om ? (om.issue || "") : "";
@@ -4393,6 +4436,7 @@
       return '<option value="' + esc(it.id) + '">[' + esc(fmtNo(it.no)) + '] ' + esc(it.name) + (it.status==="修理中" ? "（整備中）" : "") + '</option>';
     }).join("");
     fillTypeChecks("maintAddType", "");
+    fillUrgency("maintAddUrg", "通常");
     $("maintAddStaff").innerHTML = '<option value="">担当者を選択...</option>' + allMasterNames(state.mechanics).map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join("");
     var targetId = (equipmentId && state.items[equipmentId]) ? equipmentId : (items[0] ? items[0].id : "");
     sel.value = targetId;
@@ -4417,7 +4461,7 @@
     var dueVal = $("maintAddDue").value || null;
     var payload = {
       equipmentId: eid, equipmentName: it.name, no: (typeof it.no==="number"?it.no:null), category: it.category,
-      issue: issue, maintType: maintType, staffName: staffName, parts: parts, cost: cost,
+      issue: issue, maintType: maintType, urgency: getUrgency("maintAddUrg"), staffName: staffName, parts: parts, cost: cost,
       partsCost: [parts, cost ? cost + "円" : ""].filter(Boolean).join("／"),
       status: "整備中",
       endDate: null,
@@ -7927,6 +7971,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.12.04", date: "2026-12-04", title: "整備の緊急度", body: "整備依頼・整備記録・整備予定に「緊急度」（通常／急ぎ／緊急）を追加しました。整備中の一覧では緊急度の高いものが先頭に並び、「急ぎ」「緊急」にはバッジが付きます。" },
     { v: "2026.12.03", date: "2026-12-03", title: "返却は誰でも受付できます", body: "返却の登録は、持ち出した本人でなくても行えるようにしました。" },
     { v: "2026.12.02", date: "2026-12-02", title: "スマホ：一覧の下が隠れる問題を修正", body: "スマホで、下のタブに隠れて一覧の最後の「もっと見る」が押せなかった問題を直しました。" },
     { v: "2026.12.01", date: "2026-12-01", title: "整備のキャンセル", body: "整備中の記録に「キャンセル」ボタンを追加しました。キャンセルすると記録は「中止」になり、備品は利用可能に戻ります（「整備中に戻す」で再開もできます）。整備予定の「取消」はこれまでどおりです。" },
@@ -8220,6 +8265,7 @@
     reqEid = eid;
     $("reqEquip").textContent = (typeof it.no === "number" ? fmtNo(it.no) + "　" : "") + (it.name || "");
     fillTypeChecks("reqType", "");
+    fillUrgency("reqUrg", "通常");
     $("reqDue").value = "";
     $("reqIssue").value = ""; $("reqErr").hidden = true; reqPhotos = []; $("reqPhotoErr").hidden = true; $("reqFile").value = ""; renderReqPhotos();
     $("reqWho").textContent = "依頼者：" + (requesterName() || "—") + "　／　依頼日：" + fmtDate(todayISO());
@@ -8232,22 +8278,22 @@
     var issue = ($("reqIssue").value || "").trim();
     if(!issue){ $("reqErr").hidden = false; $("reqIssue").focus(); return; }
     if(!db) return;
-    var today = todayISO(), who = requesterName(), reqType = getTypeChecks("reqType");
+    var today = todayISO(), who = requesterName(), reqType = getTypeChecks("reqType"), reqUrg = getUrgency("reqUrg");
     var om = findOpenMaintenance(reqEid), reqDue = $("reqDue").value || null;
     if(om){
       // すでに整備中の記録がある場合は、その記録に依頼内容を追記する
       var cm = { date: today, text: "【追加の依頼】" + (reqType ? "（" + reqType + "）" : "") + issue, by: currentLoginId || "" };
-      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), photos: (om.photos || []).concat(reqPhotos).slice(0, 6), maintType: mergeTypes(om.maintType, reqType), plannedDate: reqDue || om.plannedDate || null, updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
+      db.collection("maintenance").doc(om.id).update({ comments: (om.comments || []).concat([cm]), photos: (om.photos || []).concat(reqPhotos).slice(0, 6), maintType: mergeTypes(om.maintType, reqType), urgency: (urgRank(reqUrg) > urgRank(urgOf(om)) ? reqUrg : urgOf(om)), plannedDate: reqDue || om.plannedDate || null, updatedAt: Date.now() }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
     }else{
       db.collection("maintenance").add({
         equipmentId: reqEid, equipmentName: it.name, no: (typeof it.no === "number" ? it.no : null), category: it.category,
-        issue: issue, maintType: reqType, staffName: "", parts: "", cost: "", partsCost: "",
+        issue: issue, maintType: reqType, urgency: reqUrg, staffName: "", parts: "", cost: "", partsCost: "",
         status: "整備中", startDate: today, endDate: null, plannedDate: reqDue, notes: "", requestedBy: who, requestedAt: Date.now(), photos: reqPhotos.slice(),
         createdAt: Date.now(), updatedAt: Date.now()
       }).catch(function(e){ console.warn(e); alertSaveFailed("整備依頼", e); });
     }
     if(it.status !== "修理中"){ updateItem(reqEid, { status: "修理中" }); }
-    addLog(reqEid, "整備依頼", (reqType ? "【" + reqType + "】" : "") + issue + (who ? "（依頼者：" + who + "）" : ""));
+    addLog(reqEid, "整備依頼", (reqUrg !== "通常" ? "【" + reqUrg + "】" : "") + (reqType ? "【" + reqType + "】" : "") + issue + (who ? "（依頼者：" + who + "）" : ""));
     closeRequestModal();
   }
   function wireRequest(){
