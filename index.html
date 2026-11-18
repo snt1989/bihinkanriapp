@@ -1057,6 +1057,25 @@
   .urg-2{background:#C0392B; color:#fff; border:1px solid #C0392B;}
   .maintcard.urg-card-2{box-shadow:0 0 0 2px #C0392B inset;}
   .maintcard.urg-card-1{box-shadow:0 0 0 2px #E8B04A inset;}
+
+  /* ===== 要点検・修理中：一覧（1行表示） ===== */
+  .molist{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--surface);}
+  .morow{display:flex; align-items:center; gap:10px; min-height:36px; padding:4px 12px 4px 9px; border-left:5px solid var(--age,#9AA7A0); cursor:pointer; font-size:13px; line-height:1.3;}
+  .morow + .morow{border-top:1px solid var(--line);}
+  .morow:hover{background:var(--bg);}
+  .morow .mo-no{flex:0 0 auto; width:44px; font-size:11.5px; color:var(--text-faint); font-weight:700;}
+  .morow .mo-name{flex:0 1 auto; max-width:34%; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .morow .mo-issue{flex:1 1 0; min-width:0; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .morow .mo-age{flex:0 0 auto; font-size:12px; font-weight:700; color:var(--text-muted); margin-inline-start:auto; white-space:nowrap;}
+  .morow .urg{font-size:10.5px; padding:1px 6px;}
+  .morow .mo-urg{flex:0 0 40px; display:flex; align-items:center;}
+  @media (max-width:640px){
+    .morow{gap:8px; padding:4px 10px 4px 8px; min-height:34px; font-size:12.5px;}
+    .morow .mo-no{width:38px;}
+    .morow .mo-urg{flex-basis:36px;}
+    .morow .mo-name{max-width:none; flex:1 1 0; min-width:0;}
+    .morow .mo-issue{display:none;}
+  }
 </style>
 
 <!-- ログイン画面（Firebase Authentication：メールアドレス＋パスワード） -->
@@ -1310,6 +1329,10 @@
           要点検・修理中機材一覧
         </span>
         <div class="desc" style="font-size:11.5px; color:var(--text-faint); font-weight:400; margin-block-start:2px;">現場から不具合報告された機材や定期点検が必要な備品</div>
+      </div>
+      <div class="mh-view" id="moView" role="group" aria-label="要点検一覧の表示切り替え">
+        <button type="button" data-v="list" class="active">一覧</button>
+        <button type="button" data-v="card">カード</button>
       </div>
       <button class="btn btn-ghost btn-sm" id="maintAddBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14"/></svg>
@@ -3560,9 +3583,13 @@
       '<div class="mt-tile"><small>今月の整備費用</small><b>' + cost.toLocaleString("ja-JP") + '<span>円</span></b></div>';
   }
 
+  (function(){ var v = "list"; try{ v = localStorage.getItem("bihin.moView") || v; }catch(e){} state.moView = (v === "card" ? "card" : "list"); })();
   function renderMaintOpenGrid(){
     var root = $("maintOpenGrid");
     if(!root) return;
+    var asList = state.moView !== "card";
+    root.className = asList ? "molist" : "grid";
+    var mv = $("moView"); if(mv) Array.prototype.forEach.call(mv.querySelectorAll("button"), function(b){ b.classList.toggle("active", b.getAttribute("data-v") === (asList ? "list" : "card")); });
     var rows = openMaintRecords();
     rows.sort(function(a,b){ return urgRank(urgOf(b)) - urgRank(urgOf(a)) || maintDaysOpen(b) - maintDaysOpen(a) || (a.createdAt||0) - (b.createdAt||0); }); // 緊急度が高いもの→長くかかっているものを先頭に
     var orphans = repairOrphanItems();
@@ -3570,8 +3597,31 @@
     if(rows.length === 0 && orphans.length === 0){ root.innerHTML = '<div class="empty">現在、点検・修理が必要な備品はありません</div>'; return; }
 
     var html = "";
-    var mtAll = rows.length, mtLim = listLimit("mt", "x", 3, 8);
+    var mtAll = rows.length, mtLim = asList ? listLimit("ml", "x", 10, 20) : listLimit("mt", "x", 3, 8);
     rows = rows.slice(0, mtLim);
+    if(asList){
+      rows.forEach(function(m){
+        var days = maintDaysOpen(m);
+        html += '<div class="morow" style="--age:' + ageColor(days) + ';" data-mid="' + esc(m.id) + '" data-eid="' + esc(m.equipmentId) + '" title="' + esc(m.issue || "") + '">' +
+          '<span class="mo-no tnum">' + (typeof m.no==="number" ? fmtNo(m.no) : "") + '</span><span class="mo-urg">' + urgBadge(m) + '</span>' +
+          '<span class="mo-name">' + esc(m.equipmentName || "") + '</span>' +
+          '<span class="mo-issue">' + esc(m.issue || "内容の記載なし") + '</span>' +
+          '<span class="mo-age">' + (days === 0 ? "本日開始" : days + "日目") + '</span></div>';
+      });
+      orphans.forEach(function(it){
+        html += '<div class="morow" style="--age:#9AA7A0;" data-eid="' + esc(it.id) + '">' +
+          '<span class="mo-no tnum">' + (typeof it.no==="number" ? fmtNo(it.no) : "") + '</span><span class="mo-urg"></span>' +
+          '<span class="mo-name">' + esc(it.name || "") + '</span>' +
+          '<span class="mo-issue">整備記録がありません（タップして入力）</span><span class="mo-age">修理中</span></div>';
+      });
+      html += moreHtml("ml", rows.length, mtAll, isNarrow() ? 10 : 20);
+      root.innerHTML = html;
+      wireMore(root, renderMaintOpenGrid);
+      Array.prototype.forEach.call(root.querySelectorAll(".morow"), function(row){
+        row.addEventListener("click", function(){ var eid = row.getAttribute("data-eid"); if(state.items[eid]) openMaintRecordModal(eid); });
+      });
+      return;
+    }
     rows.forEach(function(m){
       var it = state.items[m.equipmentId], days = maintDaysOpen(m);
       var cm = (m.comments || []).slice().sort(function(a, b){ return String(b.date || "").localeCompare(String(a.date || "")); })[0];
@@ -4250,6 +4300,7 @@
   function wireMaintFilters(){
     var map = { mhSearch: "q", mhStatus: "status", mhMonth: "month", mhStaff: "staff" };
     var so = $("mhSort"); if(so) so.addEventListener("change", function(){ state.mhSort = so.value; try{ localStorage.setItem("bihin.mhSort", state.mhSort); }catch(e){} renderMaintHistoryTable(); });
+    var ov = $("moView"); if(ov) ov.addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-v]"); if(!b) return; state.moView = b.getAttribute("data-v") === "card" ? "card" : "list"; try{ localStorage.setItem("bihin.moView", state.moView); }catch(e2){} renderMaintOpenGrid(); });
     var vw = $("mhView"); if(vw) vw.addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-v]"); if(!b) return; state.mhView = b.getAttribute("data-v"); try{ localStorage.setItem("bihin.mhView", state.mhView); }catch(e2){} renderMaintHistoryTable(); });
     Object.keys(map).forEach(function(id){
       var el = $(id); if(!el) return;
@@ -7971,6 +8022,7 @@
 
   // ---------- ベルのお知らせ（お知らせ・要対応・アプリの更新） ----------
   var APP_UPDATES = [
+    { v: "2026.12.05", date: "2026-12-05", title: "要点検の一覧とカードを切り替え", body: "「要点検・修理中機材一覧」を、1行で見られるコンパクトな「一覧」と、詳細の「カード」に切り替えられるようにしました（初期表示は一覧）。一覧の行をタップすると詳細が開きます。" },
     { v: "2026.12.04", date: "2026-12-04", title: "整備の緊急度", body: "整備依頼・整備記録・整備予定に「緊急度」（通常／急ぎ／緊急）を追加しました。整備中の一覧では緊急度の高いものが先頭に並び、「急ぎ」「緊急」にはバッジが付きます。" },
     { v: "2026.12.03", date: "2026-12-03", title: "返却は誰でも受付できます", body: "返却の登録は、持ち出した本人でなくても行えるようにしました。" },
     { v: "2026.12.02", date: "2026-12-02", title: "スマホ：一覧の下が隠れる問題を修正", body: "スマホで、下のタブに隠れて一覧の最後の「もっと見る」が押せなかった問題を直しました。" },
